@@ -1,16 +1,18 @@
 services:
   app:
-    build: .
+    image: ghcr.io/saymartin/cv-forge:latest
     container_name: cv-forge-app
     restart: unless-stopped
     env_file: .env
     ports:
-      - "3005:3000" # NPM proxies its Proxy Host to <server-ip>:3005
+      - "3005:3000" # Cloudflare Tunnel routes cv-forge.appfinningar.se here
     networks:
       - default
       - postgres_default # reach the existing Postgres container by its service name
     depends_on:
       - minio
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   minio:
     image: minio/minio:latest
@@ -41,6 +43,17 @@ services:
       mc anonymous set download local/$$S3_BUCKET;
       "
     env_file: .env
+    networks:
+      - default
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: cv-forge-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.docker/config.json:/config.json:ro # GHCR pull credentials (docker login ghcr.io on the host)
+    command: --interval 60 --label-enable --cleanup
     networks:
       - default
 

@@ -131,9 +131,19 @@ npm run migrate:deploy   # apply pending migrations (production)
 npm run prisma:generate  # regenerate Prisma client after schema changes
 ```
 
-## Deployment (self-hosted, Docker)
+## Deployment (self-hosted, Docker + CI/CD)
 
 The app is self-hosted via Docker Compose. It runs alongside other services on the same server, reusing an existing PostgreSQL container for the database and a MinIO container (defined in `docker-compose.yml`) for file storage.
+
+The image is **not built on the server**. GitHub Actions (`.github/workflows/build-and-push.yml`) builds the Docker image on every push to `main` and pushes it to GitHub Container Registry (`ghcr.io/saymartin/cv-forge`). A [Watchtower](https://containrrr.dev/watchtower/) container on the server polls the registry every 60 seconds and automatically pulls + restarts the app when a new image is published — no SSH access from CI into the server is needed, since the server only makes outbound requests.
+
+### 0. One-time server setup
+
+The server needs registry credentials so both `docker compose pull` and Watchtower can pull the (private) image:
+
+```bash
+docker login ghcr.io -u SayMartin   # password: a GitHub PAT with `read:packages` scope
+```
 
 ### 1. Environment file
 
@@ -156,13 +166,13 @@ docker exec -it <postgres-container-name> psql -U postgres -c \
   "CREATE DATABASE cvforge; CREATE USER cvforge WITH PASSWORD '...'; GRANT ALL PRIVILEGES ON DATABASE cvforge TO cvforge;"
 ```
 
-### 3. Build and start
+### 3. Start
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-This starts the app, MinIO, and a one-off `minio-init` job that creates the storage bucket with public read access.
+This pulls the latest published image and starts the app, MinIO, Watchtower, and a one-off `minio-init` job that creates the storage bucket with public read access. Watchtower then keeps `app` up to date automatically on every subsequent push to `main` — no manual pull/restart needed after the first run.
 
 ### 4. Run migrations
 
