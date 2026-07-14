@@ -1,4 +1,4 @@
-# CV Creator
+# CV Forge
 
 A multi-user CV creation app. Each user maintains a library of CV content (experience, education, skills, projects, and other entries) and can compose multiple named CVs from that library — each with a selectable layout and colour theme — and export them as A4 PDFs via the browser's built-in print dialog.
 
@@ -16,18 +16,18 @@ A multi-user CV creation app. Each user maintains a library of CV content (exper
 
 ## Stack
 
-| Layer     | Technology                                    |
-| --------- | --------------------------------------------- |
-| Framework | Next.js 16 (App Router) + TypeScript          |
-| Styling   | Tailwind CSS                                  |
-| Database  | Neon (PostgreSQL) via Prisma — all data       |
-| Storage   | Vercel Blob (avatar image uploads)            |
-| Auth      | Better Auth (email + password + Google OAuth) |
-| Email     | Resend (`noreply@mail.appfinningar.se`)        |
-| AI        | Google Gemini 2.5 Flash                       |
-| PDF       | Browser `window.print()`                      |
-| Hosting   | Vercel (`cv-creator.appfinningar.se`)         |
-| DNS       | Cloudflare                                    |
+| Layer     | Technology                                                     |
+| --------- | --------------------------------------------------------------- |
+| Framework | Next.js 16 (App Router) + TypeScript                            |
+| Styling   | Tailwind CSS                                                     |
+| Database  | Self-hosted PostgreSQL via Prisma — all data                     |
+| Storage   | MinIO (self-hosted S3-compatible object storage)                 |
+| Auth      | Better Auth (email + password + Google OAuth)                    |
+| Email     | Resend (`noreply@appfinningar.se`)                                |
+| AI        | Google Gemini 2.5 Flash                                          |
+| PDF       | Browser `window.print()`                                         |
+| Hosting   | Self-hosted (Docker + Docker Compose, `cv-forge.appfinningar.se`) |
+| Proxy     | Nginx Proxy Manager + Cloudflare Tunnel                           |
 
 For a full technical breakdown see [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -36,8 +36,8 @@ For a full technical breakdown see [ARCHITECTURE.md](ARCHITECTURE.md).
 ### Prerequisites
 
 - Node.js 20+
-- A [Neon](https://neon.tech) PostgreSQL database
-- A [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) store (must be **public** access)
+- A PostgreSQL database (any standard Postgres instance — self-hosted or managed)
+- An S3-compatible storage bucket (MinIO, self-hosted, or any S3-compatible provider)
 - A [Google AI Studio](https://aistudio.google.com) API key (free tier)
 - A [Google Cloud Console](https://console.cloud.google.com/apis/credentials) OAuth 2.0 Client ID (for Google sign-in)
 - A [Resend](https://resend.com) account with a verified sending domain
@@ -52,24 +52,13 @@ npm install
 
 ### 2. Environment variables
 
-Create `.env.local` in the project root:
+Copy `.env.example` to `.env.local` and fill in the values:
 
-```env
-DATABASE_URL=postgresql://...          # Neon pooled connection string
-DIRECT_URL=postgresql://...            # Neon direct connection string (for migrations)
-
-BLOB_READ_WRITE_TOKEN=                 # Vercel Blob store token (public store)
-
-GEMINI_API_KEY=                        # Google AI Studio
-
-BETTER_AUTH_SECRET=                    # openssl rand -base64 32
-BETTER_AUTH_URL=http://localhost:3000
-
-GOOGLE_CLIENT_ID=                      # Google Cloud Console → OAuth 2.0 credentials
-GOOGLE_CLIENT_SECRET=
-
-RESEND_API_KEY=                        # Resend dashboard → API Keys
+```bash
+cp .env.example .env.local
 ```
+
+See `.env.example` for the full list of variables and comments on where each value comes from. For local development, point `DATABASE_URL` and `S3_*` at any Postgres and S3-compatible instance you have reachable (e.g. a local MinIO container run separately, or your self-hosted production instances).
 
 For Google OAuth, register `http://localhost:3000` as an authorised origin and `http://localhost:3000/api/auth/callback/google` as a redirect URI in Google Cloud Console.
 
@@ -126,7 +115,7 @@ The new layout will appear immediately in the layout picker on every CV editor.
 
 ## Creating content
 
-All content (profiles, avatars, experience, education, skills, projects, other) is managed in the `/content` library. Each tab lets you create, edit, and delete entries. All data is stored in Neon and scoped to the logged-in user.
+All content (profiles, avatars, experience, education, skills, projects, other) is managed in the `/content` library. Each tab lets you create, edit, and delete entries. All data is stored in PostgreSQL and scoped to the logged-in user.
 
 The **Avatar** tab holds up to 5 images per user. It is separate from the profile — one avatar library is shared across all profiles. The CV editor lets you pick which image to use (or none); the chosen index is stored on the CV record and resolved to a URL at render time.
 
@@ -138,21 +127,51 @@ The **Other** tab is a catch-all for entries that don't fit standard categories 
 npm run dev              # start development server
 npm run build            # production build
 npm run migrate:dev      # create and apply a new migration (development)
-npm run migrate:deploy   # apply pending migrations (production / Neon)
+npm run migrate:deploy   # apply pending migrations (production)
 npm run prisma:generate  # regenerate Prisma client after schema changes
 ```
 
-## Deployment
+## Deployment (self-hosted, Docker)
 
-Deploy to Vercel. Set the environment variables listed above under **Project → Settings → Environment Variables**, with these production values:
+The app is self-hosted via Docker Compose. It runs alongside other services on the same server, reusing an existing PostgreSQL container for the database and a MinIO container (defined in `docker-compose.yml`) for file storage.
 
-- `BETTER_AUTH_URL` = `https://cv-creator.appfinningar.se`
-- `BLOB_READ_WRITE_TOKEN` — from a **public** Vercel Blob store linked to the project
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — add `https://cv-creator.appfinningar.se` as an authorised origin and `https://cv-creator.appfinningar.se/api/auth/callback/google` as a redirect URI in Google Cloud Console
+### 1. Environment file
+
+Copy `.env.example` to `.env` on the server and fill in production values:
+
+- `DATABASE_URL` / `DIRECT_URL` — point at the existing Postgres container's network alias, using a dedicated database + user created for this app (see step 2)
+- `BETTER_AUTH_URL` = `https://cv-forge.appfinningar.se`
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — add `https://cv-forge.appfinningar.se` as an authorised origin and `https://cv-forge.appfinningar.se/api/auth/callback/google` as a redirect URI in Google Cloud Console
 - `RESEND_API_KEY` — from Resend dashboard; requires a verified sending domain with DKIM + SPF records in DNS
+- `EMAIL_FROM` — sender address, must be on the verified Resend domain
+- `S3_ENDPOINT` / `S3_PUBLIC_URL` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` — MinIO connection details (access key/secret should match `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` below)
+- `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` — credentials for the MinIO container itself
 
-Run migrations against your production database after each deploy that includes schema changes:
+### 2. Create the database
+
+On the existing Postgres container:
 
 ```bash
-npm run migrate:deploy
+docker exec -it <postgres-container-name> psql -U postgres -c \
+  "CREATE DATABASE cvforge; CREATE USER cvforge WITH PASSWORD '...'; GRANT ALL PRIVILEGES ON DATABASE cvforge TO cvforge;"
 ```
+
+### 3. Build and start
+
+```bash
+docker compose up -d --build
+```
+
+This starts the app, MinIO, and a one-off `minio-init` job that creates the storage bucket with public read access.
+
+### 4. Run migrations
+
+```bash
+docker compose exec app npx prisma migrate deploy
+```
+
+Re-run this after any deploy that includes schema changes.
+
+### 5. Reverse proxy
+
+Add a Public Hostname for `cv-forge.appfinningar.se` in the Cloudflare Zero Trust dashboard, and a matching Proxy Host in Nginx Proxy Manager pointing at the `app` container's published port (`3005` by default — see `docker-compose.yml`). Repeat for the MinIO public hostname (`S3_PUBLIC_URL`) pointing at MinIO's published API port (`9000`).

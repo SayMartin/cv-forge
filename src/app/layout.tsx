@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | CV Creator",
-    default: "CV Creator",
+    template: "%s | CV Forge",
+    default: "CV Forge",
   },
   description:
     "Build, manage, and export polished CVs — your career story, beautifully told.",

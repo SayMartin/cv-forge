@@ -22,7 +22,7 @@ export function NavBar({ user }: { user: User | null }) {
         >
           <Logo size={26} />
           <span className="font-semibold text-sm tracking-widest uppercase">
-            CV Creator
+            CV Forge
           </span>
         </Link>
 

@@ -30,7 +30,7 @@ export default async function MainLayout({
         <div className="max-w-5xl mx-auto px-6 py-12 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div>
             <p className="text-base font-semibold tracking-widest uppercase text-white">
-              CV Creator
+              CV Forge
             </p>
             <p className="text-sm text-(--cl-nav-muted) mt-1">
               Craft modern CVs with ease. Your career, your story, beautifully told.
@@ -38,7 +38,7 @@ export default async function MainLayout({
           </div>
           <div className="flex flex-col sm:items-end gap-1.5">
             <p className="text-sm text-(--cl-nav-muted)">
-              &copy; {new Date().getFullYear()} CV Creator by Appfinningar.se. All rights reserved.
+              &copy; {new Date().getFullYear()} CV Forge by Appfinningar.se. All rights reserved.
             </p>
             <a
               href="mailto:support@appfinningar.se"

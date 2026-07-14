@@ -1,11 +1,24 @@
-import { put, del, head } from "@vercel/blob";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+
+const client = new S3Client({
+  region: "auto",
+  endpoint: process.env.S3_ENDPOINT,
+  forcePathStyle: true,
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+  },
+});
+
+const bucket = process.env.S3_BUCKET!;
+const publicUrl = process.env.S3_PUBLIC_URL!;
 
 export type BlobPutOptions = {
   contentType?: string;
 };
 
 /**
- * Upload a file to Vercel Blob.
+ * Upload a file to S3-compatible storage (MinIO).
  * Returns the public URL of the stored file.
  */
 export async function blobPut(
@@ -13,21 +26,20 @@ export async function blobPut(
   body: ArrayBuffer | Blob,
   options: BlobPutOptions = {},
 ): Promise<string> {
-  const blob = body instanceof Blob ? body : new Blob([body]);
-  const { url } = await put(key, blob, {
-    access: "public",
-    contentType: options.contentType,
-    addRandomSuffix: false,
-  });
-  return url;
+  const bytes = body instanceof Blob ? new Uint8Array(await body.arrayBuffer()) : new Uint8Array(body);
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: bytes,
+      ContentType: options.contentType,
+    }),
+  );
+  return `${publicUrl}/${key}`;
 }
 
-/** Check if a blob exists. Returns null if the key does not exist. */
-export async function blobHead(url: string) {
-  return head(url);
-}
-
-/** Delete a blob by URL. */
+/** Delete a blob by its public URL. */
 export async function blobDelete(url: string): Promise<void> {
-  await del(url);
+  const key = url.startsWith(`${publicUrl}/`) ? url.slice(publicUrl.length + 1) : url;
+  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }

@@ -46,7 +46,7 @@ export default async function Home() {
             className="text-lg leading-relaxed max-w-lg mx-auto"
             style={{ color: "#8FA87A" }}
           >
-            CV Creator lets you manage your career content in one place and
+            CV Forge lets you manage your career content in one place and
             export beautifully formatted CVs in seconds.
           </p>
           {session ? (
