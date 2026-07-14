@@ -30,3 +30,14 @@ jobs:
             ghcr.io/saymartin/cv-forge:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Separate tag exposing the `builder` stage (full node_modules incl. Prisma CLI),
+      # used on the server to run `prisma migrate deploy` without building anything locally.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: builder
+          push: true
+          tags: ghcr.io/saymartin/cv-forge:migrator
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

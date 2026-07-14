@@ -176,9 +176,15 @@ This pulls the latest published image and starts the app, MinIO, Watchtower, and
 
 ### 4. Run migrations
 
+The runtime image (`app`) is intentionally minimal and does not include the Prisma CLI — only the already-generated client needed to serve requests. Migrations are run using the separate `:migrator` image (the build stage with a full `node_modules`, published alongside `:latest`):
+
 ```bash
-docker compose exec app npx prisma migrate deploy
+docker pull ghcr.io/saymartin/cv-forge:migrator
+docker run --rm --env-file .env --network cv-forge_default --network postgres_default \
+  ghcr.io/saymartin/cv-forge:migrator npx prisma migrate deploy
 ```
+
+Re-run this after any deploy that includes schema changes.
 
 Re-run this after any deploy that includes schema changes.
 
