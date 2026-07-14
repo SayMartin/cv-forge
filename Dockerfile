@@ -7,6 +7,8 @@ RUN npm ci --ignore-scripts
 # --- builder: generate Prisma client and build the Next.js app ---
 FROM node:22-alpine AS builder
 WORKDIR /app
+ARG S3_PUBLIC_URL
+ENV S3_PUBLIC_URL=$S3_PUBLIC_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate

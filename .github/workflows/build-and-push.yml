@@ -25,6 +25,8 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            S3_PUBLIC_URL=https://files.appfinningar.se
           tags: |
             ghcr.io/saymartin/cv-forge:latest
             ghcr.io/saymartin/cv-forge:${{ github.sha }}
