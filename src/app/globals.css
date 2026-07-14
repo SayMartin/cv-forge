@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/* ── Nature palette ─────────────────────────────────────────────────────────
+   These custom properties are used directly in component classes via
+   Tailwind's arbitrary value syntax: bg-[var(--cl-bg)] etc.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: light; /* disable dark-mode browser defaults — design is light-only */
+  scrollbar-gutter: stable; /* reserve scrollbar space on all pages to prevent layout shift */
+  --cl-bg: #f2ede3; /* warm parchment — page background          */
+  --cl-surface: #ffffff; /* white — cards, forms                      */
+  --cl-nav: #1b2f0e; /* deep forest green — nav + footer          */
+  --cl-nav-text: #ddd8cc; /* cream — nav link text                     */
+  --cl-nav-muted: #8fa87a; /* muted olive green — secondary nav/footer text */
+  --cl-nav-divider: #3d5a2b; /* dark green — separator lines in nav       */
+  --cl-text: #252b1a; /* dark forest — body text                   */
+  --cl-muted: #7a8268; /* olive grey — secondary / placeholder text */
+  --cl-accent: #2d5a1b; /* forest green — buttons, links             */
+  --cl-accent-hov: #3a7222; /* lighter green — hover state               */
+  --cl-border: #d5cebc; /* warm beige — borders, dividers            */
+  --cl-pill: #e8e2d6; /* light parchment — tag/pill background     */
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Force the nature palette — no dark mode override */
+body {
+  background-color: var(--cl-bg);
+  color: var(--cl-text);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Smooth focus ring using accent colour */
+*:focus-visible {
+  outline: 2px solid var(--cl-accent);
+  outline-offset: 2px;
+}
+
+/* Preserve background colours and images when printing to PDF */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Remove default margins when printing to ensure our custom page size and layout work as intended */
+@page {
+  margin: 0;
+}

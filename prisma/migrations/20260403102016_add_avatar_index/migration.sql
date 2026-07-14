@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "cv" ADD COLUMN     "avatarIndex" INTEGER,
+ALTER COLUMN "experienceIds" DROP DEFAULT,
+ALTER COLUMN "educationIds" DROP DEFAULT,
+ALTER COLUMN "skillIds" DROP DEFAULT,
+ALTER COLUMN "projectIds" DROP DEFAULT;

@@ -1,0 +1,79 @@
+// Shared CV content types — used by layout components, view pages, and PDF export.
+// These match the shapes returned by Prisma queries.
+
+export type CvProfile = {
+  id: string;
+  profileName: string;
+  name: string;
+  headline?: string | null;
+  bio?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  location?: string | null;
+  social?: {
+    linkedin?: string | null;
+    github?: string | null;
+    website?: string | null;
+    portfolio?: string | null;
+  } | null;
+};
+
+export type CvExperience = {
+  id: string;
+  company: string;
+  role: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  current?: boolean | null;
+  description?: string | null;
+  skills?: string[] | null;
+};
+
+export type CvEducation = {
+  id: string;
+  institution: string;
+  degree?: string | null;
+  field?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  current?: boolean | null;
+  description?: string | null;
+};
+
+export type CvSkill = {
+  id: string;
+  name: string;
+  category?: string | null;
+  level?: number | null;
+  icon?: string | null;
+};
+
+export type CvProject = {
+  id: string;
+  title: string;
+  slug?: string | null;
+  summary?: string | null;
+  imageUrl?: string | null;
+  url?: string | null;
+  sourceUrl?: string | null;
+  skills?: string[] | null;
+};
+
+export type CvOther = {
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  date?: string | null;
+  description?: string | null;
+  url?: string | null;
+};
+
+export type CvContent = {
+  profile: CvProfile | null;
+  avatarUrl: string | null;
+  experiences: CvExperience[];
+  educations: CvEducation[];
+  skills: CvSkill[];
+  projects: CvProject[];
+  others: CvOther[];
+};

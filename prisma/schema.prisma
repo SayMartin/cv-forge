@@ -1,0 +1,256 @@
+// Prisma schema for cv-cms
+// Runtime: Neon (PostgreSQL) via DATABASE_URL
+// Auth: Better Auth — schema matches Better Auth core + admin plugin
+// Migrations: managed with `prisma migrate dev`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Better Auth core schema ───────────────────────────────────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime
+  updatedAt     DateTime
+  // Better Auth admin plugin fields
+  role          String?
+  banned        Boolean?
+  banReason     String?
+  banExpires    DateTime?
+  sessions      Session[]
+  accounts      Account[]
+  cvs           CV[]
+  cvThemes      CvTheme[]
+  profiles      Profile[]
+  avatar        Avatar?
+  experiences   Experience[]
+  educations    Education[]
+  skills        Skill[]
+  projects      Project[]
+  others        Other[]
+
+  @@map("user")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime
+  updatedAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Better Auth admin plugin field
+  impersonatedBy String?
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?   // hashed by Better Auth (credentials provider)
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+// ─── CV compositions ──────────────────────────────────────────────────────────
+
+model CV {
+  id            String     @id @default(cuid())
+  name          String
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  layoutId      String     @default("default")
+  themeId       String?
+  theme         CvTheme?   @relation(fields: [themeId], references: [id], onDelete: SetNull)
+  // Selected content IDs per section (loose string refs, no FK — mirrors experienceIds etc.)
+  profileId     String?
+  avatarIndex   Int?
+  experienceIds String[]
+  educationIds  String[]
+  skillIds      String[]
+  projectIds    String[]
+  otherIds      String[]
+  // Section order for the CV renderer (e.g. ["experience","education","skills","projects","other"])
+  sectionOrder  String[]
+  // Metadata
+  targetRole    String?
+  coverLetter   String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@map("cv")
+}
+
+// ─── CV themes (user-scoped, reusable) ───────────────────────────────────────
+
+model CvTheme {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  sidebarColor String   @default("#2d2d2d")
+  accentColor  String   @default("#c9a84c")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  cvs          CV[]
+
+  @@map("cv_theme")
+}
+
+// ─── CV content ───────────────────────────────────────────────────────────────
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileName String
+  name        String?
+  headline    String?
+  bio         String?
+  email       String?
+  phone       String?
+  location    String?
+  linkedin    String?
+  github      String?
+  website     String?
+  portfolio   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("profile")
+}
+
+model Avatar {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  images    String[] // up to 5 R2 image URLs
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("avatar")
+}
+
+model Experience {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     String
+  role        String
+  startDate   String?
+  endDate     String?
+  current     Boolean  @default(false)
+  description String?
+  skills      String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("experience")
+}
+
+model Education {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution String
+  degree      String?
+  field       String?
+  startDate   String?
+  endDate     String?
+  current     Boolean  @default(false)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("education")
+}
+
+model Skill {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  category  String?  // Language / Framework / Tool / Platform / Other
+  level     Int?     // 1–5
+  icon      String?  // image URL
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("skill")
+}
+
+model Project {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  slug        String?
+  summary     String?
+  body        String?   // markdown / plain text
+  imageUrl    String?
+  url         String?
+  sourceUrl   String?
+  skills      String[]
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, slug])
+  @@map("project")
+}
+
+model Other {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  subtitle    String?
+  date        String?
+  description String?
+  url         String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("other")
+}
+
+// ─── REMOVED (NextAuth schema) ────────────────────────────────────────────────
+// Old VerificationToken composite-PK model is replaced by Verification above.

@@ -1,0 +1,548 @@
+# Architecture — CV Creator
+
+> Multi-user CV creation app built on Next.js, Neon, Vercel, Vercel Blob, and Resend.
+
+---
+
+## Stack
+
+| Layer     | Technology                                  | Purpose                                                    |
+| --------- | ------------------------------------------- | ---------------------------------------------------------- |
+| Framework | Next.js (App Router) + TypeScript           | Frontend + API routes                                      |
+| Styling   | Tailwind CSS                                | UI                                                         |
+| Database  | Neon (PostgreSQL) via Prisma ORM            | All app data: users, sessions, CVs, themes, all content    |
+| Storage   | Vercel Blob (public store)                  | Avatar image uploads                                       |
+| Auth      | Better Auth — email + password + Google OAuth | Authentication + role-based access                       |
+| Email     | Resend (`noreply@mail.appfinningar.se`)      | Transactional email — email verification on sign-up        |
+| Hosting   | Vercel                                      | Deploy + CDN                                               |
+| DNS       | Cloudflare                                  | DNS + CDN for `appfinningar.se`                            |
+| AI        | Google Gemini 2.5 Flash (via Vercel AI SDK) | PDF CV parsing + structured extraction                     |
+| PDF       | Browser `window.print()`                    | Client-side A4 PDF via print-to-PDF dialog                 |
+| Drag & drop | `@dnd-kit`                                | Section order + entry reordering in the CV editor          |
+
+---
+
+## System Diagram
+
+```
+┌──────────────────────┐     ┌─────────────┐     ┌────────────┐
+│  Next.js App         │────▶│   Vercel    │◀────│ Cloudflare │
+│  (Frontend + API)    │     │  (Hosting)  │     │   (DNS)    │
+└──────────┬───────────┘     └─────────────┘     └────────────┘
+           │
+    ┌──────┼──────────────┬──────────────┐
+    ▼             ▼              ▼              ▼
+┌──────────────┐  ┌──────────┐  ┌──────────────────┐  ┌────────┐
+│     Neon     │  │  Vercel  │  │  Google Gemini   │  │ Resend │
+│ (PostgreSQL) │  │   Blob   │  │  (PDF → Prisma)  │  │ (Email)│
+└──────────────┘  └──────────┘  └──────────────────┘  └────────┘
+```
+
+### Data ownership
+
+Everything lives in **Neon** via Prisma. There is no external CMS.
+
+- **Neon** — all data: users, sessions, CV compositions (`cv`), colour themes (`cv_theme`), profiles, avatars, experience, education, skills, projects, other entries
+- **Vercel Blob** — avatar image files (public URLs stored in the `avatar` Neon table). Store must be **public access**.
+
+---
+
+## Authentication & Roles
+
+- Provider: **[Better Auth](https://better-auth.com)** — stable, framework-agnostic auth library
+- Strategies: **email + password** and **Google OAuth** (`socialProviders.google`), both via the Better Auth core; `admin()` plugin adds role management
+- **Email verification required** — on sign-up, Better Auth sends a verification link via Resend from `noreply@mail.appfinningar.se`; the account is inactive until the link is clicked
+- Session storage: Neon (PostgreSQL) via `better-auth/adapters/prisma`
+- Cookie name: `better-auth.session_token`
+- Sign-up at `/sign-up` (open registration) — email+password form or "Continue with Google" button; new accounts receive `role: "user"` automatically
+- Google OAuth redirect URI: `{BETTER_AUTH_URL}/api/auth/callback/google` — must be registered in Google Cloud Console
+- Two roles stored on the `user` table (added by admin plugin):
+
+| Role    | Access                                   |
+| ------- | ---------------------------------------- |
+| `user`  | Full CV management + content library     |
+| `admin` | All of the above + user management       |
+
+- **Better Auth schema** uses lowercase table names (`user`, `session`, `account`, `verification`) with camelCase column names. The admin plugin adds `role`, `banned`, `banReason`, `banExpires` to `user` and `impersonatedBy` to `session`.
+
+---
+
+## Project Structure
+
+```
+cv-cms/
+├── src/
+│   ├── app/
+│   │   ├── (auth)/
+│   │   │   ├── PasswordField.tsx                   ← shared eye-toggle password input component
+│   │   │   ├── GoogleSignInButton.tsx              ← shared "Continue with Google" OAuth button
+│   │   │   ├── sign-in/
+│   │   │   │   ├── layout.tsx                      ← metadata: title "Sign In"
+│   │   │   │   └── page.tsx                        ← Google button + email/password form, reads ?callbackUrl
+│   │   │   └── sign-up/
+│   │   │       ├── layout.tsx                      ← metadata: title "Sign Up"
+│   │   │       └── page.tsx                        ← Google button + email + password + confirm; instant account creation
+│   │   ├── (main)/                                  ← route group with shared nav layout
+│   │   │   ├── layout.tsx                           ← reads session; renders BotanicalBackground + NavBar; footer with support email
+│   │   │   ├── NavBar.tsx                           ← client nav; logo + "CV Creator" wordmark; desktop inline / mobile hamburger
+│   │   │   ├── SignOutButton.tsx                    ← client sign-out; variant="nav"|"page"
+│   │   │   ├── SyncAppUserId.tsx                    ← legacy stub; was used for Sanity Studio localStorage bridge; inert
+│   │   │   ├── page.tsx                             ← landing page: hero + how-it-works (4 steps) + CTA (visitors only)
+│   │   │   ├── import/
+│   │   │   │   ├── layout.tsx                       ← metadata: title "Import CV"
+│   │   │   │   └── page.tsx                         ← PDF CV import UI
+│   │   │   ├── content/
+│   │   │   │   ├── page.tsx                         ← tabbed content library (auth-gated)
+│   │   │   │   ├── ContentTabs.tsx                  ← client tab switcher
+│   │   │   │   ├── AvatarsTab.tsx                   ← upload / remove avatar images (POST/PATCH /api/avatars); max 5, 5 MB, JPEG/PNG/WebP
+│   │   │   │   ├── ProfilesTab.tsx
+│   │   │   │   ├── ExperienceTab.tsx
+│   │   │   │   ├── EducationTab.tsx
+│   │   │   │   ├── SkillsTab.tsx
+│   │   │   │   ├── ProjectsTab.tsx
+│   │   │   │   └── OtherTab.tsx
+│   │   │   ├── profiles/
+│   │   │   │   ├── page.tsx                         ← profile list + create (auth-gated)
+│   │   │   │   └── CreateProfileForm.tsx            ← "New Profile" client form
+│   │   │   ├── projects/[slug]/page.tsx
+│   │   │   ├── settings/
+│   │   │   │   ├── page.tsx                         ← account card (email, sign-out, delete account)
+│   │   │   │   └── DeleteAccountSection.tsx         ← client: email-confirm dialog → DELETE /api/user
+│   │   │   └── cvs/
+│   │   │       ├── page.tsx                         ← CV list + create (auth-gated)
+│   │   │       ├── CreateCvForm.tsx                 ← "New CV" client form
+│   │   │       ├── DuplicateCvButton.tsx
+│   │   │       └── [cvId]/
+│   │   │           ├── page.tsx                     ← CV editor page (server); renders CvEditShell
+│   │   │           ├── CvEditShell.tsx              ← client wrapper: holds live CV name; keeps CvSwitcher in sync on successful save
+│   │   │           ├── CvSwitcher.tsx               ← select dropdown to switch between CVs
+│   │   │           ├── CvEditor.tsx                 ← layout picker + theme picker + profile radio + avatar picker + entry checkboxes + section order + cover letter; dirty-state save button; maxLength on all text inputs; calls onNameChange on successful save
+│   │   │           ├── SectionOrderEditor.tsx       ← drag-and-drop section reorder (dnd-kit)
+│   │   │           ├── SortableEntryList.tsx        ← drag-and-drop entry list with checkboxes
+│   │   │           └── view/
+│   │   │               ├── page.tsx                 ← A4 CV preview (server)
+│   │   │               ├── CvScaleWrapper.tsx       ← client wrapper: scales CV to fit viewport (transform: scale)
+│   │   │               ├── ViewToolbar.tsx          ← client toolbar: ← Edit | centred CV name | layout badge + PDF
+│   │   │               └── ExportButton.tsx         ← "Save as PDF" client button (calls window.print())
+│   │   └── api/
+│   │       ├── auth/[...all]/route.ts               ← Better Auth catch-all handler
+│   │       ├── cv-import/route.ts                   ← PDF → Gemini → Prisma write (all content types)
+│   │       ├── profiles/route.ts                    ← POST: create Profile in Neon
+│   │       ├── profiles/[id]/route.ts               ← PATCH + DELETE profile by id
+│   │       ├── cvs/route.ts                         ← GET (list) + POST (create) CVs
+│   │       ├── cvs/[cvId]/route.ts                  ← GET + PATCH + DELETE CV
+│   │       ├── cvs/[cvId]/duplicate/route.ts        ← POST: copy CV with all selections intact; name prefixed "Copy of …"
+│   │       ├── themes/route.ts                      ← GET (list) + POST (create) CvThemes
+│   │       ├── themes/[themeId]/route.ts             ← PATCH + DELETE CvTheme
+│   │       ├── avatars/route.ts                     ← GET (list) + POST (upload to Vercel Blob + save URL to Neon) + PATCH (remove one image)
+│   │       ├── content/
+│   │       │   ├── experience/route.ts + [id]/route.ts
+│   │       │   ├── education/route.ts + [id]/route.ts
+│   │       │   ├── skills/route.ts + [id]/route.ts
+│   │       │   ├── projects/route.ts + [id]/route.ts
+│   │       │   └── other/route.ts + [id]/route.ts
+│   │       ├── upload/route.ts                      ← general-purpose Vercel Blob upload (PUT ?key=…); auth-gated; JPEG/PNG/WebP/GIF/SVG/PDF
+│   │       └── user/route.ts                        ← DELETE: prisma.user.delete() → cascades all content
+│   ├── components/
+│   │   ├── Logo.tsx                                 ← inline SVG logo (page + leaf motif); uses currentColor; matches app icon
+│   │   ├── BotanicalBackground.tsx                  ← fixed full-viewport SVG; two vine clusters; 0.3 opacity; print:hidden
+│   │   └── cv-layouts/
+│   │       ├── index.ts                             ← getLayoutComponent() registry
+│   │       ├── DefaultLayout.tsx
+│   │       ├── ModernLayout.tsx
+│   │       ├── TealSidebarLayout.tsx
+│   │       ├── SlateLayout.tsx
+│   │       ├── TerminalLayout.tsx
+│   │       └── thumbnails/
+│   │           ├── index.tsx
+│   │           ├── LayoutThumb.tsx
+│   │           ├── DefaultThumb.tsx
+│   │           ├── ModernThumb.tsx
+│   │           ├── TealThumb.tsx
+│   │           ├── SlateThumb.tsx
+│   │           └── TerminalThumb.tsx
+│   └── lib/
+│       ├── auth.ts                                  ← exported `auth` singleton (Better Auth)
+│       ├── auth-client.ts                           ← createAuthClient ("use client" only)
+│       ├── color-utils.ts                           ← HSL color math: darkenColor, lightenColor, getContrastColor, hexToRgba, mixColors, sidebarGradient
+│       ├── cv-content-types.ts                      ← shared CvContent / section types
+│       ├── cv-layouts.ts                            ← CV_LAYOUTS registry + getLayoutMeta()
+│       ├── cv-theme.ts                              ← CvTheme type { id, name, sidebarColor, accentColor }
+│       ├── prisma.ts                                ← global Prisma singleton (PrismaPg adapter)
+│       └── r2.ts                                   ← Vercel Blob wrappers: blobPut, blobHead, blobDelete
+├── prisma/
+│   ├── schema.prisma
+│   └── migrations/
+└── prisma.config.ts
+```
+
+---
+
+## Profiles
+
+Each user can have **multiple profiles** in Neon (e.g. "Frontend Developer", "Senior Engineer"). Profiles are distinguished by the required `profileName` field and are selected per-CV via a radio button in the CV editor.
+
+**Profile Prisma model fields:**
+
+- `profileName` — required; display label in the CV editor radio list
+- `name` — the person's actual full name
+- `headline`, `bio`, `email`, `phone`, `location` — standard contact/intro fields
+- `linkedin`, `github`, `website`, `portfolio` — social/link fields (stored flat, not nested)
+- `userId` — FK → `user.id`, CASCADE delete
+
+Profiles are created via `POST /api/profiles` or managed directly in the `/content` tab.
+
+### Avatars
+
+Avatars are stored in **Neon** (one `avatar` row per user) with image files in **Vercel Blob** (public store). They are decoupled from profiles — the same avatar library applies to all profiles, and layouts may render an avatar at any position (or not at all).
+
+**`avatar` Prisma model fields:**
+
+| Column      | Type            | Notes                                    |
+| ----------- | --------------- | ---------------------------------------- |
+| `id`        | `TEXT` (cuid)   | Primary key                              |
+| `userId`    | `TEXT` (unique) | FK → `user.id`, CASCADE delete           |
+| `images`    | `TEXT[]`        | Up to 5 Vercel Blob public URLs          |
+| `createdAt` | `TIMESTAMP`     |                                          |
+| `updatedAt` | `TIMESTAMP`     |                                          |
+
+Upload constraints: max 5 images, 5 MB each, JPEG / PNG / WebP only. Managed via `GET/POST/PATCH /api/avatars`.
+
+The CV editor (`/content` → Avatars tab) shows the user's avatar images as clickable thumbnails. The selected index (`avatarIndex`) is stored on the `cv` record in Neon. The view page resolves the index to a URL by fetching the `avatar` row and indexing into `images[]`, then passes it as `CvContent.avatarUrl` — layouts always receive a plain `string | null`, never the index.
+
+> **Vercel Blob store must be configured as public access.** The `put()` call uses `access: "public"` — a private store will throw `"Cannot use public access on a private store"` at upload time.
+
+---
+
+## Multi-user & CV Compositions
+
+### All content in Neon
+
+Every content model (`Profile`, `Experience`, `Education`, `Skill`, `Project`, `Other`, `Avatar`) has a `userId` FK → `user.id` with `onDelete: Cascade`. Querying is simple Prisma `findMany({ where: { userId } })` — no GROQ, no external CMS.
+
+### CV compositions (Neon — `cv` table)
+
+A **CV** is a named, versioned selection of the user's content entries plus a chosen layout and avatar.
+
+| Column          | Type          | Notes                                                |
+| --------------- | ------------- | ---------------------------------------------------- |
+| `id`            | `TEXT` (cuid) | Primary key                                          |
+| `name`          | `TEXT`        | User-chosen, e.g. "Backend Engineer 2026"; max 100 chars |
+| `userId`        | `TEXT`        | FK → `user.id`, CASCADE delete                       |
+| `layoutId`      | `TEXT`        | Default `"default"` — key into `CV_LAYOUTS` registry |
+| `themeId`       | `TEXT?`       | FK → `cv_theme.id`, SET NULL on theme delete         |
+| `profileId`     | `TEXT?`       | Prisma `id` of selected Profile row                  |
+| `avatarIndex`   | `INT?`        | Index into `avatar.images[]`; `null` = no avatar     |
+| `experienceIds` | `TEXT[]`      | Prisma `id` values of selected Experience rows       |
+| `educationIds`  | `TEXT[]`      | Prisma `id` values of selected Education rows        |
+| `skillIds`      | `TEXT[]`      | Prisma `id` values of selected Skill rows            |
+| `projectIds`    | `TEXT[]`      | Prisma `id` values of selected Project rows          |
+| `otherIds`      | `TEXT[]`      | Prisma `id` values of selected Other rows            |
+| `sectionOrder`  | `TEXT[]`      | Section display order in the CV renderer             |
+| `targetRole`    | `TEXT?`       | "Tailored for" label — shown in CV list only; max 100 chars |
+| `coverLetter`   | `TEXT?`       | Printed as a separate page before the CV; max 5000 chars |
+
+### Avatar resolution
+
+The view page fetches the user's `avatar` row from Neon via `prisma.avatar.findUnique({ where: { userId } })`. It resolves `avatarIndex` to a Vercel Blob URL:
+
+```ts
+const avatarUrl =
+  cv.avatarIndex !== null && avatarDoc?.images?.[cv.avatarIndex]
+    ? avatarDoc.images[cv.avatarIndex]
+    : null;
+
+const content: CvContent = { profile, avatarUrl, experiences, ... };
+```
+
+Layouts receive `content.avatarUrl: string | null` — a plain URL or `null`. They never see the index or the avatar row.
+
+### Color themes (Neon — `cv_theme` table)
+
+A **CvTheme** is a named, user-owned set of two colors that can be applied to any of the user's CVs.
+
+| Column         | Type          | Notes                                                   |
+| -------------- | ------------- | ------------------------------------------------------- |
+| `id`           | `TEXT` (cuid) | Primary key                                             |
+| `userId`       | `TEXT`        | FK → `user.id`, CASCADE delete                          |
+| `name`         | `TEXT`        | User-chosen display name; max 50 chars                  |
+| `sidebarColor` | `TEXT`        | Hex color for the sidebar background; default `#2d2d2d` |
+| `accentColor`  | `TEXT`        | Hex color for accent elements; default `#c9a84c`        |
+| `createdAt`    | `TIMESTAMP`   |                                                         |
+| `updatedAt`    | `TIMESTAMP`   |                                                         |
+
+Themes are user-scoped and reusable: multiple CVs can reference the same theme. When a theme is deleted, any CVs using it have their `themeId` set to `null` (CASCADE `SetNull`).
+
+**Derived colors** — layouts compute further color variants at render time from the two stored values. They are never stored in the database:
+
+- `darkenColor(sidebarColor, 0.09)` → header band background, avatar outline
+- `lightenColor(sidebarColor, 0.09)` → highlight tint
+- `getContrastColor(sidebarColor)` → auto `#ffffff` or `#1a1a1a` (W3C luminance, threshold 0.18)
+- `hexToRgba(sidebarColor, α)` → translucent tint for skill tags, light background strips
+- `mixColors(hex1, hex2, t)` → RGB linear interpolation between two hex colours
+- `sidebarGradient(base)` → 10-stop ease-in-out CSS gradient string
+
+All six helpers live in `src/lib/color-utils.ts`.
+
+### CV layout system
+
+Layouts are defined in code, not the database. Adding a new layout:
+
+1. Create `src/components/cv-layouts/YourLayout.tsx` (web, Tailwind)
+2. Add an entry to `CV_LAYOUTS` in `src/lib/cv-layouts.ts`
+3. Register the component in `src/components/cv-layouts/index.ts`
+4. Create `src/components/cv-layouts/thumbnails/YourThumb.tsx` and add it to `LayoutThumb.tsx`
+
+Each layout receives a `CvContent` object and an optional `theme?: CvTheme`. When no theme is provided the layout falls back to its built-in default colors. The layout decides independently where (or whether) to render the avatar.
+
+**Sub-component pattern** — themed sub-components are defined at **module level** and receive all theme-derived colors via a `colors` prop bag. This avoids the React v19 "components created during render" error.
+
+**Two-row page break pattern** (all layouts):
+
+- Row 1: `height: "297mm"` + `overflow-hidden` — contains page-1 content
+- Page break band: `print:hidden h-7 bg-gray-200` — visual "Page 2" separator on screen only
+- Row 2: `minHeight: "297mm"` + `print:break-before-page` — contains page-2 content
+
+Currently available layouts:
+
+| id         | Name     | Default sidebar / accent      | Description                                                                                                                                                          |
+| ---------- | -------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default`  | Classic  | n/a                           | Two-row; clean white card on light grey background                                                                                                                   |
+| `modern`   | Modern   | `#2d2d2d` / `#c9a84c`         | Two-row; dark sidebar + gold accents                                                                                                                                 |
+| `teal`     | Teal     | `#2d7d8a` / n/a               | Two-row; teal sidebar + rating boxes                                                                                                                                 |
+| `slate`    | Slate    | `#1e293b` / `#6366f1`         | Two-column; dark slate sidebar; grouped skills with dot ratings; `Company · Role` inline; IT/dev-focused                                                             |
+| `terminal` | Terminal | `#0f172a` / `#3fb950`         | Two-column; GitHub-dark palette; monospace; code-style skill tags; repo-card projects; IT/dev-focused                                                                |
+
+**Thumbnail components** — each layout has a matching `*Thumb.tsx` in `src/components/cv-layouts/thumbnails/`. Fixed `120×170px` pure-div blueprints; accept `sidebarColor?`, `accentColor?`, `selected?`; derive the same color variants as the full layouts for live preview.
+
+### User flows
+
+**CV management:**
+
+- `GET /cvs` — list all user's CVs
+- `GET /cvs/[cvId]` — editor: rename, pick layout and colour theme, select profile + avatar, select + reorder entries; CvSwitcher label updates on successful save
+- `GET /cvs/[cvId]/view` — A4 preview with "Save as PDF" button
+
+**PDF export flow:**
+
+1. User clicks "Save as PDF" on the view page
+2. `ExportButton` temporarily sets `document.title` to the CV name, calls `window.print()`, then restores the original title
+3. Browser print dialog opens; user selects "Save as PDF" — the document title becomes the default filename
+4. Nav bar, footer, and in-page toolbar are all `print:hidden`; background colours preserved via `print-color-adjust: exact` in `globals.css`
+
+---
+
+## Account Management
+
+Accessible at `/settings`.
+
+- **Sign out** — `SignOutButton` (variant `"page"`) calls `authClient.signOut()` and redirects to `/`
+- **Delete account** — `DeleteAccountSection` presents a confirmation dialog that requires the user to type their email, then calls `DELETE /api/user`:
+  1. **Admin guard** — returns `403` if `session.user.role === "admin"`
+  2. `prisma.user.delete({ where: { id } })` — all content models have `onDelete: Cascade`, so this single delete removes everything: sessions, accounts, CVs, themes, profiles, avatars, experience, education, skills, projects, other
+  3. Client calls `authClient.signOut()` and redirects to `/`
+
+---
+
+## PDF CV Importer
+
+Any authenticated user can import a PDF CV at `/import`.
+
+**Flow:**
+
+1. User uploads a PDF
+2. `POST /api/cv-import`:
+   - Parses PDF to plain text via `pdf-parse`
+   - Sends text to Google Gemini 2.5 Flash via Vercel AI SDK with a structured extraction prompt + Zod schema
+   - Writes all extracted documents to Neon via Prisma, tagging each with `userId`
+
+**Prisma models created/updated:** `Profile` (upsert on fixed id `profile-{userId}`), `Experience`, `Education`, `Skill`, `Project`, `Other` (always created as new rows). Uses `other` as fallback category for ambiguous entries (certifications, awards, publications, etc.).
+
+> Reimporting updates the single profile row and adds new rows for all other types — it does not deduplicate experience/education/etc.
+
+---
+
+## Build
+
+```bash
+next build
+```
+
+No pre-build manifest step (Sanity manifest generation removed).
+
+---
+
+## Key Implementation Notes
+
+### Page titles (metadata)
+
+Every page exports `metadata` (static) or `generateMetadata` (dynamic). The root layout sets `title.template: "%s | CV Creator"` and `default: "CV Creator"`. Dynamic pages (`/cvs/[cvId]`, `/cvs/[cvId]/view`) run a lightweight `prisma.cV.findUnique` in `generateMetadata`; Next.js deduplicates it with the render query.
+
+### Scrollbar gutter
+
+`scrollbar-gutter: stable` on `:root` in `globals.css` prevents a ~15 px horizontal shift when navigating between short and long pages.
+
+### Prisma + Neon — global singleton
+
+```ts
+// lib/prisma.ts
+import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+function createPrisma() {
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+  return new PrismaClient({ adapter });
+}
+
+export const prisma = globalThis.__prisma ?? createPrisma();
+if (process.env.NODE_ENV !== "production") globalThis.__prisma = prisma;
+```
+
+### Better Auth — simple module-level export
+
+```ts
+// src/lib/auth.ts
+export const auth = betterAuth({
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  secret: process.env.BETTER_AUTH_SECRET!,
+  baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins: ["http://localhost:3000", "http://localhost:3001"],
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      // sends via Resend from noreply@mail.appfinningar.se
+    },
+  },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+  },
+  plugins: [admin()],
+});
+```
+
+- `trustedOrigins` — localhost ports whitelisted so local dev sign-in isn't blocked by Better Auth's CSRF origin check
+
+- Client-side helpers live in `src/lib/auth-client.ts` — only import from `"use client"` files
+- The catch-all route `src/app/api/auth/[...all]/route.ts` must set `export const dynamic = "force-dynamic"`
+
+### Navigation — `(main)` route group
+
+All main app pages live under `src/app/(main)/`. This group has its own `layout.tsx` that reads the session server-side and renders `<NavBar>`. The `(auth)/` group sits outside it and receives no nav bar.
+
+`NavBar` is a `"use client"` component. On desktop (`≥ sm`) all links are rendered inline. On mobile (`< sm`) a hamburger button opens a full-width drawer with the user name, nav links, and sign-out.
+
+### CV edit page — CvEditShell
+
+`CvEditShell` is a thin client wrapper around `CvSwitcher` + `CvEditor`. It holds `liveName` state (initialised from the current CV's name) and patches it into the `cvs` array passed to `CvSwitcher` whenever `CvEditor` reports a successful save via `onNameChange`. This keeps the dropdown label in sync without a page reload.
+
+### CV view page — responsive scaling
+
+`CvScaleWrapper` measures the container width via `ResizeObserver` and applies `transform: scale(s)` + `transformOrigin: top left` so the fixed-width `210mm` CV fits the viewport. On print (`print:transform-none`) scaling is removed and the browser renders at full A4 size.
+
+`ViewToolbar` uses a three-column grid (`grid-cols-[1fr_auto_1fr]`) so the CV name is always truly centred.
+
+### Migrations
+
+```bash
+# Apply in development
+npm run migrate:dev
+
+# Apply in production
+npm run migrate:deploy
+```
+
+Both scripts use `dotenv-cli` to load `DATABASE_URL` from `.env.local`.
+
+---
+
+## Environment Variables
+
+### `.env.local` (development)
+
+```
+DATABASE_URL=postgresql://...          # Neon connection string (pooled)
+DIRECT_URL=postgresql://...            # Neon direct connection (for migrations)
+BLOB_READ_WRITE_TOKEN=                 # Vercel Blob store token (public store)
+GEMINI_API_KEY=                        # Google AI Studio — free tier
+BETTER_AUTH_SECRET=                    # openssl rand -base64 32
+BETTER_AUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=                      # Google Cloud Console → OAuth 2.0 Client ID
+GOOGLE_CLIENT_SECRET=                  # Google Cloud Console → OAuth 2.0 Client Secret
+RESEND_API_KEY=                        # Resend dashboard → API Keys
+```
+
+### Vercel Dashboard — Production Environment Variables
+
+| Variable               | Source                                       |
+| ---------------------- | -------------------------------------------- |
+| `DATABASE_URL`         | Neon project → Connection string (pooled)    |
+| `DIRECT_URL`           | Neon project → Connection string (direct)    |
+| `BLOB_READ_WRITE_TOKEN`| Vercel Dashboard → Storage → Blob (public)   |
+| `BETTER_AUTH_SECRET`   | `openssl rand -base64 32`                    |
+| `BETTER_AUTH_URL`      | `https://cv-creator.appfinningar.se`         |
+| `GEMINI_API_KEY`       | aistudio.google.com (free)                   |
+| `GOOGLE_CLIENT_ID`     | Google Cloud Console → OAuth 2.0 credentials |
+| `GOOGLE_CLIENT_SECRET` | Google Cloud Console → OAuth 2.0 credentials |
+| `RESEND_API_KEY`       | Resend dashboard → API Keys                   |
+
+---
+
+## Implementation Phases
+
+- [x] Phase 0 — Decisions & architecture
+- [x] Phase 1 — Next.js scaffold + Vercel config
+- [x] Phase 2 — Prisma schema + Neon (PostgreSQL) migrations
+- [x] Phase 3 — Sanity.io init + Studio embed + Draft Mode *(later removed)*
+- [x] Phase 4 — Better Auth (email+password, admin plugin)
+- [x] Phase 5 — Vercel Blob storage helper + upload API
+- [x] Phase 6 — Sanity schemas + GROQ queries + pages *(later removed)*
+- [x] Phase 7 — Production deploy to Vercel
+- [x] Phase 8 — PDF CV import (Gemini + Sanity write) *(Sanity write later replaced with Prisma)*
+- [x] Phase 9 — Multi-user signups + multi-CV compositions (Neon CV table)
+- [x] Phase 10 — Navigation (`(main)` route group), CV layout system, A4 PDF export via browser print, colour theme applied to output
+- [x] Phase 11 — Multiple profiles per user, avatar selection per CV, profile creation flow
+- [x] Phase 12 — Hosted Sanity Studio, auto-userId via userMapping, Teal CV layout *(Sanity later removed)*
+- [x] Phase 13 — Colour themes (CvTheme table + editor), sidebar gradient utility, mobile-responsive nav (hamburger drawer), CvScaleWrapper, ViewToolbar
+- [x] Phase 14 — Rebrand to CV Creator; landing page; Logo SVG; account settings (delete account); dirty-state save button in CV editor
+- [x] Phase 15 — Terminal + Slate CV layouts (IT/dev-focused, theme-aware, with thumbnails)
+- [x] Phase 16 — Coding style standardisation across all 5 CV layout files
+- [x] Phase 17 — Google OAuth sign-in/sign-up; admin self-delete guard; Vercel project renamed `cv-creator`
+- [x] Phase 18 — `other` content type (certifications, awards, etc.); `otherIds` on CV; PDF importer fallback category
+- [x] Phase 19 — Studio user isolation *(Sanity later removed)*
+- [x] Phase 20 — **Sanity removed entirely.** All content (profile, experience, education, skill, project, other) migrated to Neon/Prisma. Content managed via `/content` tabbed library + `/api/content/*` CRUD routes. Account delete simplified to single `prisma.user.delete()` cascade. PDF importer writes to Prisma. `SyncAppUserId` is now a dead stub.
+- [x] Phase 21 — Avatar system: `avatar` Prisma model (userId unique, images TEXT[] of Vercel Blob URLs); `/api/avatars` GET/POST/PATCH; `AvatarsTab` in `/content`; Vercel Blob store must be **public**. `CvEditShell` keeps CvSwitcher in sync on save. `maxLength` caps on all CV editor text inputs.
+- [x] Phase 22 — Email verification (Resend); `requireEmailVerification: true` in Better Auth; domain `mail.appfinningar.se` verified in Resend (DKIM + SPF via Cloudflare DNS); `trustedOrigins` added for localhost dev. Domain DNS moved to Cloudflare; `cv-creator` CNAME updated to new Vercel target `f65758c71be4b67c.vercel-dns-017.com`.
+- [x] Phase 23 — CV duplication (`DuplicateCvButton` + `POST /api/cvs/[cvId]/duplicate`; copies all field selections, names result "Copy of …"); profile editing + deletion (`PATCH + DELETE /api/profiles/[id]`; full field update with ownership guard).
+
+---
+
+## Key Packages
+
+```json
+{
+  "next": "16.2.4",
+  "react": "19.2.4",
+  "prisma": "^7.7.0",
+  "@prisma/client": "^7.7.0",
+  "@prisma/adapter-pg": "^7.7.0",
+  "pg": "^8.20.0",
+  "@vercel/blob": "^2.3.1",
+  "better-auth": "^1.5.6",
+  "resend": "^6.12.0",
+  "ai": "^6.x",
+  "@ai-sdk/google": "^3.x",
+  "pdf-parse": "^2.x",
+  "@dnd-kit/core": "^6.x",
+  "@dnd-kit/sortable": "^10.x",
+  "@dnd-kit/utilities": "^3.2.2",
+  "dotenv-cli": "^11.x",
+  "@react-pdf/renderer": "^4.3.2",
+  "styled-components": "^6.3.12"
+}
+```
+
+> `@react-pdf/renderer` and `styled-components` are installed but not yet integrated — likely staged for a future programmatic PDF export path to replace or supplement `window.print()`.

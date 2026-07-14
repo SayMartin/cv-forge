@@ -1,0 +1,151 @@
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+import { admin } from "better-auth/plugins";
+import { prisma } from "@/lib/prisma";
+import { Resend } from "resend";
+
+export const auth = betterAuth({
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  secret: process.env.BETTER_AUTH_SECRET!,
+  baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins: ["http://localhost:3000", "http://localhost:3001"],
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: true,
+    sendResetPassword: async ({ user, url }: { user: { name: string; email: string }; url: string }) => {
+      if (!process.env.RESEND_API_KEY) {
+        console.error("[auth] RESEND_API_KEY is not set");
+        return;
+      }
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const { error } = await resend.emails.send({
+        from: "CV Creator <noreply@mail.appfinningar.se>",
+        to: user.email,
+        subject: "Reset your CV Creator password",
+        html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f0;font-family:Georgia,serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f0;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e5e0;">
+
+        <tr><td style="background:#2d5a27;padding:32px 40px;text-align:center;">
+          <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;letter-spacing:1px;">CV Creator</p>
+        </td></tr>
+
+        <tr><td style="padding:40px 40px 32px;">
+          <p style="margin:0 0 16px;font-size:18px;color:#1a1a1a;">Hi ${user.name},</p>
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#444;">
+            We received a request to reset the password for your CV Creator account. Click the button below to choose a new password.
+          </p>
+          <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#444;">
+            This link is valid for <strong>1 hour</strong>. If you did not request a password reset, you can safely ignore this email — your password will not change.
+          </p>
+
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto 32px;">
+            <tr><td style="background:#2d5a27;border-radius:8px;">
+              <a href="${url}" style="display:block;padding:14px 32px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
+                Reset my password
+              </a>
+            </td></tr>
+          </table>
+
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#888;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="${url}" style="color:#2d5a27;word-break:break-all;">${url}</a>
+          </p>
+        </td></tr>
+
+        <tr><td style="background:#f9f9f7;border-top:1px solid #e5e5e0;padding:20px 40px;">
+          <p style="margin:0;font-size:12px;color:#aaa;line-height:1.6;">
+            You received this because a password reset was requested for the CV Creator account associated with this address.
+            If that wasn't you, no action is needed.
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+      });
+      if (error) {
+        console.error("[auth] Resend error (reset password):", JSON.stringify(error));
+      }
+    },
+  },
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }: { user: { name: string; email: string }; url: string }) => {
+      if (!process.env.RESEND_API_KEY) {
+        console.error("[auth] RESEND_API_KEY is not set");
+        return;
+      }
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const { error } = await resend.emails.send({
+        from: "CV Creator <noreply@mail.appfinningar.se>",
+        to: user.email,
+        subject: "Welcome to CV Creator — please verify your email",
+        html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f0;font-family:Georgia,serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f0;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e5e0;">
+
+        <tr><td style="background:#2d5a27;padding:32px 40px;text-align:center;">
+          <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;letter-spacing:1px;">CV Creator</p>
+        </td></tr>
+
+        <tr><td style="padding:40px 40px 32px;">
+          <p style="margin:0 0 16px;font-size:18px;color:#1a1a1a;">Hi ${user.name},</p>
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#444;">
+            Welcome — we're glad you're here. You signed up for <strong>CV Creator</strong>, a tool for building clean, professional CVs that are ready to export.
+          </p>
+          <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#444;">
+            Before you can sign in, we need to confirm that this email address belongs to you. Click the button below to verify and activate your account.
+          </p>
+
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto 32px;">
+            <tr><td style="background:#2d5a27;border-radius:8px;">
+              <a href="${url}" style="display:block;padding:14px 32px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
+                Verify my email address
+              </a>
+            </td></tr>
+          </table>
+
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#888;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="${url}" style="color:#2d5a27;word-break:break-all;">${url}</a>
+          </p>
+        </td></tr>
+
+        <tr><td style="background:#f9f9f7;border-top:1px solid #e5e5e0;padding:20px 40px;">
+          <p style="margin:0;font-size:12px;color:#aaa;line-height:1.6;">
+            You received this email because someone signed up for CV Creator using this address.
+            If that wasn't you, you can safely ignore this email — no account will be activated without verification.
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+      });
+      if (error) {
+        console.error("[auth] Resend error:", JSON.stringify(error));
+      }
+    },
+  },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+  },
+  plugins: [admin()],
+});
+
+export type Auth = typeof auth;
