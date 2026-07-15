@@ -21,13 +21,13 @@ A multi-user CV creation app. Each user maintains a library of CV content (exper
 | Framework | Next.js 16 (App Router) + TypeScript                            |
 | Styling   | Tailwind CSS                                                     |
 | Database  | Self-hosted PostgreSQL via Prisma — all data                     |
-| Storage   | MinIO (self-hosted S3-compatible object storage)                 |
+| Storage   | Cloudflare R2 (S3-compatible object storage)                     |
 | Auth      | Better Auth (email + password + Google OAuth)                    |
 | Email     | Resend (`noreply@appfinningar.se`)                                |
 | AI        | Google Gemini 2.5 Flash                                          |
 | PDF       | Browser `window.print()`                                         |
 | Hosting   | Self-hosted (Docker + Docker Compose, `cv-forge.appfinningar.se`) |
-| Proxy     | Nginx Proxy Manager + Cloudflare Tunnel                           |
+| Proxy     | Cloudflare Tunnel (direct to host ports, no reverse proxy)        |
 
 For a full technical breakdown see [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -37,7 +37,7 @@ For a full technical breakdown see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 - Node.js 20+
 - A PostgreSQL database (any standard Postgres instance — self-hosted or managed)
-- An S3-compatible storage bucket (MinIO, self-hosted, or any S3-compatible provider)
+- An S3-compatible storage bucket (Cloudflare R2, or any other S3-compatible provider)
 - A [Google AI Studio](https://aistudio.google.com) API key (free tier)
 - A [Google Cloud Console](https://console.cloud.google.com/apis/credentials) OAuth 2.0 Client ID (for Google sign-in)
 - A [Resend](https://resend.com) account with a verified sending domain
@@ -58,7 +58,7 @@ Copy `.env.example` to `.env.local` and fill in the values:
 cp .env.example .env.local
 ```
 
-See `.env.example` for the full list of variables and comments on where each value comes from. For local development, point `DATABASE_URL` and `S3_*` at any Postgres and S3-compatible instance you have reachable (e.g. a local MinIO container run separately, or your self-hosted production instances).
+See `.env.example` for the full list of variables and comments on where each value comes from. For local development, point `DATABASE_URL` and `S3_*` at any Postgres and S3-compatible instance you have reachable (e.g. a separate dev database/bucket, or a local Postgres instance).
 
 For Google OAuth, register `http://localhost:3000` as an authorised origin and `http://localhost:3000/api/auth/callback/google` as a redirect URI in Google Cloud Console.
 
@@ -133,7 +133,7 @@ npm run prisma:generate  # regenerate Prisma client after schema changes
 
 ## Deployment (self-hosted, Docker + CI/CD)
 
-The app is self-hosted via Docker Compose. It runs alongside other services on the same server, reusing an existing PostgreSQL container for the database and a MinIO container (defined in `docker-compose.yml`) for file storage.
+The app is self-hosted via Docker Compose. It runs alongside other services on the same server, reusing an existing PostgreSQL container for the database. File storage is Cloudflare R2 (external, S3-compatible — not self-hosted).
 
 The image is **not built on the server**. GitHub Actions (`.github/workflows/build-and-push.yml`) builds the Docker image on every push to `main` and pushes it to GitHub Container Registry (`ghcr.io/saymartin/cv-forge`). A [Watchtower](https://containrrr.dev/watchtower/) container on the server polls the registry every 60 seconds and automatically pulls + restarts the app when a new image is published — no SSH access from CI into the server is needed, since the server only makes outbound requests.
 
@@ -154,8 +154,7 @@ Copy `.env.example` to `.env` on the server and fill in production values:
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — add `https://cv-forge.appfinningar.se` as an authorised origin and `https://cv-forge.appfinningar.se/api/auth/callback/google` as a redirect URI in Google Cloud Console
 - `RESEND_API_KEY` — from Resend dashboard; requires a verified sending domain with DKIM + SPF records in DNS
 - `EMAIL_FROM` — sender address, must be on the verified Resend domain
-- `S3_ENDPOINT` / `S3_PUBLIC_URL` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` — MinIO connection details (access key/secret should match `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` below)
-- `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` — credentials for the MinIO container itself
+- `S3_ENDPOINT` / `S3_PUBLIC_URL` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` — Cloudflare R2 connection details (R2 dashboard → bucket → Settings for the API endpoint and Custom Domain; R2 API Tokens for the access key/secret)
 
 ### 2. Create the database
 
@@ -172,7 +171,7 @@ docker exec -it <postgres-container-name> psql -U postgres -c \
 docker compose up -d
 ```
 
-This pulls the latest published image and starts the app, MinIO, Watchtower, and a one-off `minio-init` job that creates the storage bucket with public read access. Watchtower then keeps `app` up to date automatically on every subsequent push to `main` — no manual pull/restart needed after the first run.
+This pulls the latest published image and starts the app and Watchtower. Watchtower then keeps `app` up to date automatically on every subsequent push to `main` — no manual pull/restart needed after the first run.
 
 ### 4. Run migrations
 
@@ -186,8 +185,6 @@ docker run --rm --env-file .env --network cv-forge_default --network postgres_de
 
 Re-run this after any deploy that includes schema changes.
 
-Re-run this after any deploy that includes schema changes.
+### 5. Routing
 
-### 5. Reverse proxy
-
-Add a Public Hostname for `cv-forge.appfinningar.se` in the Cloudflare Zero Trust dashboard, and a matching Proxy Host in Nginx Proxy Manager pointing at the `app` container's published port (`3005` by default — see `docker-compose.yml`). Repeat for the MinIO public hostname (`S3_PUBLIC_URL`) pointing at MinIO's published API port (`9000`).
+`cv-forge.appfinningar.se` is published directly by Cloudflare Tunnel to the server's LAN IP on the `app` container's published port (`3005` by default — see `docker-compose.yml`), configured under **Cloudflare Zero Trust → Networks → Tunnels → [tunnel] → Published application routes**. There is no reverse proxy in front of it — Cloudflare terminates TLS at the edge. File storage (`S3_PUBLIC_URL`) is served directly by Cloudflare R2 via its Custom Domain feature, unrelated to the Tunnel.

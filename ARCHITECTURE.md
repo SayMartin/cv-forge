@@ -1,6 +1,6 @@
-# Architecture — CV Creator
+# Architecture — CV Forge
 
-> Multi-user CV creation app built on Next.js, Neon, Vercel, Vercel Blob, and Resend.
+> Multi-user CV creation app built on Next.js, self-hosted PostgreSQL, Docker, Cloudflare R2, and Resend.
 
 ---
 
@@ -10,11 +10,13 @@
 | --------- | ------------------------------------------- | ---------------------------------------------------------- |
 | Framework | Next.js (App Router) + TypeScript           | Frontend + API routes                                      |
 | Styling   | Tailwind CSS                                | UI                                                         |
-| Database  | Neon (PostgreSQL) via Prisma ORM            | All app data: users, sessions, CVs, themes, all content    |
-| Storage   | Vercel Blob (public store)                  | Avatar image uploads                                       |
+| Database  | Self-hosted PostgreSQL via Prisma ORM       | All app data: users, sessions, CVs, themes, all content    |
+| Storage   | Cloudflare R2 (S3-compatible)               | Avatar image uploads                                       |
 | Auth      | Better Auth — email + password + Google OAuth | Authentication + role-based access                       |
-| Email     | Resend (`noreply@mail.appfinningar.se`)      | Transactional email — email verification on sign-up        |
-| Hosting   | Vercel                                      | Deploy + CDN                                               |
+| Email     | Resend (`noreply@appfinningar.se`)           | Transactional email — email verification on sign-up        |
+| Hosting   | Self-hosted (Docker Compose on a home server, "smurfserver") | Deploy                                    |
+| CI/CD     | GitHub Actions (build + push to GHCR) + Watchtower (auto-pull on the server) | Build offloaded from the server; zero-touch deploy on push to `main` |
+| Routing   | Cloudflare Tunnel (direct to host ports)    | Public ingress + TLS termination, no reverse proxy          |
 | DNS       | Cloudflare                                  | DNS + CDN for `appfinningar.se`                            |
 | AI        | Google Gemini 2.5 Flash (via Vercel AI SDK) | PDF CV parsing + structured extraction                     |
 | PDF       | Browser `window.print()`                    | Client-side A4 PDF via print-to-PDF dialog                 |
@@ -25,25 +27,44 @@
 ## System Diagram
 
 ```
-┌──────────────────────┐     ┌─────────────┐     ┌────────────┐
-│  Next.js App         │────▶│   Vercel    │◀────│ Cloudflare │
-│  (Frontend + API)    │     │  (Hosting)  │     │   (DNS)    │
-└──────────┬───────────┘     └─────────────┘     └────────────┘
-           │
-    ┌──────┼──────────────┬──────────────┐
-    ▼             ▼              ▼              ▼
-┌──────────────┐  ┌──────────┐  ┌──────────────────┐  ┌────────┐
-│     Neon     │  │  Vercel  │  │  Google Gemini   │  │ Resend │
-│ (PostgreSQL) │  │   Blob   │  │  (PDF → Prisma)  │  │ (Email)│
-└──────────────┘  └──────────┘  └──────────────────┘  └────────┘
+                    ┌────────────┐
+                    │ Cloudflare │  DNS + Tunnel (TLS termination)
+                    └─────┬──────┘
+                          │ cv-forge.appfinningar.se → smurfserver:3005
+                          │ files.appfinningar.se → R2 Custom Domain
+                          ▼
+┌────────────────────────────────────────────┐
+│  smurfserver (Docker Compose)               │
+│  ┌────────────┐   ┌──────────────────────┐ │
+│  │  app        │──▶│  Postgres (existing,  │ │
+│  │  (Next.js)  │   │  shared container)    │ │
+│  └─────┬──────┘   └──────────────────────┘ │
+│        │           ┌──────────────────────┐ │
+│        │           │  Watchtower           │ │
+│        │           │  (polls GHCR, auto-   │ │
+│        │           │   updates `app`)      │ │
+│        │           └──────────────────────┘ │
+└────────┼─────────────────────────────────────┘
+         │
+    ┌────┼──────────────┬──────────────┐
+    ▼           ▼              ▼              ▼
+┌──────────┐  ┌────────────┐  ┌──────────────┐  ┌────────┐
+│ Cloudflare│  │  Google    │  │ GitHub       │  │ Resend │
+│    R2     │  │  Gemini    │  │ Actions/GHCR │  │ (Email)│
+│ (avatars) │  │ (PDF→Prisma)│  │ (CI/CD)      │  │        │
+└──────────┘  └────────────┘  └──────────────┘  └────────┘
 ```
 
 ### Data ownership
 
-Everything lives in **Neon** via Prisma. There is no external CMS.
+Everything lives in a **self-hosted PostgreSQL** instance via Prisma. There is no external CMS.
 
-- **Neon** — all data: users, sessions, CV compositions (`cv`), colour themes (`cv_theme`), profiles, avatars, experience, education, skills, projects, other entries
-- **Vercel Blob** — avatar image files (public URLs stored in the `avatar` Neon table). Store must be **public access**.
+- **PostgreSQL** (self-hosted, shared with other services on the same server, own database `cvforge`) — all data: users, sessions, CV compositions (`cv`), colour themes (`cv_theme`), profiles, avatars, experience, education, skills, projects, other entries
+- **Cloudflare R2** — avatar image files (public URLs stored in the `avatar` table). Bucket exposes a public Custom Domain (`files.appfinningar.se`).
+
+### Deployment model
+
+The app is **not built on the server**. GitHub Actions builds the Docker image on every push to `main` and pushes it to GitHub Container Registry (`ghcr.io/saymartin/cv-forge`). A Watchtower container on the server polls the registry (every 60s) and auto-pulls + restarts `app` when a new image appears — no inbound SSH access from CI is needed. Database migrations are a deliberate manual step (`docker run ... :migrator npx prisma migrate deploy`), not automated, to avoid migrations racing a deploy.
 
 ---
 
@@ -51,8 +72,8 @@ Everything lives in **Neon** via Prisma. There is no external CMS.
 
 - Provider: **[Better Auth](https://better-auth.com)** — stable, framework-agnostic auth library
 - Strategies: **email + password** and **Google OAuth** (`socialProviders.google`), both via the Better Auth core; `admin()` plugin adds role management
-- **Email verification required** — on sign-up, Better Auth sends a verification link via Resend from `noreply@mail.appfinningar.se`; the account is inactive until the link is clicked
-- Session storage: Neon (PostgreSQL) via `better-auth/adapters/prisma`
+- **Email verification required** — on sign-up, Better Auth sends a verification link via Resend from `noreply@appfinningar.se`; the account is inactive until the link is clicked
+- Session storage: self-hosted PostgreSQL via `better-auth/adapters/prisma`
 - Cookie name: `better-auth.session_token`
 - Sign-up at `/sign-up` (open registration) — email+password form or "Continue with Google" button; new accounts receive `role: "user"` automatically
 - Google OAuth redirect URI: `{BETTER_AUTH_URL}/api/auth/callback/google` — must be registered in Google Cloud Console
@@ -84,7 +105,7 @@ cv-cms/
 │   │   │       └── page.tsx                        ← Google button + email + password + confirm; instant account creation
 │   │   ├── (main)/                                  ← route group with shared nav layout
 │   │   │   ├── layout.tsx                           ← reads session; renders BotanicalBackground + NavBar; footer with support email
-│   │   │   ├── NavBar.tsx                           ← client nav; logo + "CV Creator" wordmark; desktop inline / mobile hamburger
+│   │   │   ├── NavBar.tsx                           ← client nav; logo + "CV Forge" wordmark; desktop inline / mobile hamburger
 │   │   │   ├── SignOutButton.tsx                    ← client sign-out; variant="nav"|"page"
 │   │   │   ├── SyncAppUserId.tsx                    ← legacy stub; was used for Sanity Studio localStorage bridge; inert
 │   │   │   ├── page.tsx                             ← landing page: hero + how-it-works (4 steps) + CTA (visitors only)
@@ -127,21 +148,21 @@ cv-cms/
 │   │   └── api/
 │   │       ├── auth/[...all]/route.ts               ← Better Auth catch-all handler
 │   │       ├── cv-import/route.ts                   ← PDF → Gemini → Prisma write (all content types)
-│   │       ├── profiles/route.ts                    ← POST: create Profile in Neon
+│   │       ├── profiles/route.ts                    ← POST: create Profile
 │   │       ├── profiles/[id]/route.ts               ← PATCH + DELETE profile by id
 │   │       ├── cvs/route.ts                         ← GET (list) + POST (create) CVs
 │   │       ├── cvs/[cvId]/route.ts                  ← GET + PATCH + DELETE CV
 │   │       ├── cvs/[cvId]/duplicate/route.ts        ← POST: copy CV with all selections intact; name prefixed "Copy of …"
 │   │       ├── themes/route.ts                      ← GET (list) + POST (create) CvThemes
 │   │       ├── themes/[themeId]/route.ts             ← PATCH + DELETE CvTheme
-│   │       ├── avatars/route.ts                     ← GET (list) + POST (upload to Vercel Blob + save URL to Neon) + PATCH (remove one image)
+│   │       ├── avatars/route.ts                     ← GET (list) + POST (upload to R2 + save URL to Postgres) + PATCH (remove one image)
 │   │       ├── content/
 │   │       │   ├── experience/route.ts + [id]/route.ts
 │   │       │   ├── education/route.ts + [id]/route.ts
 │   │       │   ├── skills/route.ts + [id]/route.ts
 │   │       │   ├── projects/route.ts + [id]/route.ts
 │   │       │   └── other/route.ts + [id]/route.ts
-│   │       ├── upload/route.ts                      ← general-purpose Vercel Blob upload (PUT ?key=…); auth-gated; JPEG/PNG/WebP/GIF/SVG/PDF
+│   │       ├── upload/route.ts                      ← general-purpose R2 upload (PUT ?key=…); auth-gated; JPEG/PNG/WebP/GIF/SVG/PDF
 │   │       └── user/route.ts                        ← DELETE: prisma.user.delete() → cascades all content
 │   ├── components/
 │   │   ├── Logo.tsx                                 ← inline SVG logo (page + leaf motif); uses currentColor; matches app icon
@@ -169,7 +190,7 @@ cv-cms/
 │       ├── cv-layouts.ts                            ← CV_LAYOUTS registry + getLayoutMeta()
 │       ├── cv-theme.ts                              ← CvTheme type { id, name, sidebarColor, accentColor }
 │       ├── prisma.ts                                ← global Prisma singleton (PrismaPg adapter)
-│       └── r2.ts                                   ← Vercel Blob wrappers: blobPut, blobHead, blobDelete
+│       └── r2.ts                                   ← S3-compatible client (Cloudflare R2, via @aws-sdk/client-s3): blobPut, blobDelete
 ├── prisma/
 │   ├── schema.prisma
 │   └── migrations/
@@ -180,7 +201,7 @@ cv-cms/
 
 ## Profiles
 
-Each user can have **multiple profiles** in Neon (e.g. "Frontend Developer", "Senior Engineer"). Profiles are distinguished by the required `profileName` field and are selected per-CV via a radio button in the CV editor.
+Each user can have **multiple profiles** (e.g. "Frontend Developer", "Senior Engineer"). Profiles are distinguished by the required `profileName` field and are selected per-CV via a radio button in the CV editor.
 
 **Profile Prisma model fields:**
 
@@ -194,7 +215,7 @@ Profiles are created via `POST /api/profiles` or managed directly in the `/conte
 
 ### Avatars
 
-Avatars are stored in **Neon** (one `avatar` row per user) with image files in **Vercel Blob** (public store). They are decoupled from profiles — the same avatar library applies to all profiles, and layouts may render an avatar at any position (or not at all).
+Avatars are stored in **Postgres** (one `avatar` row per user) with image files in **Cloudflare R2** (public bucket, via a Custom Domain). They are decoupled from profiles — the same avatar library applies to all profiles, and layouts may render an avatar at any position (or not at all).
 
 **`avatar` Prisma model fields:**
 
@@ -202,25 +223,25 @@ Avatars are stored in **Neon** (one `avatar` row per user) with image files in *
 | ----------- | --------------- | ---------------------------------------- |
 | `id`        | `TEXT` (cuid)   | Primary key                              |
 | `userId`    | `TEXT` (unique) | FK → `user.id`, CASCADE delete           |
-| `images`    | `TEXT[]`        | Up to 5 Vercel Blob public URLs          |
+| `images`    | `TEXT[]`        | Up to 5 R2 public URLs                   |
 | `createdAt` | `TIMESTAMP`     |                                          |
 | `updatedAt` | `TIMESTAMP`     |                                          |
 
 Upload constraints: max 5 images, 5 MB each, JPEG / PNG / WebP only. Managed via `GET/POST/PATCH /api/avatars`.
 
-The CV editor (`/content` → Avatars tab) shows the user's avatar images as clickable thumbnails. The selected index (`avatarIndex`) is stored on the `cv` record in Neon. The view page resolves the index to a URL by fetching the `avatar` row and indexing into `images[]`, then passes it as `CvContent.avatarUrl` — layouts always receive a plain `string | null`, never the index.
+The CV editor (`/content` → Avatars tab) shows the user's avatar images as clickable thumbnails. The selected index (`avatarIndex`) is stored on the `cv` record. The view page resolves the index to a URL by fetching the `avatar` row and indexing into `images[]`, then passes it as `CvContent.avatarUrl` — layouts always receive a plain `string | null`, never the index.
 
-> **Vercel Blob store must be configured as public access.** The `put()` call uses `access: "public"` — a private store will throw `"Cannot use public access on a private store"` at upload time.
+> **The R2 bucket must have public access enabled** (via a Custom Domain, `files.appfinningar.se`) and `next.config.ts`'s `images.remotePatterns` must include that hostname — this is derived at **Docker build time** from the `S3_PUBLIC_URL` build argument, not read at runtime, so the build must be given that value (see `.github/workflows/build-and-push.yml`).
 
 ---
 
 ## Multi-user & CV Compositions
 
-### All content in Neon
+### All content in Postgres
 
 Every content model (`Profile`, `Experience`, `Education`, `Skill`, `Project`, `Other`, `Avatar`) has a `userId` FK → `user.id` with `onDelete: Cascade`. Querying is simple Prisma `findMany({ where: { userId } })` — no GROQ, no external CMS.
 
-### CV compositions (Neon — `cv` table)
+### CV compositions (`cv` table)
 
 A **CV** is a named, versioned selection of the user's content entries plus a chosen layout and avatar.
 
@@ -244,7 +265,7 @@ A **CV** is a named, versioned selection of the user's content entries plus a ch
 
 ### Avatar resolution
 
-The view page fetches the user's `avatar` row from Neon via `prisma.avatar.findUnique({ where: { userId } })`. It resolves `avatarIndex` to a Vercel Blob URL:
+The view page fetches the user's `avatar` row via `prisma.avatar.findUnique({ where: { userId } })`. It resolves `avatarIndex` to an R2 URL:
 
 ```ts
 const avatarUrl =
@@ -257,7 +278,7 @@ const content: CvContent = { profile, avatarUrl, experiences, ... };
 
 Layouts receive `content.avatarUrl: string | null` — a plain URL or `null`. They never see the index or the avatar row.
 
-### Color themes (Neon — `cv_theme` table)
+### Color themes (`cv_theme` table)
 
 A **CvTheme** is a named, user-owned set of two colors that can be applied to any of the user's CVs.
 
@@ -354,7 +375,7 @@ Any authenticated user can import a PDF CV at `/import`.
 2. `POST /api/cv-import`:
    - Parses PDF to plain text via `pdf-parse`
    - Sends text to Google Gemini 2.5 Flash via Vercel AI SDK with a structured extraction prompt + Zod schema
-   - Writes all extracted documents to Neon via Prisma, tagging each with `userId`
+   - Writes all extracted documents to Postgres via Prisma, tagging each with `userId`
 
 **Prisma models created/updated:** `Profile` (upsert on fixed id `profile-{userId}`), `Experience`, `Education`, `Skill`, `Project`, `Other` (always created as new rows). Uses `other` as fallback category for ambiguous entries (certifications, awards, publications, etc.).
 
@@ -376,13 +397,13 @@ No pre-build manifest step (Sanity manifest generation removed).
 
 ### Page titles (metadata)
 
-Every page exports `metadata` (static) or `generateMetadata` (dynamic). The root layout sets `title.template: "%s | CV Creator"` and `default: "CV Creator"`. Dynamic pages (`/cvs/[cvId]`, `/cvs/[cvId]/view`) run a lightweight `prisma.cV.findUnique` in `generateMetadata`; Next.js deduplicates it with the render query.
+Every page exports `metadata` (static) or `generateMetadata` (dynamic). The root layout sets `title.template: "%s | CV Forge"` and `default: "CV Forge"`. Dynamic pages (`/cvs/[cvId]`, `/cvs/[cvId]/view`) run a lightweight `prisma.cV.findUnique` in `generateMetadata`; Next.js deduplicates it with the render query.
 
 ### Scrollbar gutter
 
 `scrollbar-gutter: stable` on `:root` in `globals.css` prevents a ~15 px horizontal shift when navigating between short and long pages.
 
-### Prisma + Neon — global singleton
+### Prisma — global singleton
 
 ```ts
 // lib/prisma.ts
@@ -406,12 +427,16 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   secret: process.env.BETTER_AUTH_SECRET!,
   baseURL: process.env.BETTER_AUTH_URL,
-  trustedOrigins: ["http://localhost:3000", "http://localhost:3001"],
+  trustedOrigins: [
+    process.env.BETTER_AUTH_URL,
+    "http://localhost:3000",
+    "http://localhost:3001",
+  ].filter((origin): origin is string => Boolean(origin)),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      // sends via Resend from noreply@mail.appfinningar.se
+      // sends via Resend from EMAIL_FROM (default: noreply@appfinningar.se)
     },
   },
   socialProviders: {
@@ -424,7 +449,7 @@ export const auth = betterAuth({
 });
 ```
 
-- `trustedOrigins` — localhost ports whitelisted so local dev sign-in isn't blocked by Better Auth's CSRF origin check
+- `trustedOrigins` — the production `BETTER_AUTH_URL` plus localhost ports, so both deployed sign-in and local dev sign-in pass Better Auth's CSRF origin check
 
 - Client-side helpers live in `src/lib/auth-client.ts` — only import from `"use client"` files
 - The catch-all route `src/app/api/auth/[...all]/route.ts` must set `export const dynamic = "force-dynamic"`
@@ -450,44 +475,53 @@ All main app pages live under `src/app/(main)/`. This group has its own `layout.
 ```bash
 # Apply in development
 npm run migrate:dev
-
-# Apply in production
-npm run migrate:deploy
 ```
 
-Both scripts use `dotenv-cli` to load `DATABASE_URL` from `.env.local`.
+`migrate:dev` uses `dotenv-cli` to load `DATABASE_URL` from `.env.local`. In production, migrations are **not** run via the `migrate:deploy` npm script (which also assumes `.env.local`, absent in containers) — instead they're run from the separate `:migrator` Docker image (see `README.md` → Deployment → step 4), which has a full `node_modules` including the Prisma CLI, unlike the minimal `app` runtime image.
 
 ---
 
 ## Environment Variables
 
+See `.env.example` for the authoritative, commented list. Summary:
+
 ### `.env.local` (development)
 
 ```
-DATABASE_URL=postgresql://...          # Neon connection string (pooled)
-DIRECT_URL=postgresql://...            # Neon direct connection (for migrations)
-BLOB_READ_WRITE_TOKEN=                 # Vercel Blob store token (public store)
+DATABASE_URL=postgresql://...          # any reachable Postgres instance
+DIRECT_URL=postgresql://...            # same, used by the Prisma CLI for migrations
 GEMINI_API_KEY=                        # Google AI Studio — free tier
 BETTER_AUTH_SECRET=                    # openssl rand -base64 32
 BETTER_AUTH_URL=http://localhost:3000
 GOOGLE_CLIENT_ID=                      # Google Cloud Console → OAuth 2.0 Client ID
 GOOGLE_CLIENT_SECRET=                  # Google Cloud Console → OAuth 2.0 Client Secret
 RESEND_API_KEY=                        # Resend dashboard → API Keys
+EMAIL_FROM=CV Forge <noreply@appfinningar.se>
+S3_ENDPOINT=                           # R2 S3 API endpoint (R2 dashboard → bucket → Settings)
+S3_PUBLIC_URL=                         # R2 bucket's public Custom Domain
+S3_BUCKET=
+S3_ACCESS_KEY_ID=                      # R2 API Token
+S3_SECRET_ACCESS_KEY=                  # R2 API Token
 ```
 
-### Vercel Dashboard — Production Environment Variables
+### Production (server `.env`, consumed by `docker-compose.yml`)
 
-| Variable               | Source                                       |
-| ---------------------- | -------------------------------------------- |
-| `DATABASE_URL`         | Neon project → Connection string (pooled)    |
-| `DIRECT_URL`           | Neon project → Connection string (direct)    |
-| `BLOB_READ_WRITE_TOKEN`| Vercel Dashboard → Storage → Blob (public)   |
-| `BETTER_AUTH_SECRET`   | `openssl rand -base64 32`                    |
-| `BETTER_AUTH_URL`      | `https://cv-creator.appfinningar.se`         |
-| `GEMINI_API_KEY`       | aistudio.google.com (free)                   |
-| `GOOGLE_CLIENT_ID`     | Google Cloud Console → OAuth 2.0 credentials |
-| `GOOGLE_CLIENT_SECRET` | Google Cloud Console → OAuth 2.0 credentials |
-| `RESEND_API_KEY`       | Resend dashboard → API Keys                   |
+| Variable               | Source                                                     |
+| ---------------------- | ----------------------------------------------------------- |
+| `DATABASE_URL`         | Existing self-hosted Postgres container → dedicated `cvforge` database/user |
+| `DIRECT_URL`           | Same as `DATABASE_URL` (no separate pooler in this setup)   |
+| `BETTER_AUTH_SECRET`   | `openssl rand -base64 32`                                    |
+| `BETTER_AUTH_URL`      | `https://cv-forge.appfinningar.se`                            |
+| `GEMINI_API_KEY`       | aistudio.google.com (free)                                   |
+| `GOOGLE_CLIENT_ID`     | Google Cloud Console → OAuth 2.0 credentials                 |
+| `GOOGLE_CLIENT_SECRET` | Google Cloud Console → OAuth 2.0 credentials                 |
+| `RESEND_API_KEY`       | Resend dashboard → API Keys (must have "Full access" or be scoped to a **verified** domain — a key tied to an unverified domain fails with a 400 at send time) |
+| `EMAIL_FROM`           | Must be on a Resend-verified domain (SPF/DKIM added in Cloudflare DNS) |
+| `S3_ENDPOINT`          | R2 dashboard → bucket → Settings → S3 API                    |
+| `S3_PUBLIC_URL`        | R2 bucket → Settings → Custom Domain (`files.appfinningar.se`) |
+| `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | R2 API Token (Object Read & Write, scoped to the bucket) |
+
+**Important:** `S3_PUBLIC_URL` is also needed at **Docker build time** (not just runtime) — `next.config.ts` derives `images.remotePatterns` from it during `next build`, and that config is baked into the built image. It's passed as a `--build-arg` in `.github/workflows/build-and-push.yml`, hardcoded to the production value. If this argument is missing, avatar images silently fall back to a placeholder (Next.js Image blocks the unrecognised hostname) even though upload succeeds.
 
 ---
 
@@ -517,6 +551,14 @@ RESEND_API_KEY=                        # Resend dashboard → API Keys
 - [x] Phase 21 — Avatar system: `avatar` Prisma model (userId unique, images TEXT[] of Vercel Blob URLs); `/api/avatars` GET/POST/PATCH; `AvatarsTab` in `/content`; Vercel Blob store must be **public**. `CvEditShell` keeps CvSwitcher in sync on save. `maxLength` caps on all CV editor text inputs.
 - [x] Phase 22 — Email verification (Resend); `requireEmailVerification: true` in Better Auth; domain `mail.appfinningar.se` verified in Resend (DKIM + SPF via Cloudflare DNS); `trustedOrigins` added for localhost dev. Domain DNS moved to Cloudflare; `cv-creator` CNAME updated to new Vercel target `f65758c71be4b67c.vercel-dns-017.com`.
 - [x] Phase 23 — CV duplication (`DuplicateCvButton` + `POST /api/cvs/[cvId]/duplicate`; copies all field selections, names result "Copy of …"); profile editing + deletion (`PATCH + DELETE /api/profiles/[id]`; full field update with ownership guard).
+- [x] Phase 24 — **Fork to `cv-forge`; self-hosting migration begins.** Rebrand from "CV Creator" to "CV Forge" across UI and email templates.
+- [x] Phase 25 — Dockerization: multi-stage `Dockerfile` (`deps` → `builder` → `runner`), `output: "standalone"` in `next.config.ts`, `.dockerignore`. Runtime image intentionally excludes the Prisma CLI (only the generated client, already bundled by Next's standalone tracing) — migrations run from the separate `builder`-stage image instead.
+- [x] Phase 26 — Storage migrated from `@vercel/blob` to a generic S3-compatible client (`@aws-sdk/client-s3`) in `src/lib/r2.ts`; `next.config.ts`'s `images.remotePatterns` now derived from `S3_PUBLIC_URL` at build time instead of a hardcoded (and previously incorrect) hostname.
+- [x] Phase 27 — CI/CD: GitHub Actions builds and pushes the image to GHCR (`ghcr.io/saymartin/cv-forge`) on every push to `main`; Watchtower on the server polls and auto-updates (no inbound SSH needed from CI). A second `:migrator` tag publishes the `builder` stage for running migrations manually.
+- [x] Phase 28 — Hosting moved off Vercel to Docker Compose on a home server ("smurfserver"), alongside existing NextCloud/Postgres/Nginx Proxy Manager services. Database migrated from Neon to a dedicated database (`cvforge`) in the server's existing self-hosted Postgres container (`pg_dump`/`psql` data-only migration, schema already aligned via Prisma migrations on both sides).
+- [x] Phase 29 — Ingress: Cloudflare Tunnel routes `cv-forge.appfinningar.se` directly to the app's host port — no reverse proxy in front (Nginx Proxy Manager, present on the server, is unused for this app). TLS terminated by Cloudflare at the edge.
+- [x] Phase 30 — File storage moved from a self-hosted MinIO container to Cloudflare R2 (external, S3-compatible), connected via R2's Custom Domain feature (`files.appfinningar.se`). Resend re-verified against the `appfinningar.se` root domain (the previous `mail.appfinningar.se` domain had failed verification) and a new, correctly-scoped API key issued.
+- [x] Phase 31 — Old Vercel project and Neon database decommissioned after end-to-end verification of the self-hosted deployment (login, CV/profile/avatar data, avatar upload, password reset email). A `pg_dump` backup of the migrated database was taken before deletion.
 
 ---
 
@@ -530,7 +572,7 @@ RESEND_API_KEY=                        # Resend dashboard → API Keys
   "@prisma/client": "^7.7.0",
   "@prisma/adapter-pg": "^7.7.0",
   "pg": "^8.20.0",
-  "@vercel/blob": "^2.3.1",
+  "@aws-sdk/client-s3": "^3.1086.0",
   "better-auth": "^1.5.6",
   "resend": "^6.12.0",
   "ai": "^6.x",
