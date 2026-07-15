@@ -9,42 +9,8 @@ services:
     networks:
       - default
       - postgres_default # reach the existing Postgres container by its service name
-    depends_on:
-      - minio
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
-
-  minio:
-    image: minio/minio:latest
-    container_name: cv-forge-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - "9000:9000" # S3 API — proxy via NPM for public image URLs
-      - "9001:9001" # Web console — keep behind firewall or also proxy via NPM
-    volumes:
-      - minio-data:/data
-    networks:
-      - default
-
-  minio-init:
-    image: minio/mc:latest
-    container_name: cv-forge-minio-init
-    depends_on:
-      - minio
-    restart: "no"
-    entrypoint: >
-      /bin/sh -c "
-      until mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do sleep 1; done;
-      mc mb --ignore-existing local/$$S3_BUCKET;
-      mc anonymous set download local/$$S3_BUCKET;
-      "
-    env_file: .env
-    networks:
-      - default
 
   watchtower:
     image: ghcr.io/nicholas-fedor/watchtower:latest
@@ -61,6 +27,3 @@ networks:
   default:
   postgres_default:
     external: true
-
-volumes:
-  minio-data:
