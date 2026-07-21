@@ -46,7 +46,7 @@ function SidebarDivider() {
 }
 
 function ContactItem({ prefix, text, isLink }: { prefix: string; text: string; isLink?: boolean }) {
-  const cls = "font-mono text-[10px] break-all leading-snug";
+  const cls = "font-mono text-[10px] wrap-break-word leading-snug";
   return (
     <div className="flex items-start gap-2">
       <span className="font-mono text-[10px] shrink-0 w-4" style={{ color: TEXT_MUTED }}>{prefix}</span>
