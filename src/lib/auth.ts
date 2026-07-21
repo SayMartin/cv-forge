@@ -82,10 +82,11 @@ export const auth = betterAuth({
     },
   },
   emailVerification: {
+    sendOnSignUp: false,
     sendVerificationEmail: async ({ user, url }: { user: { name: string; email: string }; url: string }) => {
       if (!process.env.RESEND_API_KEY) {
         console.error("[auth] RESEND_API_KEY is not set");
-        return;
+        throw new Error("Email service is not configured");
       }
       const resend = new Resend(process.env.RESEND_API_KEY);
       const { error } = await resend.emails.send({
@@ -142,6 +143,7 @@ export const auth = betterAuth({
       });
       if (error) {
         console.error("[auth] Resend error:", JSON.stringify(error));
+        throw new Error("Failed to send verification email");
       }
     },
   },

@@ -34,9 +34,23 @@ export default function SignUpPage() {
     if (error) {
       setError(error.message ?? "Sign up failed");
       setPending(false);
-    } else {
-      setEmailSent(true);
+      return;
     }
+
+    const { error: verificationError } = await authClient.sendVerificationEmail({
+      email,
+      callbackURL: "/sign-in?verified=true",
+    });
+
+    if (verificationError) {
+      setError(
+        "Your account was created, but we couldn't send the verification email. Please try again from the sign in page."
+      );
+      setPending(false);
+      return;
+    }
+
+    setEmailSent(true);
   }
 
   if (emailSent) {
