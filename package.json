@@ -10,7 +10,10 @@
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "migrate:dev": "dotenv -e .env.local -- prisma migrate dev",
-    "migrate:deploy": "dotenv -e .env.local -- prisma migrate deploy"
+    "migrate:deploy": "dotenv -e .env.local -- prisma migrate deploy",
+    "docker:build": "docker build --build-arg S3_PUBLIC_URL=https://files.appfinningar.se -t ghcr.io/saymartin/cv-forge:latest .",
+    "docker:build:migrator": "docker build --build-arg S3_PUBLIC_URL=https://files.appfinningar.se --target builder -t ghcr.io/saymartin/cv-forge:migrator .",
+    "docker:push": "docker push ghcr.io/saymartin/cv-forge:latest && docker push ghcr.io/saymartin/cv-forge:migrator"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",
