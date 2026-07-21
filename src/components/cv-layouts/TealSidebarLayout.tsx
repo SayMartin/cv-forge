@@ -213,7 +213,7 @@ export function TealSidebarLayout({
                 {profile?.social?.linkedin && (
                   <li className="flex items-center gap-2">
                     <span>🔗</span>
-                    <span className="wrap-break-word">{profile.social.linkedin.replace(/^https?:\/\/(www\.)?/, "")}</span>
+                    <span className="min-w-0 flex-1 wrap-break-word">{profile.social.linkedin.replace(/^https?:\/\/(www\.)?/, "")}</span>
                   </li>
                 )}
               </ul>

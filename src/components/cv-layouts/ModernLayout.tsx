@@ -75,13 +75,13 @@ function ContactRow({
       {isLink ? (
         <a
           href={text}
-          className="wrap-break-word transition-colors"
+          className="min-w-0 flex-1 wrap-break-word transition-colors"
           style={{ color: colors.sidebarText }}
         >
           {text}
         </a>
       ) : (
-        <span className="wrap-break-word" style={{ color: colors.sidebarText }}>
+        <span className="min-w-0 flex-1 wrap-break-word" style={{ color: colors.sidebarText }}>
           {text}
         </span>
       )}
