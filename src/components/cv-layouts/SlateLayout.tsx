@@ -72,9 +72,9 @@ function ContactRow({
         {icon}
       </span>
       {isLink ? (
-        <a href={text} className="text-[10px] truncate" style={textStyle}>{text}</a>
+        <a href={text} className="text-[10px] wrap-break-word" style={textStyle}>{text}</a>
       ) : (
-        <span className="text-[10px] truncate" style={textStyle}>{text}</span>
+        <span className="text-[10px] wrap-break-word" style={textStyle}>{text}</span>
       )}
     </li>
   );
