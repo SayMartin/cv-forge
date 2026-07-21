@@ -66,13 +66,15 @@ Everything lives in a **self-hosted PostgreSQL** instance via Prisma. There is n
 
 The app is **not built on the server**. GitHub Actions builds the Docker image on every push to `main` and pushes it to GitHub Container Registry (`ghcr.io/saymartin/cv-forge`). A Watchtower container on the server polls the registry (every 60s) and auto-pulls + restarts `app` when a new image appears — no inbound SSH access from CI is needed. Database migrations are a deliberate manual step (`docker run ... :migrator npx prisma migrate deploy`), not automated, to avoid migrations racing a deploy.
 
+The same build/push steps can also be run manually from a dev machine via `npm run docker:build`, `docker:build:migrator`, and `docker:push` (see `package.json`) — the GitHub Actions workflow is a convenience automation of these same commands, not the only path to a deployable image.
+
 ---
 
 ## Authentication & Roles
 
 - Provider: **[Better Auth](https://better-auth.com)** — stable, framework-agnostic auth library
 - Strategies: **email + password** and **Google OAuth** (`socialProviders.google`), both via the Better Auth core; `admin()` plugin adds role management
-- **Email verification required** — on sign-up, Better Auth sends a verification link via Resend from `noreply@appfinningar.se`; the account is inactive until the link is clicked
+- **Email verification required** — the account is inactive until the link is clicked. Better Auth's own auto-send on sign-up is disabled (`emailVerification.sendOnSignUp: false`) because it swallows send failures; instead, `sign-up/page.tsx` explicitly calls `authClient.sendVerificationEmail(...)` right after account creation and surfaces a real error to the user if Resend fails (invalid recipient, misconfigured API key, etc.) instead of always showing a false "check your email" success state
 - Session storage: self-hosted PostgreSQL via `better-auth/adapters/prisma`
 - Cookie name: `better-auth.session_token`
 - Sign-up at `/sign-up` (open registration) — email+password form or "Continue with Google" button; new accounts receive `role: "user"` automatically
@@ -435,8 +437,12 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
+  },
+  emailVerification: {
+    sendOnSignUp: false, // auto-send on signup is swallowed by Better Auth; sent explicitly from the client instead
     sendVerificationEmail: async ({ user, url }) => {
       // sends via Resend from EMAIL_FROM (default: noreply@appfinningar.se)
+      // throws on failure (missing key / Resend error) so callers can surface it
     },
   },
   socialProviders: {
@@ -449,6 +455,7 @@ export const auth = betterAuth({
 });
 ```
 
+- **Why `sendOnSignUp: false`** — Better Auth's built-in auto-send during `signUp.email` runs through `runInBackgroundOrAwait`, which always catches and only logs errors, so a thrown error there never reaches the client. The dedicated `POST /api/auth/send-verification-email` endpoint (exposed as `authClient.sendVerificationEmail`) does *not* swallow errors — it rethrows them to the caller. Calling that endpoint explicitly from `sign-up/page.tsx` after account creation is what lets the frontend show a real failure message instead of a false success screen.
 - `trustedOrigins` — the production `BETTER_AUTH_URL` plus localhost ports, so both deployed sign-in and local dev sign-in pass Better Auth's CSRF origin check
 
 - Client-side helpers live in `src/lib/auth-client.ts` — only import from `"use client"` files
@@ -559,6 +566,7 @@ S3_SECRET_ACCESS_KEY=                  # R2 API Token
 - [x] Phase 29 — Ingress: Cloudflare Tunnel routes `cv-forge.appfinningar.se` directly to the app's host port — no reverse proxy in front (Nginx Proxy Manager, present on the server, is unused for this app). TLS terminated by Cloudflare at the edge.
 - [x] Phase 30 — File storage moved from a self-hosted MinIO container to Cloudflare R2 (external, S3-compatible), connected via R2's Custom Domain feature (`files.appfinningar.se`). Resend re-verified against the `appfinningar.se` root domain (the previous `mail.appfinningar.se` domain had failed verification) and a new, correctly-scoped API key issued.
 - [x] Phase 31 — Old Vercel project and Neon database decommissioned after end-to-end verification of the self-hosted deployment (login, CV/profile/avatar data, avatar upload, password reset email). A `pg_dump` backup of the migrated database was taken before deletion.
+- [x] Phase 32 — Fixed silently-failing verification emails: `emailVerification.sendOnSignUp: false` + explicit `authClient.sendVerificationEmail(...)` call from `sign-up/page.tsx`, so a Resend failure (bad recipient, misconfigured key) surfaces a real error instead of the sign-up form always claiming success. LinkedIn contact links in `TealSidebarLayout` and `TerminalLayout` changed from `break-all` to `wrap-break-word` so the URL only wraps when unavoidable, never mid-character, keeping it readable and clickable in the exported PDF.
 
 ---
 
