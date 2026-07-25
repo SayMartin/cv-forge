@@ -30,6 +30,9 @@ export type Profile = {
   email?: string;
   phone?: string;
   location?: string;
+  nationality?: string;
+  dateOfBirth?: string;
+  drivingLicense?: string;
   social?: { linkedin?: string; github?: string; website?: string; portfolio?: string };
 };
 
@@ -60,6 +63,7 @@ export type Skill = {
   name: string;
   category?: string;
   level?: number;
+  cefrLevel?: string;
   order?: number;
 };
 

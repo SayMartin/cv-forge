@@ -39,6 +39,11 @@ export const CV_LAYOUTS: CvLayoutMeta[] = [
     name: "Terminal",
     description: "Dark GitHub-style layout with monospace type and code-tag skills. Built for developers.",
   },
+  {
+    id: "europass",
+    name: "Europass",
+    description: "EU-standardised CV structure with personal details, CEFR language table, and dated timeline sections.",
+  },
   // Placeholder slots — components to be built in future steps:
   // { id: "minimal",  name: "Minimal",  description: "Pure white, generous whitespace, no decorations." },
   // { id: "compact",  name: "Compact",  description: "Dense layout optimised for one page." },

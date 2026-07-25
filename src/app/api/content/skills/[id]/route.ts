@@ -21,6 +21,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.name !== undefined) data.name = String(body.name).trim();
   if (body.category !== undefined) data.category = body.category || null;
   if (body.level !== undefined) data.level = body.level ? Number(body.level) : null;
+  if (body.cefrLevel !== undefined) data.cefrLevel = body.cefrLevel || null;
   if (body.order !== undefined) data.order = body.order !== "" ? Number(body.order) : 0;
 
   const updated = await prisma.skill.update({ where: { id }, data });

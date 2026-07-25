@@ -15,6 +15,9 @@ const EMPTY_FORM = {
   email: "",
   phone: "",
   location: "",
+  nationality: "",
+  dateOfBirth: "",
+  drivingLicense: "",
   linkedin: "",
   github: "",
   website: "",
@@ -65,6 +68,12 @@ function ProfileForm({
         <Field label="Location" value={form.location} onChange={(v) => set("location", v)} placeholder="Stockholm, Sweden" />
       </div>
       <Field label="Bio" value={form.bio} onChange={(v) => set("bio", v)} multiline placeholder="A short summary about yourself…" />
+      <p className="text-xs font-medium text-(--cl-muted) uppercase tracking-wider pt-1">Europass details (optional)</p>
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="Nationality" value={form.nationality} onChange={(v) => set("nationality", v)} placeholder="Swedish" />
+        <Field label="Date of birth" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} type="date" />
+        <Field label="Driving license" value={form.drivingLicense} onChange={(v) => set("drivingLicense", v)} placeholder="B" />
+      </div>
       <p className="text-xs font-medium text-(--cl-muted) uppercase tracking-wider pt-1">Social links</p>
       <div className="grid grid-cols-2 gap-3">
         <Field label="LinkedIn" value={form.linkedin} onChange={(v) => set("linkedin", v)} placeholder="https://linkedin.com/in/…" />
@@ -103,6 +112,9 @@ export function ProfilesTab({ initialItems }: Props) {
         email: form.email,
         phone: form.phone,
         location: form.location,
+        nationality: form.nationality,
+        dateOfBirth: form.dateOfBirth,
+        drivingLicense: form.drivingLicense,
         social: { linkedin: form.linkedin, github: form.github, website: form.website, portfolio: form.portfolio },
       }),
     });
@@ -117,6 +129,9 @@ export function ProfilesTab({ initialItems }: Props) {
       email: form.email || undefined,
       phone: form.phone || undefined,
       location: form.location || undefined,
+      nationality: form.nationality || undefined,
+      dateOfBirth: form.dateOfBirth || undefined,
+      drivingLicense: form.drivingLicense || undefined,
       social: { linkedin: form.linkedin || undefined, github: form.github || undefined, website: form.website || undefined, portfolio: form.portfolio || undefined },
     };
     setItems((prev) => [...prev, newItem]);
@@ -135,6 +150,9 @@ export function ProfilesTab({ initialItems }: Props) {
         email: form.email,
         phone: form.phone,
         location: form.location,
+        nationality: form.nationality,
+        dateOfBirth: form.dateOfBirth,
+        drivingLicense: form.drivingLicense,
         social: { linkedin: form.linkedin, github: form.github, website: form.website, portfolio: form.portfolio },
       }),
     });
@@ -143,7 +161,7 @@ export function ProfilesTab({ initialItems }: Props) {
     setItems((prev) =>
       prev.map((item) =>
         item.id === id
-          ? { ...item, profileName: form.profileName, name: form.name, headline: form.headline || undefined, bio: form.bio || undefined, email: form.email || undefined, phone: form.phone || undefined, location: form.location || undefined, social: { linkedin: form.linkedin || undefined, github: form.github || undefined, website: form.website || undefined, portfolio: form.portfolio || undefined } }
+          ? { ...item, profileName: form.profileName, name: form.name, headline: form.headline || undefined, bio: form.bio || undefined, email: form.email || undefined, phone: form.phone || undefined, location: form.location || undefined, nationality: form.nationality || undefined, dateOfBirth: form.dateOfBirth || undefined, drivingLicense: form.drivingLicense || undefined, social: { linkedin: form.linkedin || undefined, github: form.github || undefined, website: form.website || undefined, portfolio: form.portfolio || undefined } }
           : item
       )
     );
@@ -166,6 +184,9 @@ export function ProfilesTab({ initialItems }: Props) {
       email: item.email ?? "",
       phone: item.phone ?? "",
       location: item.location ?? "",
+      nationality: item.nationality ?? "",
+      dateOfBirth: item.dateOfBirth ?? "",
+      drivingLicense: item.drivingLicense ?? "",
       linkedin: item.social?.linkedin ?? "",
       github: item.social?.github ?? "",
       website: item.social?.website ?? "",

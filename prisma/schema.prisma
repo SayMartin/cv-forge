@@ -15,9 +15,9 @@ datasource db {
 // ─── Better Auth core schema ───────────────────────────────────────────────────
 
 model User {
-  id            String    @id
+  id            String       @id
   name          String
-  email         String    @unique
+  email         String       @unique
   emailVerified Boolean
   image         String?
   createdAt     DateTime
@@ -70,7 +70,7 @@ model Account {
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
   scope                 String?
-  password              String?   // hashed by Better Auth (credentials provider)
+  password              String? // hashed by Better Auth (credentials provider)
   createdAt             DateTime
   updatedAt             DateTime
 
@@ -91,13 +91,13 @@ model Verification {
 // ─── CV compositions ──────────────────────────────────────────────────────────
 
 model CV {
-  id            String     @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
   userId        String
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  layoutId      String     @default("default")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  layoutId      String   @default("default")
   themeId       String?
-  theme         CvTheme?   @relation(fields: [themeId], references: [id], onDelete: SetNull)
+  theme         CvTheme? @relation(fields: [themeId], references: [id], onDelete: SetNull)
   // Selected content IDs per section (loose string refs, no FK — mirrors experienceIds etc.)
   profileId     String?
   avatarIndex   Int?
@@ -111,8 +111,8 @@ model CV {
   // Metadata
   targetRole    String?
   coverLetter   String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("cv")
 }
@@ -136,22 +136,26 @@ model CvTheme {
 // ─── CV content ───────────────────────────────────────────────────────────────
 
 model Profile {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  profileName String
-  name        String?
-  headline    String?
-  bio         String?
-  email       String?
-  phone       String?
-  location    String?
-  linkedin    String?
-  github      String?
-  website     String?
-  portfolio   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileName    String
+  name           String?
+  headline       String?
+  bio            String?
+  email          String?
+  phone          String?
+  location       String?
+  linkedin       String?
+  github         String?
+  website        String?
+  portfolio      String?
+  // Europass CV fields (all optional — only required when exporting a Europass layout)
+  nationality    String?
+  dateOfBirth    DateTime?
+  drivingLicense String? // e.g. "B", "A, B, C1"
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@map("profile")
 }
@@ -206,9 +210,10 @@ model Skill {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
-  category  String?  // Language / Framework / Tool / Platform / Other
-  level     Int?     // 1–5
-  icon      String?  // image URL
+  category  String? // Language / Framework / Tool / Platform / Other
+  level     Int? // 1–5
+  cefrLevel String? // A1 / A2 / B1 / B2 / C1 / C2 — set only when category === "Language"
+  icon      String? // image URL
   order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -223,7 +228,7 @@ model Project {
   title       String
   slug        String?
   summary     String?
-  body        String?   // markdown / plain text
+  body        String? // markdown / plain text
   imageUrl    String?
   url         String?
   sourceUrl   String?

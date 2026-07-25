@@ -22,6 +22,7 @@ export async function POST(req: Request) {
       name,
       category: body.category || null,
       level: body.level ? Number(body.level) : null,
+      cefrLevel: body.cefrLevel || null,
       order: body.order ? Number(body.order) : 0,
     },
   });

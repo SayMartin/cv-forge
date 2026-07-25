@@ -89,6 +89,9 @@ export default async function CvViewPage({ params }: Params) {
         email: rawProfile.email,
         phone: rawProfile.phone,
         location: rawProfile.location,
+        nationality: rawProfile.nationality,
+        dateOfBirth: rawProfile.dateOfBirth,
+        drivingLicense: rawProfile.drivingLicense,
         social: {
           linkedin: rawProfile.linkedin,
           github: rawProfile.github,

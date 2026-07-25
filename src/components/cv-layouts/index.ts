@@ -6,6 +6,7 @@ import { ModernLayout } from "./ModernLayout";
 import { TealSidebarLayout } from "./TealSidebarLayout";
 import { TerminalLayout } from "./TerminalLayout";
 import { SlateLayout } from "./SlateLayout";
+import { EuropassLayout } from "./EuropassLayout";
 
 export type { CvTheme };
 
@@ -19,6 +20,7 @@ const LAYOUT_COMPONENTS: Record<string, React.ComponentType<LayoutProps>> = {
   teal: TealSidebarLayout,
   terminal: TerminalLayout,
   slate: SlateLayout,
+  europass: EuropassLayout,
 };
 
 export function getLayoutComponent(layoutId: string): React.ComponentType<LayoutProps> {

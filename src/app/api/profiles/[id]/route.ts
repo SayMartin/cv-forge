@@ -25,6 +25,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.email !== undefined) data.email = body.email || null;
   if (body.phone !== undefined) data.phone = body.phone || null;
   if (body.location !== undefined) data.location = body.location || null;
+  if (body.nationality !== undefined) data.nationality = body.nationality || null;
+  if (body.dateOfBirth !== undefined) data.dateOfBirth = body.dateOfBirth ? new Date(body.dateOfBirth) : null;
+  if (body.drivingLicense !== undefined) data.drivingLicense = body.drivingLicense || null;
   if (body.social !== undefined) {
     data.linkedin = body.social.linkedin || null;
     data.github = body.social.github || null;

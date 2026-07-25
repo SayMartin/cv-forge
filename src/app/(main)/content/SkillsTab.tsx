@@ -8,8 +8,9 @@ interface Props {
 }
 
 const CATEGORIES = ["Language", "Framework", "Tool", "Platform", "Other"];
+const CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
-const EMPTY_FORM = { name: "", category: "", level: "", order: "" };
+const EMPTY_FORM = { name: "", category: "", level: "", cefrLevel: "", order: "" };
 type FormState = typeof EMPTY_FORM;
 
 function SkillForm({
@@ -52,6 +53,15 @@ function SkillForm({
           <label className="block text-xs font-medium text-(--cl-text)">Level (1–5)</label>
           <input type="number" min={1} max={5} value={form.level} onChange={(e) => set("level", e.target.value)} placeholder="e.g. 4" className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)" />
         </div>
+        {form.category === "Language" && (
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-(--cl-text)">CEFR level</label>
+            <select value={form.cefrLevel} onChange={(e) => set("cefrLevel", e.target.value)} className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)">
+              <option value="">— none —</option>
+              {CEFR_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+        )}
         <div className="space-y-1">
           <label className="block text-xs font-medium text-(--cl-text)">Display order</label>
           <input type="number" value={form.order} onChange={(e) => set("order", e.target.value)} placeholder="e.g. 10" className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)" />
@@ -71,6 +81,7 @@ function itemToForm(item: Skill): FormState {
     name: item.name ?? "",
     category: item.category ?? "",
     level: item.level != null ? String(item.level) : "",
+    cefrLevel: item.cefrLevel ?? "",
     order: item.order != null ? String(item.order) : "",
   };
 }
@@ -85,11 +96,11 @@ export function SkillsTab({ initialItems }: Props) {
     const res = await fetch("/api/content/skills", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: form.name, category: form.category, level: form.level, order: form.order }),
+      body: JSON.stringify({ name: form.name, category: form.category, level: form.level, cefrLevel: form.cefrLevel, order: form.order }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed to create");
-    setItems((prev) => [...prev, { id: data.id, name: form.name, category: form.category || undefined, level: form.level ? Number(form.level) : undefined, order: form.order ? Number(form.order) : undefined }]);
+    setItems((prev) => [...prev, { id: data.id, name: form.name, category: form.category || undefined, level: form.level ? Number(form.level) : undefined, cefrLevel: form.cefrLevel || undefined, order: form.order ? Number(form.order) : undefined }]);
     setCreating(false);
   }
 
@@ -97,11 +108,11 @@ export function SkillsTab({ initialItems }: Props) {
     const res = await fetch(`/api/content/skills/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: form.name, category: form.category, level: form.level, order: form.order }),
+      body: JSON.stringify({ name: form.name, category: form.category, level: form.level, cefrLevel: form.cefrLevel, order: form.order }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed to update");
-    setItems((prev) => prev.map((item) => item.id === id ? { id: id, name: form.name, category: form.category || undefined, level: form.level ? Number(form.level) : undefined, order: form.order ? Number(form.order) : undefined } : item));
+    setItems((prev) => prev.map((item) => item.id === id ? { id: id, name: form.name, category: form.category || undefined, level: form.level ? Number(form.level) : undefined, cefrLevel: form.cefrLevel || undefined, order: form.order ? Number(form.order) : undefined } : item));
     setEditingId(null);
   }
 
@@ -143,7 +154,7 @@ export function SkillsTab({ initialItems }: Props) {
               <div>
                 <p className="font-medium text-(--cl-text)">{item.name}</p>
                 <p className="text-xs text-(--cl-muted) mt-0.5">
-                  {[item.category, item.level != null ? `Level ${item.level}/5` : null].filter(Boolean).join(" · ")}
+                  {[item.category, item.level != null ? `Level ${item.level}/5` : null, item.cefrLevel ? `CEFR ${item.cefrLevel}` : null].filter(Boolean).join(" · ")}
                 </p>
               </div>
               <div className="flex items-center gap-3 shrink-0">

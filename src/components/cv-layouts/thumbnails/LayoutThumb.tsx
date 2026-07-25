@@ -3,6 +3,7 @@ import { ModernThumb } from "./ModernThumb";
 import { TealThumb } from "./TealThumb";
 import { TerminalThumb } from "./TerminalThumb";
 import { SlateThumb } from "./SlateThumb";
+import { EuropassThumb } from "./EuropassThumb";
 
 type Props = {
   layoutId: string;
@@ -45,6 +46,14 @@ export function LayoutThumb({
     case "terminal":
       return (
         <TerminalThumb
+          sidebarColor={sidebarColor}
+          accentColor={accentColor}
+          selected={selected}
+        />
+      );
+    case "europass":
+      return (
+        <EuropassThumb
           sidebarColor={sidebarColor}
           accentColor={accentColor}
           selected={selected}

@@ -36,6 +36,9 @@ export default async function ContentPage() {
     email: p.email ?? undefined,
     phone: p.phone ?? undefined,
     location: p.location ?? undefined,
+    nationality: p.nationality ?? undefined,
+    dateOfBirth: p.dateOfBirth ? p.dateOfBirth.toISOString().slice(0, 10) : undefined,
+    drivingLicense: p.drivingLicense ?? undefined,
     social: { linkedin: p.linkedin ?? undefined, github: p.github ?? undefined, website: p.website ?? undefined, portfolio: p.portfolio ?? undefined },
   }));
 

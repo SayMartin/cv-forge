@@ -10,6 +10,9 @@ export type CvProfile = {
   email?: string | null;
   phone?: string | null;
   location?: string | null;
+  nationality?: string | null;
+  dateOfBirth?: Date | null;
+  drivingLicense?: string | null;
   social?: {
     linkedin?: string | null;
     github?: string | null;
@@ -45,6 +48,7 @@ export type CvSkill = {
   name: string;
   category?: string | null;
   level?: number | null;
+  cefrLevel?: string | null; // A1–C2, only meaningful when category === "Language"
   icon?: string | null;
 };
 
