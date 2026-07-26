@@ -146,7 +146,7 @@ Rules:
 - Skill levels: 1=beginner, 2=basic, 3=intermediate, 4=advanced, 5=expert. Infer from context.
 - Only include URLs that are explicitly present in the document — do not invent them.
 - Keep description fields concise (2–4 sentences max).
-- For skills, pick the most appropriate category: Language, Framework, Tool, Platform, Other.
+- For skills, pick the most appropriate category: Language, Framework, Tool, Platform, Other. "Language" means spoken/natural languages only (e.g. English, Swedish, German) — programming languages (e.g. Kotlin, Java, Python, TypeScript) must use "Tool", never "Language".
 - For entries that do not clearly fit experience, education, skills, or projects (e.g. certifications, awards, publications, volunteer work, courses), place them in the "other" array with a descriptive title and subtitle (issuer or organisation).`,
             },
           ],

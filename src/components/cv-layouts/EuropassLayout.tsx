@@ -228,10 +228,17 @@ export function EuropassLayout({
     }
   }
 
+  const page1Section = sectionOrder[0];
+  const page2Sections = sectionOrder.slice(1);
+
   return (
     <div className="py-8 px-4 print:p-0">
-      <div style={{ width: "210mm" }} className="mx-auto shadow-md print:shadow-none border border-gray-300 print:border-none bg-white text-sm">
-        <div className="px-10 py-10">
+      <div style={{ width: "210mm" }} className="mx-auto">
+        {/* ══ ROW 1 — Page 1 ══════════════════════════════════════════ */}
+        <div
+          style={{ height: "297mm" }}
+          className="relative overflow-hidden bg-white shadow-md print:shadow-none border border-gray-300 print:border-none px-10 py-10 text-sm"
+        >
           {/* Header */}
           <div className="flex items-start justify-between gap-6 pb-6 mb-6 border-b-4" style={{ borderColor: ACCENT }}>
             <div>
@@ -266,8 +273,32 @@ export function EuropassLayout({
             </section>
           )}
 
-          {sectionOrder.map((key) => renderSection(key))}
+          {renderSection(page1Section)}
+
+          <div className="absolute bottom-3 inset-x-0 text-center text-[10px] text-zinc-400 pointer-events-none select-none">
+            Page 1 of 2
+          </div>
         </div>
+        {/* ══ End Row 1 ══════════════════════════════════════════════ */}
+
+        {/* ── Page break band (screen only) ──────────────────────── */}
+        <div className="print:hidden h-7 bg-gray-200 flex items-center justify-center">
+          <span className="text-[9px] font-medium tracking-widest uppercase text-gray-400">
+            Page 2
+          </span>
+        </div>
+
+        {/* ══ ROW 2 — Page 2 ══════════════════════════════════════════ */}
+        <div
+          style={{ minHeight: "297mm" }}
+          className="relative bg-white shadow-md print:shadow-none border border-gray-300 print:border-none px-10 py-10 text-sm print:break-before-page"
+        >
+          {page2Sections.map((key) => renderSection(key))}
+          <div className="absolute bottom-3 inset-x-0 text-center text-[10px] text-zinc-400 pointer-events-none select-none">
+            Page 2 of 2
+          </div>
+        </div>
+        {/* ══ End Row 2 ══════════════════════════════════════════════ */}
       </div>
     </div>
   );
