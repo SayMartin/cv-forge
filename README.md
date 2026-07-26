@@ -137,6 +137,8 @@ The app is self-hosted via Docker Compose. It runs alongside other services on t
 
 The image is **not built on the server**. GitHub Actions (`.github/workflows/build-and-push.yml`) builds the Docker image on every push to `main` and pushes it to GitHub Container Registry (`ghcr.io/saymartin/cv-forge`). A [Watchtower](https://containrrr.dev/watchtower/) container on the server polls the registry every 60 seconds and automatically pulls + restarts the app when a new image is published — no SSH access from CI into the server is needed, since the server only makes outbound requests.
 
+Database migrations are applied automatically as part of the same workflow, via a **self-hosted GitHub Actions runner installed directly on the server**: `build-migrator` (pushes the `:migrator` tag) → `migrate` (runs on the self-hosted runner, applies pending migrations against the production database) → `build-app` (pushes `:latest`/`:sha`, which Watchtower then picks up). Running the migration job on a self-hosted runner means it can reach the `postgres_default` docker network directly, without exposing the database or opening inbound access (SSH or otherwise) to the server. The migration-before-code-push ordering guarantees the schema is always ready before Watchtower deploys code that depends on it.
+
 ### 0. One-time server setup
 
 The server needs registry credentials so both `docker compose pull` and Watchtower can pull the (private) image:
@@ -173,17 +175,23 @@ docker compose up -d
 
 This pulls the latest published image and starts the app and Watchtower. Watchtower then keeps `app` up to date automatically on every subsequent push to `main` — no manual pull/restart needed after the first run.
 
-### 4. Run migrations
+### 4. Register the self-hosted runner (one-time)
 
-The runtime image (`app`) is intentionally minimal and does not include the Prisma CLI — only the already-generated client needed to serve requests. Migrations are run using the separate `:migrator` image (the build stage with a full `node_modules`, published alongside `:latest`):
+Migrations are applied automatically by a `migrate` job in `.github/workflows/build-and-push.yml`, which requires a self-hosted GitHub Actions runner installed on the server so the job can reach the `postgres_default` network directly:
+
+1. On GitHub: repo → **Settings → Actions → Runners → New self-hosted runner** (Linux), and follow the exact commands shown there (they include a one-time registration token) to install the runner in its own directory (e.g. `~/actions-runner`, kept separate from the `cv-forge` checkout).
+2. Install it as a systemd service so it survives reboots: `sudo ./svc.sh install && sudo ./svc.sh start`.
+3. Make sure the runner's user can run `docker` (`sudo usermod -aG docker <user>`).
+
+Once registered and idle, every push to `main` runs `build-migrator` → `migrate` (on this runner) → `build-app`, in that order — no manual step needed.
+
+For a one-off manual run (e.g. troubleshooting), the runtime image (`app`) is intentionally minimal and does not include the Prisma CLI — only the already-generated client needed to serve requests. Use the separate `:migrator` image instead (the build stage with a full `node_modules`, published alongside `:latest`):
 
 ```bash
 docker pull ghcr.io/saymartin/cv-forge:migrator
-docker run --rm --env-file .env --network cv-forge_default --network postgres_default \
+docker run --rm --env-file .env --network postgres_default \
   ghcr.io/saymartin/cv-forge:migrator npx prisma migrate deploy
 ```
-
-Re-run this after any deploy that includes schema changes.
 
 ### 5. Routing
 

@@ -15,7 +15,7 @@
 | Auth      | Better Auth — email + password + Google OAuth | Authentication + role-based access                       |
 | Email     | Resend (`noreply@appfinningar.se`)           | Transactional email — email verification on sign-up        |
 | Hosting   | Self-hosted (Docker Compose on a home server, "smurfserver") | Deploy                                    |
-| CI/CD     | GitHub Actions (build + push to GHCR) + Watchtower (auto-pull on the server) | Build offloaded from the server; zero-touch deploy on push to `main` |
+| CI/CD     | GitHub Actions (build + push to GHCR) + a self-hosted runner on the server (auto-migrate) + Watchtower (auto-pull) | Build offloaded from the server; zero-touch deploy *and* migration on push to `main` |
 | Routing   | Cloudflare Tunnel (direct to host ports)    | Public ingress + TLS termination, no reverse proxy          |
 | DNS       | Cloudflare                                  | DNS + CDN for `appfinningar.se`                            |
 | AI        | Google Gemini 2.5 Flash (via Vercel AI SDK) | PDF CV parsing + structured extraction                     |
@@ -64,7 +64,9 @@ Everything lives in a **self-hosted PostgreSQL** instance via Prisma. There is n
 
 ### Deployment model
 
-The app is **not built on the server**. GitHub Actions builds the Docker image on every push to `main` and pushes it to GitHub Container Registry (`ghcr.io/saymartin/cv-forge`). A Watchtower container on the server polls the registry (every 60s) and auto-pulls + restarts `app` when a new image appears — no inbound SSH access from CI is needed. Database migrations are a deliberate manual step (`docker run ... :migrator npx prisma migrate deploy`), not automated, to avoid migrations racing a deploy.
+The app is **not built on the server**. `.github/workflows/build-and-push.yml` runs three sequential jobs on every push to `main`: `build-migrator` (builds + pushes the `:migrator` tag to GHCR) → `migrate` (applies pending Prisma migrations against production) → `build-app` (builds + pushes `:latest`/`:sha`). A Watchtower container on the server polls the registry (every 60s) and auto-pulls + restarts `app` when a new image appears.
+
+The `migrate` job runs on a **self-hosted GitHub Actions runner installed directly on the server**, rather than a GitHub-hosted runner over SSH — this lets it reach the `postgres_default` docker network directly with no inbound access (SSH or otherwise) opened to the server; the runner only makes outbound polling requests to GitHub, same trust model as Watchtower. Building `build-app` *after* `migrate` (rather than in parallel) is deliberate: it guarantees the schema is always migrated before Watchtower can deploy code that depends on it, closing a gap that caused a production outage on 2026-07-26 (a schema-dependent code change shipped via Watchtower while the corresponding migration was never applied, since migrations were a manual, easy-to-forget step at the time).
 
 The same build/push steps can also be run manually from a dev machine via `npm run docker:build`, `docker:build:migrator`, and `docker:push` (see `package.json`) — the GitHub Actions workflow is a convenience automation of these same commands, not the only path to a deployable image.
 
@@ -484,7 +486,7 @@ All main app pages live under `src/app/(main)/`. This group has its own `layout.
 npm run migrate:dev
 ```
 
-`migrate:dev` uses `dotenv-cli` to load `DATABASE_URL` from `.env.local`. In production, migrations are **not** run via the `migrate:deploy` npm script (which also assumes `.env.local`, absent in containers) — instead they're run from the separate `:migrator` Docker image (see `README.md` → Deployment → step 4), which has a full `node_modules` including the Prisma CLI, unlike the minimal `app` runtime image.
+`migrate:dev` uses `dotenv-cli` to load `DATABASE_URL` from `.env.local`. In production, migrations are **not** run via the `migrate:deploy` npm script (which also assumes `.env.local`, absent in containers) — instead the `migrate` job in `.github/workflows/build-and-push.yml` runs them automatically on every push to `main`, from the separate `:migrator` Docker image (which has a full `node_modules` including the Prisma CLI, unlike the minimal `app` runtime image), executed on a self-hosted runner on the server. See `README.md` → Deployment → step 4 for the runner setup and the equivalent manual command.
 
 ---
 
@@ -567,6 +569,7 @@ S3_SECRET_ACCESS_KEY=                  # R2 API Token
 - [x] Phase 30 — File storage moved from a self-hosted MinIO container to Cloudflare R2 (external, S3-compatible), connected via R2's Custom Domain feature (`files.appfinningar.se`). Resend re-verified against the `appfinningar.se` root domain (the previous `mail.appfinningar.se` domain had failed verification) and a new, correctly-scoped API key issued.
 - [x] Phase 31 — Old Vercel project and Neon database decommissioned after end-to-end verification of the self-hosted deployment (login, CV/profile/avatar data, avatar upload, password reset email). A `pg_dump` backup of the migrated database was taken before deletion.
 - [x] Phase 32 — Fixed silently-failing verification emails: `emailVerification.sendOnSignUp: false` + explicit `authClient.sendVerificationEmail(...)` call from `sign-up/page.tsx`, so a Resend failure (bad recipient, misconfigured key) surfaces a real error instead of the sign-up form always claiming success. LinkedIn contact links in `TealSidebarLayout` and `TerminalLayout` changed from `break-all` to `wrap-break-word` so the URL only wraps when unavoidable, never mid-character, keeping it readable and clickable in the exported PDF.
+- [x] Phase 33 — Fixed a 2026-07-26 production outage: the Europass-fields migration had never been applied to the production database even though Watchtower had already deployed the corresponding code (Prisma client querying columns that didn't exist yet → `ColumnNotFound` on every `profile`/`skill` read), plus a latent bug where `cv.otherIds`/`cv.sectionOrder` could be `NULL` on rows predating those columns' migrations (added without `NOT NULL DEFAULT '{}'`), crashing `/cvs/[cvId]` for older CVs. Fixed both immediately (null-guards in `page.tsx` + a backfill migration) and closed the underlying gap permanently: `.github/workflows/build-and-push.yml` now runs `build-migrator` → `migrate` (on a self-hosted runner installed on the server) → `build-app`, so schema migrations are always applied automatically before Watchtower can deploy code that depends on them.
 
 ---
 
