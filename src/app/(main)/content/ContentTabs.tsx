@@ -71,6 +71,9 @@ export type Project = {
   id: string;
   title: string;
   summary?: string;
+  startDate?: string;
+  endDate?: string;
+  current?: boolean;
   url?: string;
   sourceUrl?: string;
   skills?: string[];

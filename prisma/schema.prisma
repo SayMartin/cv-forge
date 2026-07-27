@@ -108,6 +108,8 @@ model CV {
   otherIds      String[]
   // Section order for the CV renderer (e.g. ["experience","education","skills","projects","other"])
   sectionOrder  String[]
+  // When true, experience/education/projects/other are merged into one date-sorted timeline instead of grouped by section
+  chronological Boolean  @default(false)
   // Metadata
   targetRole    String?
   coverLetter   String?
@@ -228,6 +230,9 @@ model Project {
   title       String
   slug        String?
   summary     String?
+  startDate   String?
+  endDate     String?
+  current     Boolean   @default(false)
   body        String? // markdown / plain text
   imageUrl    String?
   url         String?

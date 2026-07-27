@@ -1,11 +1,13 @@
-import type { CvContent, CvSkill } from "@/lib/cv-content-types";
+import type { CvContent, CvEducation, CvExperience, CvOther, CvSkill } from "@/lib/cv-content-types";
 import { getContrastColor } from "@/lib/color-utils";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
+import { buildTimeline, TIMELINE_TYPE_LABEL } from "@/lib/cv-timeline";
+import { Paginated } from "./pagination/Paginated";
+import type { PageBlock } from "./pagination/types";
 
 const DEFAULT_ACCENT = "#6366f1";
 const DEFAULT_SIDEBAR_BG = "#1e293b";
-const PAGE_BG = "#ffffff";
 
 function formatDate(dateStr?: string | null) {
   if (!dateStr) return "";
@@ -31,7 +33,7 @@ type SColors = { accent: string; sidebarText: string; sidebarMuted: string };
 
 function SidebarLabel({ text, colors }: { text: string; colors: SColors }) {
   return (
-    <p className="text-[9px] font-bold tracking-[1.5px] uppercase mb-2" style={{ color: colors.accent }}>
+    <p className="text-xs font-bold tracking-[1.5px] uppercase mb-2" style={{ color: colors.accent }}>
       {text}
     </p>
   );
@@ -39,7 +41,7 @@ function SidebarLabel({ text, colors }: { text: string; colors: SColors }) {
 
 function SidebarCategoryLabel({ text, colors }: { text: string; colors: SColors }) {
   return (
-    <p className="text-[9px] font-bold uppercase tracking-wide mb-1" style={{ color: colors.sidebarMuted }}>
+    <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: colors.sidebarMuted }}>
       {text}
     </p>
   );
@@ -68,13 +70,13 @@ function ContactRow({
   const accentIcon = isLink ? colors.accent : colors.sidebarMuted;
   return (
     <li className="flex items-start gap-2">
-      <span className="shrink-0 text-[11px] w-4 text-center" style={{ color: accentIcon }}>
+      <span className="shrink-0 text-xs w-4 text-center" style={{ color: accentIcon }}>
         {icon}
       </span>
       {isLink ? (
-        <a href={text} className="min-w-0 flex-1 text-[10px] wrap-break-word" style={textStyle}>{text}</a>
+        <a href={text} className="min-w-0 flex-1 text-xs wrap-break-word" style={textStyle}>{text}</a>
       ) : (
-        <span className="min-w-0 flex-1 text-[10px] wrap-break-word" style={textStyle}>{text}</span>
+        <span className="min-w-0 flex-1 text-xs wrap-break-word" style={textStyle}>{text}</span>
       )}
     </li>
   );
@@ -94,37 +96,58 @@ function DotRating({ level, accent, emptyColor }: { level: number; accent: strin
 function SectionHeader({ title, accent }: { title: string; accent: string }) {
   return (
     <div className="flex flex-col gap-1.5 mb-4">
-      <p className="text-[9px] font-bold tracking-[2px] text-slate-900 uppercase">{title}</p>
+      <p className="text-sm font-bold tracking-[2px] text-slate-900 uppercase">{title}</p>
       <div className="w-7 h-0.5 rounded-full" style={{ backgroundColor: accent }} />
     </div>
   );
 }
 
+function TypeBadge({ label }: { label: string }) {
+  return (
+    <p className="text-xs font-medium uppercase tracking-wide text-slate-400 mb-0.5">
+      {label}
+    </p>
+  );
+}
+
 function TechPill({ label }: { label: string }) {
   return (
-    <span className="text-[10px] text-slate-500 bg-slate-100 rounded-full px-2 py-0.5 leading-none">
+    <span className="text-xs text-slate-500 bg-slate-100 rounded-full px-2 py-0.5 leading-none">
       {label}
     </span>
   );
 }
 
-function ProjectCard({ proj, accent }: { proj: CvContent["projects"][0]; accent: string }) {
+function ProjectCard({ proj, accent, badge }: { proj: CvContent["projects"][0]; accent: string; badge?: boolean }) {
   const lang = proj.skills?.[0];
+  const dateStr = [formatDate(proj.startDate), proj.current ? "Present" : formatDate(proj.endDate)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt) : "");
   return (
     <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
+      {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.projects} />}
       <div className="flex items-center justify-between gap-2 mb-1.5">
-        <p className="text-xs font-bold" style={{ color: accent }}>{proj.title}</p>
-        {lang && (
-          <span className="text-[10px] rounded-full px-2 py-0.5 leading-none shrink-0" style={{ color: accent, background: `${accent}18` }}>
-            {lang}
-          </span>
-        )}
+        <p className="text-sm font-bold" style={{ color: accent }}>{proj.title}</p>
+        <div className="flex items-center gap-2 shrink-0">
+          {dateStr && <p className="text-xs text-slate-400">{dateStr}</p>}
+          {lang && (
+            <span className="text-xs rounded-full px-2 py-0.5 leading-none" style={{ color: accent, background: `${accent}18` }}>
+              {lang}
+            </span>
+          )}
+        </div>
       </div>
-      {proj.summary && <p className="text-[10px] text-slate-500 leading-relaxed">{proj.summary}</p>}
+      {proj.summary && <p className="text-sm text-slate-500 leading-relaxed">{proj.summary}</p>}
       {(proj.url || proj.sourceUrl) && (
-        <div className="flex gap-3 mt-2">
-          {proj.url && <a href={proj.url} className="text-[10px]" style={{ color: accent }}>↗ live</a>}
-          {proj.sourceUrl && <a href={proj.sourceUrl} className="text-[10px]" style={{ color: accent }}>⎇ source</a>}
+        <div className="flex flex-col gap-0.5 mt-2 text-xs text-slate-400">
+          {proj.url && (
+            <span className="wrap-break-word">
+              Live at: <a href={proj.url} style={{ color: accent }}>{proj.url}</a>
+            </span>
+          )}
+          {proj.sourceUrl && (
+            <span className="wrap-break-word">
+              Source: <a href={proj.sourceUrl} style={{ color: accent }}>{proj.sourceUrl}</a>
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -135,10 +158,12 @@ export function SlateLayout({
   content,
   theme,
   sectionOrder = DEFAULT_SECTION_ORDER,
+  chronological = false,
 }: {
   content: CvContent;
   theme?: CvTheme;
   sectionOrder?: SectionKey[];
+  chronological?: boolean;
 }) {
   const { profile, experiences, educations, skills, projects, others } = content;
 
@@ -160,228 +185,253 @@ export function SlateLayout({
 
   const sidebarStyle = { background: SIDEBAR_BG, width: "35%", color: SIDEBAR_TEXT } as const;
 
-  const mainOrder = sectionOrder.filter((k) => k !== "skills");
-  const page1Key = mainOrder[0];
-  const page2Keys = mainOrder.slice(1);
+  function experienceEntry(job: CvExperience, opts?: { badge?: boolean; divider?: boolean }) {
+    const dateStr = [formatDate(job.startDate), job.current ? "Present" : formatDate(job.endDate)].filter(Boolean).join(" – ");
+    return (
+      <div className="break-inside-avoid">
+        {opts?.badge && <TypeBadge label={TIMELINE_TYPE_LABEL.experience} />}
+        <div className="flex items-baseline justify-between gap-4 mb-1.5">
+          <p className="text-sm font-bold text-slate-900">
+            {job.company}
+            <span className="text-slate-400 font-normal mx-1.5">·</span>
+            {job.role}
+          </p>
+          {dateStr && <p className="text-xs text-slate-400 shrink-0">{dateStr}</p>}
+        </div>
+        {job.skills && job.skills.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {job.skills.map((s) => <TechPill key={s} label={s} />)}
+          </div>
+        )}
+        {job.description && (
+          <p className="text-sm text-slate-500 whitespace-pre-line leading-relaxed">{job.description}</p>
+        )}
+        {opts?.divider && <div className="mt-4 border-b border-slate-100" />}
+      </div>
+    );
+  }
 
-  function renderMainSection(key: SectionKey): React.ReactNode {
+  function educationEntry(edu: CvEducation, opts?: { badge?: boolean; divider?: boolean }) {
+    const dateStr = [formatDate(edu.startDate), edu.current ? "Present" : formatDate(edu.endDate)].filter(Boolean).join(" – ");
+    const degreeField = [edu.degree, edu.field ? `in ${edu.field}` : null].filter(Boolean).join(" ");
+    return (
+      <div className="break-inside-avoid">
+        {opts?.badge && <TypeBadge label={TIMELINE_TYPE_LABEL.education} />}
+        <div className="flex items-baseline justify-between gap-4 mb-1.5">
+          <p className="text-sm font-bold text-slate-900">
+            {edu.institution}
+            {degreeField && (
+              <><span className="text-slate-400 font-normal mx-1.5">·</span>{degreeField}</>
+            )}
+          </p>
+          {dateStr && <p className="text-xs text-slate-400 shrink-0">{dateStr}</p>}
+        </div>
+        {edu.description && (
+          <p className="text-sm text-slate-500 whitespace-pre-line leading-relaxed">{edu.description}</p>
+        )}
+        {opts?.divider && <div className="mt-4 border-b border-slate-100" />}
+      </div>
+    );
+  }
+
+  function otherEntry(o: CvOther, opts?: { badge?: boolean; divider?: boolean }) {
+    return (
+      <div className="break-inside-avoid">
+        {opts?.badge && <TypeBadge label={TIMELINE_TYPE_LABEL.other} />}
+        <div className="flex items-baseline justify-between gap-4 mb-1">
+          <p className="text-sm font-bold text-slate-900">
+            {o.title}
+            {o.subtitle && (
+              <><span className="text-slate-400 font-normal mx-1.5">·</span>{o.subtitle}</>
+            )}
+          </p>
+          {o.date && <p className="text-xs text-slate-400 shrink-0">{formatDate(o.date)}</p>}
+        </div>
+        {o.description && (
+          <p className="text-sm text-slate-500 leading-relaxed">{o.description}</p>
+        )}
+        {opts?.divider && <div className="mt-4 border-b border-slate-100" />}
+      </div>
+    );
+  }
+
+  // Each returned block is one atomic, unsplittable pagination unit — a
+  // single entry, with the section title fused into the first one so a
+  // title can never be orphaned alone at the bottom of a page.
+  function sectionBlocks(key: SectionKey): PageBlock[] {
     switch (key) {
       case "experience":
-        return experiences.length > 0 ? (
-          <section key="experience">
-            <SectionHeader title="Experience" accent={ACCENT} />
-            <ol className="flex flex-col gap-5">
-              {experiences.map((job, i) => {
-                const dateStr = [formatDate(job.startDate), job.current ? "Present" : formatDate(job.endDate)].filter(Boolean).join(" – ");
-                return (
-                  <li key={job.id} className="break-inside-avoid">
-                    <div className="flex items-baseline justify-between gap-4 mb-1.5">
-                      <p className="text-[11px] font-bold text-slate-900">
-                        {job.company}
-                        <span className="text-slate-400 font-normal mx-1.5">·</span>
-                        {job.role}
-                      </p>
-                      {dateStr && <p className="text-[10px] text-slate-400 shrink-0">{dateStr}</p>}
-                    </div>
-                    {job.skills && job.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {job.skills.map((s) => <TechPill key={s} label={s} />)}
-                      </div>
-                    )}
-                    {job.description && (
-                      <p className="text-[10px] text-slate-500 whitespace-pre-line leading-relaxed">{job.description}</p>
-                    )}
-                    {i < experiences.length - 1 && <div className="mt-4 border-b border-slate-100" />}
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        ) : null;
+        return experiences.map((job, i) => ({
+          id: `experience-${job.id}`,
+          node: (
+            <div className="mb-6">
+              {i === 0 && <SectionHeader title="Experience" accent={ACCENT} />}
+              {experienceEntry(job, { divider: i < experiences.length - 1 })}
+            </div>
+          ),
+        }));
 
       case "education":
-        return educations.length > 0 ? (
-          <section key="education">
-            <SectionHeader title="Education" accent={ACCENT} />
-            <ol className="flex flex-col gap-5">
-              {educations.map((edu, i) => {
-                const dateStr = [formatDate(edu.startDate), edu.current ? "Present" : formatDate(edu.endDate)].filter(Boolean).join(" – ");
-                const degreeField = [edu.degree, edu.field ? `in ${edu.field}` : null].filter(Boolean).join(" ");
-                return (
-                  <li key={edu.id} className="break-inside-avoid">
-                    <div className="flex items-baseline justify-between gap-4 mb-1.5">
-                      <p className="text-[11px] font-bold text-slate-900">
-                        {edu.institution}
-                        {degreeField && (
-                          <><span className="text-slate-400 font-normal mx-1.5">·</span>{degreeField}</>
-                        )}
-                      </p>
-                      {dateStr && <p className="text-[10px] text-slate-400 shrink-0">{dateStr}</p>}
-                    </div>
-                    {edu.description && (
-                      <p className="text-[10px] text-slate-500 whitespace-pre-line leading-relaxed">{edu.description}</p>
-                    )}
-                    {i < educations.length - 1 && <div className="mt-4 border-b border-slate-100" />}
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        ) : null;
+        return educations.map((edu, i) => ({
+          id: `education-${edu.id}`,
+          node: (
+            <div className="mb-6">
+              {i === 0 && <SectionHeader title="Education" accent={ACCENT} />}
+              {educationEntry(edu, { divider: i < educations.length - 1 })}
+            </div>
+          ),
+        }));
 
       case "projects":
-        return projects.length > 0 ? (
-          <section key="projects">
-            <SectionHeader title="Projects" accent={ACCENT} />
-            <ol className="flex flex-col gap-3">
-              {projects.map((proj) => (
-                <li key={proj.id} className="break-inside-avoid">
-                  <ProjectCard proj={proj} accent={ACCENT} />
-                </li>
-              ))}
-            </ol>
-          </section>
-        ) : null;
+        return projects.map((proj, i) => ({
+          id: `project-${proj.id}`,
+          node: (
+            <div className="mb-6">
+              {i === 0 && <SectionHeader title="Projects" accent={ACCENT} />}
+              <div className="break-inside-avoid">
+                <ProjectCard proj={proj} accent={ACCENT} />
+              </div>
+            </div>
+          ),
+        }));
 
       case "other":
-        return others.length > 0 ? (
-          <section key="other">
-            <SectionHeader title="Other" accent={ACCENT} />
-            <ol className="flex flex-col gap-4">
-              {others.map((o, i) => (
-                <li key={o.id} className="break-inside-avoid">
-                  <div className="flex items-baseline justify-between gap-4 mb-1">
-                    <p className="text-[11px] font-bold text-slate-900">
-                      {o.title}
-                      {o.subtitle && (
-                        <><span className="text-slate-400 font-normal mx-1.5">·</span>{o.subtitle}</>
-                      )}
-                    </p>
-                    {o.date && <p className="text-[10px] text-slate-400 shrink-0">{formatDate(o.date)}</p>}
-                  </div>
-                  {o.description && (
-                    <p className="text-[10px] text-slate-500 leading-relaxed">{o.description}</p>
-                  )}
-                  {i < others.length - 1 && <div className="mt-4 border-b border-slate-100" />}
-                </li>
-              ))}
-            </ol>
-          </section>
-        ) : null;
+        return others.map((o, i) => ({
+          id: `other-${o.id}`,
+          node: (
+            <div className="mb-6">
+              {i === 0 && <SectionHeader title="Other" accent={ACCENT} />}
+              {otherEntry(o, { divider: i < others.length - 1 })}
+            </div>
+          ),
+        }));
 
       default:
-        return null;
+        return [];
     }
   }
 
-  return (
-    <div className="py-8 px-4 print:p-0">
-      <div style={{ width: "210mm" }} className="mx-auto shadow-md print:shadow-none border border-slate-200 print:border-none">
-        {/* ══ ROW 1 — Page 1 ══════════════════════════════════════════ */}
-        <div className="relative flex overflow-hidden" style={{ height: "297mm" }}>
-          {/* Sidebar — Page 1 */}
-          <aside style={sidebarStyle} className="flex flex-col shrink-0 overflow-hidden">
-            <div className="flex flex-col items-center px-6 pt-8 pb-5 gap-3">
-              {content.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={content.avatarUrl} alt={profile?.name ?? ""} className="w-20 h-20 rounded-full object-cover shrink-0" style={{ border: `3px solid ${ACCENT}` }} />
-              ) : (
-                <div className="w-20 h-20 rounded-full flex items-center justify-center text-xl font-bold shrink-0" style={{ border: `3px solid ${ACCENT}`, background: DOT_EMPTY, color: SIDEBAR_TEXT }}>
-                  {initials}
-                </div>
-              )}
-              <div className="flex flex-col items-center gap-1 text-center">
-                <p className="text-base font-bold leading-tight" style={{ color: SIDEBAR_TEXT }}>{profile?.name ?? "Your Name"}</p>
-                <p className="text-[11px]" style={{ color: ACCENT }}>{profile?.headline ?? "Software Engineer"}</p>
-                {profile?.location && <p className="text-[10px]" style={{ color: SIDEBAR_MUTED }}>{profile.location}</p>}
-              </div>
-            </div>
-
-            <SidebarDivider sidebarBg={SIDEBAR_BG} />
-
-            {profile && (
-              <div className="px-6 py-4">
-                <SidebarLabel text="Contact" colors={colors} />
-                <ul className="space-y-2">
-                  {profile.email && <ContactRow icon="✉" text={profile.email} colors={colors} />}
-                  {profile.phone && <ContactRow icon="☏" text={profile.phone} colors={colors} />}
-                  {profile.social?.github && <ContactRow icon="⎇" text={profile.social.github} isLink colors={colors} />}
-                  {profile.social?.website && <ContactRow icon="↗" text={profile.social.website} isLink colors={colors} />}
-                  {profile.social?.linkedin && <ContactRow icon="in" text={profile.social.linkedin} isLink colors={colors} />}
-                </ul>
-              </div>
-            )}
-
-            <SidebarDivider sidebarBg={SIDEBAR_BG} />
-
-            {skillGroups.length > 0 && (
-              <div className="px-6 py-4 flex flex-col gap-4">
-                <SidebarLabel text="Skills" colors={colors} />
-                {skillGroups.map(([category, catSkills]) => (
-                  <div key={category} className="flex flex-col gap-2">
-                    <SidebarCategoryLabel text={category} colors={colors} />
-                    {catSkills.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] truncate" style={{ color: SIDEBAR_TEXT }}>{s.name}</span>
-                        <DotRating level={s.level ?? 3} accent={ACCENT} emptyColor={DOT_EMPTY} />
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </aside>
-
-          {/* Main — Page 1 */}
-          <main style={{ background: PAGE_BG }} className="flex-1 flex flex-col overflow-hidden">
-            <header className="px-8 pt-8 pb-5 shrink-0" style={{ borderBottom: `2px solid ${ACCENT}` }}>
-              <p className="text-[9px] font-bold tracking-[2.5px] uppercase mb-2" style={{ color: ACCENT }}>
-                {profile?.headline ?? "Software Engineer"}
-              </p>
-              <h1 className="text-3xl font-bold text-slate-900 leading-tight">{profile?.name ?? "Your Name"}</h1>
-              {profile?.bio && <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">{profile.bio}</p>}
-            </header>
-
-            <div className="px-8 py-6 flex-1 overflow-hidden flex flex-col gap-6">
-              {page1Key && renderMainSection(page1Key)}
-            </div>
-          </main>
-          <div className="absolute bottom-3 inset-x-0 text-center text-[10px] text-slate-400 pointer-events-none select-none">
-            Page 1 of 2
+  // Merges experience/education/projects/other into one date-sorted timeline
+  // (most recent/ongoing first). Skills always stays in the sidebar regardless
+  // of mode, so no splicing is needed here.
+  function chronologicalBlocks(): PageBlock[] {
+    const timeline = buildTimeline(content);
+    return timeline.map((entry, i) => {
+      const isLast = i === timeline.length - 1;
+      const entryNode = (() => {
+        switch (entry.type) {
+          case "experience": return experienceEntry(entry.data, { badge: true, divider: !isLast });
+          case "education": return educationEntry(entry.data, { badge: true, divider: !isLast });
+          case "projects": return <ProjectCard proj={entry.data} accent={ACCENT} badge />;
+          case "other": return otherEntry(entry.data, { badge: true, divider: !isLast });
+        }
+      })();
+      return {
+        id: `${entry.type}-${entry.id}`,
+        node: (
+          <div className="mb-6">
+            {i === 0 && <SectionHeader title="Timeline" accent={ACCENT} />}
+            {entryNode}
           </div>
-        </div>
+        ),
+      };
+    });
+  }
 
-        {/* ══ PAGE BREAK BAND ═════════════════════════════════════════ */}
-        <div className="print:hidden h-7 bg-gray-200 flex items-center justify-center">
-          <span className="text-[9px] font-medium tracking-widest uppercase text-gray-400">Page 2</span>
-        </div>
-
-        {/* ══ ROW 2 — Page 2 ══════════════════════════════════════════ */}
-        <div className="relative flex print:break-before-page" style={{ minHeight: "297mm" }}>
-          {/* Sidebar — Page 2: Languages */}
-          <aside style={sidebarStyle} className="flex flex-col shrink-0">
-            {languageSkills.length > 0 && (
-              <div className="px-6 py-6 flex flex-col gap-3">
-                <SidebarLabel text="Languages" colors={colors} />
-                {languageSkills.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between gap-2">
-                    <span className="text-[10px]" style={{ color: SIDEBAR_TEXT }}>{s.name}</span>
-                    {s.level != null ? <DotRating level={s.level} accent={ACCENT} emptyColor={DOT_EMPTY} /> : null}
-                  </div>
-                ))}
-              </div>
-            )}
-          </aside>
-
-          {/* Main — Page 2 */}
-          <main style={{ background: PAGE_BG }} className="flex-1 px-8 py-6 flex flex-col gap-6">
-            {page2Keys.map((key) => renderMainSection(key))}
-          </main>
-          <div className="absolute bottom-3 inset-x-0 text-center text-[10px] text-slate-400 pointer-events-none select-none">
-            Page 2 of 2
+  const sidebarFirst = (
+    <>
+      <div className="flex flex-col items-center px-6 pt-8 pb-5 gap-3">
+        {content.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={content.avatarUrl} alt={profile?.name ?? ""} className="w-20 h-20 rounded-full object-cover shrink-0" style={{ border: `3px solid ${ACCENT}` }} />
+        ) : (
+          <div className="w-20 h-20 rounded-full flex items-center justify-center text-xl font-bold shrink-0" style={{ border: `3px solid ${ACCENT}`, background: DOT_EMPTY, color: SIDEBAR_TEXT }}>
+            {initials}
           </div>
+        )}
+        <div className="flex flex-col items-center gap-1 text-center">
+          <p className="text-base font-bold leading-tight" style={{ color: SIDEBAR_TEXT }}>{profile?.name ?? "Your Name"}</p>
+          <p className="text-sm" style={{ color: ACCENT }}>{profile?.headline ?? "Software Engineer"}</p>
+          {profile?.location && <p className="text-xs" style={{ color: SIDEBAR_MUTED }}>{profile.location}</p>}
         </div>
       </div>
+
+      <SidebarDivider sidebarBg={SIDEBAR_BG} />
+
+      {profile && (
+        <div className="px-6 py-4">
+          <SidebarLabel text="Contact" colors={colors} />
+          <ul className="space-y-2">
+            {profile.email && <ContactRow icon="✉" text={profile.email} colors={colors} />}
+            {profile.phone && <ContactRow icon="☏" text={profile.phone} colors={colors} />}
+            {profile.social?.github && <ContactRow icon="⎇" text={profile.social.github} isLink colors={colors} />}
+            {profile.social?.website && <ContactRow icon="↗" text={profile.social.website} isLink colors={colors} />}
+            {profile.social?.linkedin && <ContactRow icon="in" text={profile.social.linkedin} isLink colors={colors} />}
+          </ul>
+        </div>
+      )}
+
+      <SidebarDivider sidebarBg={SIDEBAR_BG} />
+
+      {skillGroups.length > 0 && (
+        <div className="px-6 py-4 flex flex-col gap-4">
+          <SidebarLabel text="Skills" colors={colors} />
+          {skillGroups.map(([category, catSkills]) => (
+            <div key={category} className="flex flex-col gap-2">
+              <SidebarCategoryLabel text={category} colors={colors} />
+              {catSkills.map((s) => (
+                <div key={s.id} className="flex items-center justify-between gap-2">
+                  <span className="text-xs truncate" style={{ color: SIDEBAR_TEXT }}>{s.name}</span>
+                  <DotRating level={s.level ?? 3} accent={ACCENT} emptyColor={DOT_EMPTY} />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  const sidebarRest = languageSkills.length > 0 ? (
+    <div className="px-6 py-6 flex flex-col gap-3">
+      <SidebarLabel text="Languages" colors={colors} />
+      {languageSkills.map((s) => (
+        <div key={s.id} className="flex items-center justify-between gap-2">
+          <span className="text-xs" style={{ color: SIDEBAR_TEXT }}>{s.name}</span>
+          {s.level != null ? <DotRating level={s.level} accent={ACCENT} emptyColor={DOT_EMPTY} /> : null}
+        </div>
+      ))}
+    </div>
+  ) : (
+    <></>
+  );
+
+  const header = (
+    <header className="pb-5 mb-6" style={{ borderBottom: `2px solid ${ACCENT}` }}>
+      <p className="text-sm font-bold tracking-[2.5px] uppercase mb-2" style={{ color: ACCENT }}>
+        {profile?.headline ?? "Software Engineer"}
+      </p>
+      <h1 className="text-3xl font-bold text-slate-900 leading-tight">{profile?.name ?? "Your Name"}</h1>
+      {profile?.bio && <p className="mt-2 text-sm text-slate-500 leading-relaxed">{profile.bio}</p>}
+    </header>
+  );
+
+  const mainOrder = sectionOrder.filter((k) => k !== "skills");
+  const mainBlocks = chronological ? chronologicalBlocks() : mainOrder.flatMap(sectionBlocks);
+
+  return (
+    <div className="py-8 px-4 print:p-0">
+      <Paginated
+        header={header}
+        blocks={mainBlocks}
+        pageClassName="shadow-md print:shadow-none border border-slate-200 print:border-none"
+        footerClassName="absolute bottom-3 inset-x-0 text-center text-xs text-slate-400 pointer-events-none select-none"
+        sidebarFirst={sidebarFirst}
+        sidebarRest={sidebarRest}
+        sidebarStyle={sidebarStyle}
+        sidebarClassName="flex flex-col shrink-0"
+        mainClassName="flex-1 bg-white flex flex-col px-8 pt-8 pb-6"
+      />
     </div>
   );
 }

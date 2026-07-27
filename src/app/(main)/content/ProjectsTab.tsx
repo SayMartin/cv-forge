@@ -7,7 +7,17 @@ interface Props {
   initialItems: Project[];
 }
 
-const EMPTY_FORM = { title: "", summary: "", url: "", sourceUrl: "", skills: "", publishedAt: "" };
+const EMPTY_FORM = {
+  title: "",
+  summary: "",
+  startDate: "",
+  endDate: "",
+  current: false,
+  url: "",
+  sourceUrl: "",
+  skills: "",
+  publishedAt: "",
+};
 type FormState = typeof EMPTY_FORM;
 
 function ProjectForm({
@@ -20,7 +30,7 @@ function ProjectForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function set(field: keyof FormState, value: string) {
+  function set<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
@@ -36,6 +46,14 @@ function ProjectForm({
     <form onSubmit={handleSubmit} className="space-y-3">
       <Field label="Title *" value={form.title} onChange={(v) => set("title", v)} placeholder="My Project" required />
       <Field label="Summary" value={form.summary} onChange={(v) => set("summary", v)} multiline placeholder="Short description of the project…" />
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Start date" value={form.startDate} onChange={(v) => set("startDate", v)} placeholder="2024 or 2024-06" />
+        <Field label="End date" value={form.endDate} onChange={(v) => set("endDate", v)} placeholder="2024 or 2024-09" disabled={form.current} />
+      </div>
+      <label className="flex items-center gap-2 text-sm text-(--cl-muted) cursor-pointer">
+        <input type="checkbox" checked={form.current} onChange={(e) => set("current", e.target.checked)} className="rounded accent-(--cl-accent)" />
+        Ongoing project
+      </label>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Live URL" value={form.url} onChange={(v) => set("url", v)} placeholder="https://myproject.com" />
         <Field label="Source / GitHub URL" value={form.sourceUrl} onChange={(v) => set("sourceUrl", v)} placeholder="https://github.com/…" />
@@ -58,6 +76,9 @@ function formToPayload(form: FormState) {
   return {
     title: form.title,
     summary: form.summary,
+    startDate: form.startDate,
+    endDate: form.endDate,
+    current: form.current,
     url: form.url,
     sourceUrl: form.sourceUrl,
     skills: form.skills.split(",").map((s) => s.trim()).filter(Boolean),
@@ -69,6 +90,9 @@ function itemToForm(item: Project): FormState {
   return {
     title: item.title ?? "",
     summary: item.summary ?? "",
+    startDate: item.startDate ?? "",
+    endDate: item.endDate ?? "",
+    current: item.current ?? false,
     url: item.url ?? "",
     sourceUrl: item.sourceUrl ?? "",
     skills: (item.skills ?? []).join(", "),
@@ -146,7 +170,13 @@ export function ProjectsTab({ initialItems }: Props) {
               <div>
                 <p className="font-medium text-(--cl-text)">{item.title}</p>
                 <p className="text-xs text-(--cl-muted) mt-0.5">
-                  {[item.skills?.join(", "), item.publishedAt ? item.publishedAt.slice(0, 10) : null].filter(Boolean).join(" · ")}
+                  {[
+                    item.startDate || item.endDate || item.current
+                      ? `${item.startDate ?? "?"} – ${item.current ? "Present" : (item.endDate ?? "?")}`
+                      : null,
+                    item.skills?.join(", "),
+                    item.publishedAt ? item.publishedAt.slice(0, 10) : null,
+                  ].filter(Boolean).join(" · ")}
                 </p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
@@ -162,18 +192,18 @@ export function ProjectsTab({ initialItems }: Props) {
 }
 
 function Field({
-  label, value, onChange, placeholder, required, multiline,
+  label, value, onChange, placeholder, required, multiline, disabled,
 }: {
   label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; required?: boolean; multiline?: boolean;
+  placeholder?: string; required?: boolean; multiline?: boolean; disabled?: boolean;
 }) {
-  const cls = "w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)";
+  const cls = "w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent) disabled:opacity-50 disabled:bg-(--cl-pill)";
   return (
     <div className="space-y-1">
       <label className="block text-xs font-medium text-(--cl-text)">{label}</label>
       {multiline
         ? <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className={cls} />
-        : <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} required={required} className={cls} />}
+        : <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} required={required} disabled={disabled} className={cls} />}
     </div>
   );
 }

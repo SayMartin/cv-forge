@@ -133,6 +133,7 @@ export default async function CvEditorPage({ params }: Params) {
           initialTargetRole={cv.targetRole ?? null}
           initialCoverLetter={cv.coverLetter ?? null}
           initialSectionOrder={cv.sectionOrder?.length ? cv.sectionOrder : undefined}
+          initialChronological={cv.chronological}
           profiles={profiles}
           avatarDoc={avatarDoc ? { id: avatarDoc.id, images: avatarDoc.images } : null}
           experiences={mappedExperiences}

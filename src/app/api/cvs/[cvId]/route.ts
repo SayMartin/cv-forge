@@ -51,6 +51,7 @@ export async function PATCH(request: Request, { params }: Params) {
     targetRole?: string | null;
     coverLetter?: string | null;
     sectionOrder?: string[];
+    chronological?: boolean;
   } = {};
 
   if (body.name !== undefined) data.name = String(body.name).trim();
@@ -66,6 +67,7 @@ export async function PATCH(request: Request, { params }: Params) {
   if (body.targetRole !== undefined) data.targetRole = body.targetRole ?? null;
   if (body.coverLetter !== undefined) data.coverLetter = body.coverLetter ?? null;
   if (Array.isArray(body.sectionOrder)) data.sectionOrder = body.sectionOrder;
+  if (typeof body.chronological === "boolean") data.chronological = body.chronological;
 
   const updated = await prisma.cV.update({ where: { id: cvId }, data });
   return NextResponse.json(updated);

@@ -27,6 +27,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     data.slug = slugify(String(body.title).trim());
   }
   if (body.summary !== undefined) data.summary = body.summary || null;
+  if (body.startDate !== undefined) data.startDate = body.startDate || null;
+  if (body.endDate !== undefined) data.endDate = body.endDate || null;
+  if (body.current !== undefined) data.current = body.current === true;
   if (body.url !== undefined) data.url = body.url || null;
   if (body.sourceUrl !== undefined) data.sourceUrl = body.sourceUrl || null;
   if (body.skills !== undefined) data.skills = Array.isArray(body.skills) ? body.skills.filter(Boolean) : [];

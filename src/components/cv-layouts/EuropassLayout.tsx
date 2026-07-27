@@ -1,6 +1,7 @@
-import type { CvContent } from "@/lib/cv-content-types";
+import type { CvContent, CvEducation, CvExperience, CvOther, CvProject } from "@/lib/cv-content-types";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
+import { buildTimeline, TIMELINE_TYPE_LABEL } from "@/lib/cv-timeline";
 import { Paginated } from "./pagination/Paginated";
 import type { PageBlock } from "./pagination/types";
 
@@ -25,7 +26,7 @@ function formatBirthDate(date?: Date | null) {
 function DatedRow({ dateLabel, children, accent }: { dateLabel: string; children: React.ReactNode; accent: string }) {
   return (
     <div className="flex gap-4 break-inside-avoid">
-      <div className="w-28 shrink-0 text-[11px] font-medium pt-0.5" style={{ color: accent }}>
+      <div className="w-20 shrink-0 text-xs font-medium pt-0.5 whitespace-pre-line" style={{ color: accent }}>
         {dateLabel}
       </div>
       <div className="flex-1 border-l pl-4" style={{ borderColor: accent + "33" }}>
@@ -49,9 +50,17 @@ function SectionTitle({ title, accent }: { title: string; accent: string }) {
 function InfoRow({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <div className="flex gap-4">
-      <div className="w-28 shrink-0 text-[11px] font-medium" style={{ color: accent }}>{label}</div>
-      <div className="flex-1 text-[11px] text-zinc-700">{value}</div>
+      <div className="w-28 shrink-0 text-xs font-medium" style={{ color: accent }}>{label}</div>
+      <div className="flex-1 text-xs text-zinc-700">{value}</div>
     </div>
+  );
+}
+
+function TypeBadge({ label, accent }: { label: string; accent: string }) {
+  return (
+    <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: accent + "99" }}>
+      {label}
+    </p>
   );
 }
 
@@ -59,10 +68,12 @@ export function EuropassLayout({
   content,
   theme,
   sectionOrder = DEFAULT_SECTION_ORDER,
+  chronological = false,
 }: {
   content: CvContent;
   theme?: CvTheme;
   sectionOrder?: SectionKey[];
+  chronological?: boolean;
 }) {
   const { profile, experiences, educations, skills, projects, others } = content;
   const ACCENT = theme?.sidebarColor ?? EUROPASS_BLUE;
@@ -74,55 +85,106 @@ export function EuropassLayout({
     return c !== "language" && c !== "tool" && c !== "platform";
   });
 
+  // Pure "one entry's content" builders — reused both by the grouped-by-section
+  // path (title fused into the first entry) and the chronological path (a
+  // small type badge on every entry instead of a section title).
+  function experienceEntry(job: CvExperience, badge?: boolean) {
+    const dateStr = [formatDate(job.startDate), job.current ? "Present" : formatDate(job.endDate)].filter(Boolean).join(" –\n");
+    return (
+      <DatedRow dateLabel={dateStr} accent={ACCENT}>
+        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.experience} accent={ACCENT} />}
+        <p className="font-bold text-zinc-800 text-sm">{job.role}</p>
+        <p className="text-zinc-600 text-sm">{job.company}</p>
+        {job.description && (
+          <p className="text-zinc-500 mt-1 text-sm leading-relaxed whitespace-pre-line">{job.description}</p>
+        )}
+        {job.skills && job.skills.length > 0 && (
+          <p className="text-xs text-zinc-400 mt-1">Skills used: {job.skills.join(", ")}</p>
+        )}
+      </DatedRow>
+    );
+  }
+
+  function educationEntry(edu: CvEducation, badge?: boolean) {
+    const dateStr = [formatDate(edu.startDate), edu.current ? "Present" : formatDate(edu.endDate)].filter(Boolean).join(" –\n");
+    return (
+      <DatedRow dateLabel={dateStr} accent={ACCENT}>
+        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.education} accent={ACCENT} />}
+        <p className="font-bold text-zinc-800 text-sm">
+          {edu.degree}{edu.field ? ` in ${edu.field}` : ""}
+        </p>
+        <p className="text-zinc-600 text-sm">{edu.institution}</p>
+        {edu.description && (
+          <p className="text-zinc-500 mt-1 text-sm leading-relaxed">{edu.description}</p>
+        )}
+      </DatedRow>
+    );
+  }
+
+  function projectEntry(proj: CvProject, badge?: boolean) {
+    const dateStr = [formatDate(proj.startDate), proj.current ? "Present" : formatDate(proj.endDate)].filter(Boolean).join(" –\n") || (proj.publishedAt ? formatDate(proj.publishedAt) : "");
+    return (
+      <DatedRow dateLabel={dateStr} accent={ACCENT}>
+        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.projects} accent={ACCENT} />}
+        <p className="font-bold text-zinc-800 text-sm">{proj.title}</p>
+        {proj.summary && <p className="text-zinc-500 mt-0.5 text-sm leading-relaxed">{proj.summary}</p>}
+        <div className="flex flex-col gap-0.5 text-xs mt-1">
+          {proj.url && (
+            <span className="text-zinc-400 wrap-break-word">
+              Live at: <a href={proj.url} style={{ color: ACCENT }}>{proj.url}</a>
+            </span>
+          )}
+          {proj.sourceUrl && (
+            <span className="text-zinc-400 wrap-break-word">
+              Source: <a href={proj.sourceUrl} style={{ color: ACCENT }}>{proj.sourceUrl}</a>
+            </span>
+          )}
+        </div>
+      </DatedRow>
+    );
+  }
+
+  function otherEntry(o: CvOther, badge?: boolean) {
+    return (
+      <div>
+        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.other} accent={ACCENT} />}
+        {o.date && <p className="text-xs font-semibold" style={{ color: ACCENT }}>{formatDate(o.date)}</p>}
+        <p className="font-bold text-zinc-800 text-sm">
+          {o.title}{o.subtitle && ` — ${o.subtitle}`}
+        </p>
+        {o.description && (
+          <p className="text-zinc-500 mt-0.5 text-sm leading-relaxed">{o.description}</p>
+        )}
+      </div>
+    );
+  }
+
   // Each returned block is one atomic, unsplittable pagination unit — a
   // single entry, with the section title fused into the first one so a
   // title can never be orphaned alone at the bottom of a page.
   function sectionBlocks(key: SectionKey): PageBlock[] {
     switch (key) {
       case "experience":
-        return experiences.map((job, i) => {
-          const dateStr = [formatDate(job.startDate), job.current ? "Present" : formatDate(job.endDate)].filter(Boolean).join(" – ");
-          return {
-            id: `experience-${job.id}`,
-            node: (
-              <div className="mb-6">
-                {i === 0 && <SectionTitle title="Work experience" accent={ACCENT} />}
-                <DatedRow dateLabel={dateStr} accent={ACCENT}>
-                  <p className="font-bold text-zinc-800 text-[12px]">{job.role}</p>
-                  <p className="text-zinc-600 text-[11px]">{job.company}</p>
-                  {job.description && (
-                    <p className="text-zinc-500 mt-1 text-[11px] leading-relaxed whitespace-pre-line">{job.description}</p>
-                  )}
-                  {job.skills && job.skills.length > 0 && (
-                    <p className="text-[10px] text-zinc-400 mt-1">Skills used: {job.skills.join(", ")}</p>
-                  )}
-                </DatedRow>
-              </div>
-            ),
-          };
-        });
+        return experiences.map((job, i) => ({
+          id: `experience-${job.id}`,
+          node: (
+            <div className="mb-6">
+              {i === 0 && <SectionTitle title="Work experience" accent={ACCENT} />}
+              {experienceEntry(job)}
+            </div>
+          ),
+        }));
 
       case "education":
-        return educations.map((edu, i) => {
-          const dateStr = [formatDate(edu.startDate), edu.current ? "Present" : formatDate(edu.endDate)].filter(Boolean).join(" – ");
-          return {
-            id: `education-${edu.id}`,
-            node: (
-              <div className="mb-6">
-                {i === 0 && <SectionTitle title="Education and training" accent={ACCENT} />}
-                <DatedRow dateLabel={dateStr} accent={ACCENT}>
-                  <p className="font-bold text-zinc-800 text-[12px]">
-                    {edu.degree}{edu.field ? ` in ${edu.field}` : ""}
-                  </p>
-                  <p className="text-zinc-600 text-[11px]">{edu.institution}</p>
-                  {edu.description && (
-                    <p className="text-zinc-500 mt-1 text-[11px] leading-relaxed">{edu.description}</p>
-                  )}
-                </DatedRow>
-              </div>
-            ),
-          };
-        });
+        return educations.map((edu, i) => ({
+          id: `education-${edu.id}`,
+          node: (
+            <div className="mb-6">
+              {i === 0 && <SectionTitle title="Education and training" accent={ACCENT} />}
+              {educationEntry(edu)}
+            </div>
+          ),
+        }));
 
       case "skills":
         return skills.length > 0 || profile?.drivingLicense
@@ -135,8 +197,8 @@ export function EuropassLayout({
                     <div className="space-y-4">
                       {languageSkills.length > 0 && (
                         <div>
-                          <p className="text-[11px] font-semibold text-zinc-700 mb-1.5">Language skills</p>
-                          <table className="w-full text-[11px] border-collapse">
+                          <p className="text-xs font-semibold text-zinc-700 mb-1.5">Language skills</p>
+                          <table className="w-full text-xs border-collapse">
                             <thead>
                               <tr className="border-b" style={{ borderColor: ACCENT + "33" }}>
                                 <th className="text-left font-medium py-1 pr-4" style={{ color: ACCENT }}>Language</th>
@@ -152,17 +214,17 @@ export function EuropassLayout({
                               ))}
                             </tbody>
                           </table>
-                          <p className="text-[9px] text-zinc-400 mt-1">
+                          <p className="text-xs text-zinc-400 mt-1">
                             Levels: A1/A2 Basic user · B1/B2 Independent user · C1/C2 Proficient user (Common European Framework of Reference).
                           </p>
                         </div>
                       )}
                       {digitalSkills.length > 0 && (
                         <div>
-                          <p className="text-[11px] font-semibold text-zinc-700 mb-1.5">Digital skills</p>
+                          <p className="text-xs font-semibold text-zinc-700 mb-1.5">Digital skills</p>
                           <div className="flex flex-wrap gap-1.5">
                             {digitalSkills.map((s) => (
-                              <span key={s.id} className="text-[10px] px-2 py-0.5 rounded" style={{ background: ACCENT + "14", color: ACCENT }}>
+                              <span key={s.id} className="text-xs px-2 py-0.5 rounded" style={{ background: ACCENT + "14", color: ACCENT }}>
                                 {s.name}
                               </span>
                             ))}
@@ -171,10 +233,10 @@ export function EuropassLayout({
                       )}
                       {otherSkills.length > 0 && (
                         <div>
-                          <p className="text-[11px] font-semibold text-zinc-700 mb-1.5">Other skills</p>
+                          <p className="text-xs font-semibold text-zinc-700 mb-1.5">Other skills</p>
                           <div className="flex flex-wrap gap-1.5">
                             {otherSkills.map((s) => (
-                              <span key={s.id} className="text-[10px] px-2 py-0.5 rounded" style={{ background: ACCENT + "14", color: ACCENT }}>
+                              <span key={s.id} className="text-xs px-2 py-0.5 rounded" style={{ background: ACCENT + "14", color: ACCENT }}>
                                 {s.name}
                               </span>
                             ))}
@@ -183,8 +245,8 @@ export function EuropassLayout({
                       )}
                       {profile?.drivingLicense && (
                         <div>
-                          <p className="text-[11px] font-semibold text-zinc-700 mb-1">Driving licence</p>
-                          <p className="text-[11px] text-zinc-700">{profile.drivingLicense}</p>
+                          <p className="text-xs font-semibold text-zinc-700 mb-1">Driving licence</p>
+                          <p className="text-xs text-zinc-700">{profile.drivingLicense}</p>
                         </div>
                       )}
                     </div>
@@ -200,14 +262,7 @@ export function EuropassLayout({
           node: (
             <div className="mb-6">
               {i === 0 && <SectionTitle title="Projects" accent={ACCENT} />}
-              <div>
-                <p className="font-bold text-zinc-800 text-[12px]">{proj.title}</p>
-                {proj.summary && <p className="text-zinc-500 mt-0.5 text-[11px] leading-relaxed">{proj.summary}</p>}
-                <div className="flex gap-3 text-[10px] mt-1" style={{ color: ACCENT }}>
-                  {proj.url && <a href={proj.url}>Live ↗</a>}
-                  {proj.sourceUrl && <a href={proj.sourceUrl}>Source ⎇</a>}
-                </div>
-              </div>
+              {projectEntry(proj)}
             </div>
           ),
         }));
@@ -218,15 +273,7 @@ export function EuropassLayout({
           node: (
             <div className="mb-6">
               {i === 0 && <SectionTitle title="Additional information" accent={ACCENT} />}
-              <div>
-                {o.date && <p className="text-[11px] font-semibold" style={{ color: ACCENT }}>{formatDate(o.date)}</p>}
-                <p className="font-bold text-zinc-800 text-[12px]">
-                  {o.title}{o.subtitle && ` — ${o.subtitle}`}
-                </p>
-                {o.description && (
-                  <p className="text-zinc-500 mt-0.5 text-[11px] leading-relaxed">{o.description}</p>
-                )}
-              </div>
+              {otherEntry(o)}
             </div>
           ),
         }));
@@ -236,11 +283,45 @@ export function EuropassLayout({
     }
   }
 
+  // Merges experience/education/projects/other into one date-sorted timeline
+  // (most recent/ongoing first); Skills stays separate, spliced before or
+  // after based on its stored position in `sectionOrder`.
+  function chronologicalBlocks(): PageBlock[] {
+    const timeline = buildTimeline(content);
+    const timelineBlocks: PageBlock[] = timeline.map((entry, i) => {
+      const title = i === 0 ? <SectionTitle title="Timeline" accent={ACCENT} /> : null;
+      const entryNode = (() => {
+        switch (entry.type) {
+          case "experience": return experienceEntry(entry.data, true);
+          case "education": return educationEntry(entry.data, true);
+          case "projects": return projectEntry(entry.data, true);
+          case "other": return otherEntry(entry.data, true);
+        }
+      })();
+      return {
+        id: `${entry.type}-${entry.id}`,
+        node: (
+          <div className="mb-6">
+            {title}
+            {entryNode}
+          </div>
+        ),
+      };
+    });
+
+    const skillsBlocks = sectionBlocks("skills");
+    const skillsIdx = sectionOrder.indexOf("skills");
+    const firstOtherIdx = sectionOrder.findIndex((k) => k !== "skills");
+    const skillsFirst = skillsIdx !== -1 && (firstOtherIdx === -1 || skillsIdx < firstOtherIdx);
+
+    return skillsFirst ? [...skillsBlocks, ...timelineBlocks] : [...timelineBlocks, ...skillsBlocks];
+  }
+
   const header = (
     <>
       <div className="flex items-start justify-between gap-6 pb-6 mb-6 border-b-4" style={{ borderColor: ACCENT }}>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: ACCENT }}>Curriculum Vitae</p>
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: ACCENT }}>Curriculum Vitae</p>
           <h1 className="text-2xl font-extrabold text-zinc-800 mt-1">{profile?.name ?? "Your Name"}</h1>
           {profile?.headline && <p className="text-sm text-zinc-500 mt-0.5">{profile.headline}</p>}
         </div>
@@ -266,13 +347,13 @@ export function EuropassLayout({
       {profile?.bio && (
         <section className="mb-6">
           <SectionTitle title="Profile summary" accent={ACCENT} />
-          <p className="text-zinc-600 leading-relaxed text-[11px]">{profile.bio}</p>
+          <p className="text-zinc-600 leading-relaxed text-sm">{profile.bio}</p>
         </section>
       )}
     </>
   );
 
-  const mainBlocks = sectionOrder.flatMap(sectionBlocks);
+  const mainBlocks = chronological ? chronologicalBlocks() : sectionOrder.flatMap(sectionBlocks);
 
   return (
     <div className="py-8 px-4 print:p-0">
@@ -280,11 +361,6 @@ export function EuropassLayout({
         header={header}
         blocks={mainBlocks}
         pageClassName="bg-white shadow-md print:shadow-none border border-gray-300 print:border-none px-10 py-10 text-sm"
-        renderFooter={(page, count) => (
-          <div className="absolute bottom-3 inset-x-0 text-center text-[10px] text-zinc-400 pointer-events-none select-none">
-            Page {page} of {count}
-          </div>
-        )}
       />
     </div>
   );

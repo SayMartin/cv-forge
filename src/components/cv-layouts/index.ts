@@ -10,7 +10,7 @@ import { EuropassLayout } from "./EuropassLayout";
 
 export type { CvTheme };
 
-export type LayoutProps = { content: CvContent; theme?: CvTheme; sectionOrder?: SectionKey[] };
+export type LayoutProps = { content: CvContent; theme?: CvTheme; sectionOrder?: SectionKey[]; chronological?: boolean };
 
 // Add new layouts here as they are built.
 // The key must match the `id` in CV_LAYOUTS registry (src/lib/cv-layouts.ts).

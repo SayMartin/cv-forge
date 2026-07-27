@@ -106,6 +106,10 @@ export default async function CvViewPage({ params }: Params) {
     title: p.title,
     slug: p.slug,
     summary: p.summary,
+    startDate: p.startDate,
+    endDate: p.endDate,
+    current: p.current,
+    publishedAt: p.publishedAt ? p.publishedAt.toISOString().slice(0, 10) : null,
     imageUrl: p.imageUrl,
     url: p.url,
     sourceUrl: p.sourceUrl,
@@ -146,6 +150,7 @@ export default async function CvViewPage({ params }: Params) {
           content,
           theme: theme ?? undefined,
           sectionOrder,
+          chronological: cv.chronological,
         })}
       </CvScaleWrapper>
     </div>

@@ -47,6 +47,7 @@ interface Props {
   initialTargetRole: string | null;
   initialCoverLetter: string | null;
   initialSectionOrder?: string[];
+  initialChronological?: boolean;
   profiles: Profile[];
   avatarDoc: AvatarDoc | null;
   experiences: Experience[];
@@ -74,6 +75,7 @@ export function CvEditor({
   initialTargetRole,
   initialCoverLetter,
   initialSectionOrder,
+  initialChronological,
   profiles,
   avatarDoc,
   experiences,
@@ -106,6 +108,7 @@ export function CvEditor({
   const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(
     (initialSectionOrder?.length ? initialSectionOrder : DEFAULT_SECTION_ORDER) as SectionKey[],
   );
+  const [chronological, setChronological] = useState<boolean>(initialChronological ?? false);
   const [targetRole, setTargetRole] = useState<string>(initialTargetRole ?? "");
   const [coverLetter, setCoverLetter] = useState<string>(initialCoverLetter ?? "");
 
@@ -213,6 +216,7 @@ export function CvEditor({
         projectIds,
         otherIds,
         sectionOrder,
+        chronological,
         targetRole: targetRole.trim() || null,
         coverLetter: coverLetter.trim() || null,
       }),
@@ -244,6 +248,7 @@ export function CvEditor({
     setSectionOrder(
       (initialSectionOrder?.length ? initialSectionOrder : DEFAULT_SECTION_ORDER) as SectionKey[],
     );
+    setChronological(initialChronological ?? false);
     setTargetRole(initialTargetRole ?? "");
     setCoverLetter(initialCoverLetter ?? "");
     setIsDirty(false);
@@ -664,14 +669,48 @@ export function CvEditor({
         </Section>
       )}
 
-      {/* Section order */}
-      <Section title="Section order">
-        <p className="text-xs text-(--cl-muted) mb-3">Hold and drag to reorder sections in your CV.</p>
-        <SectionOrderEditor
-          sectionOrder={sectionOrder}
-          onChange={(order) => { setSectionOrder(order); markDirty(); }}
-        />
+      {/* Timeline mode */}
+      <Section title="Timeline">
+        <div className="flex flex-col gap-2">
+          <label className="flex items-start gap-2 cursor-pointer group">
+            <input
+              type="radio"
+              name="chronological"
+              checked={!chronological}
+              onChange={() => { setChronological(false); markDirty(); }}
+              className="mt-0.5 h-4 w-4 accent-(--cl-accent)"
+            />
+            <span className="text-sm text-(--cl-text)">
+              Grouped by section
+              <span className="block text-xs text-(--cl-muted)">Experience, Education, Projects, and Other each render as their own block, in the order below.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 cursor-pointer group">
+            <input
+              type="radio"
+              name="chronological"
+              checked={chronological}
+              onChange={() => { setChronological(true); markDirty(); }}
+              className="mt-0.5 h-4 w-4 accent-(--cl-accent)"
+            />
+            <span className="text-sm text-(--cl-text)">
+              Mixed, chronological order
+              <span className="block text-xs text-(--cl-muted)">Experience, Education, Projects, and Other are merged into one timeline sorted by date (most recent first). Skills stays separate.</span>
+            </span>
+          </label>
+        </div>
       </Section>
+
+      {/* Section order */}
+      {!chronological && (
+        <Section title="Section order">
+          <p className="text-xs text-(--cl-muted) mb-3">Hold and drag to reorder sections in your CV.</p>
+          <SectionOrderEditor
+            sectionOrder={sectionOrder}
+            onChange={(order) => { setSectionOrder(order); markDirty(); }}
+          />
+        </Section>
+      )}
 
       {/* Cover letter */}
       <Section title="Cover letter">

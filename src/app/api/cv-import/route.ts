@@ -64,6 +64,9 @@ const CvSchema = z.object({
     z.object({
       title: z.string(),
       summary: z.string().optional(),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
+      current: z.boolean().optional(),
       url: z.string().url().optional(),
       sourceUrl: z.string().url().optional(),
       skills: z.array(z.string()).optional(),
@@ -147,7 +150,8 @@ Rules:
 - Only include URLs that are explicitly present in the document — do not invent them.
 - Keep description fields concise (2–4 sentences max).
 - For skills, pick the most appropriate category: Language, Framework, Tool, Platform, Other. "Language" means spoken/natural languages only (e.g. English, Swedish, German) — programming languages (e.g. Kotlin, Java, Python, TypeScript) must use "Tool", never "Language".
-- For entries that do not clearly fit experience, education, skills, or projects (e.g. certifications, awards, publications, volunteer work, courses), place them in the "other" array with a descriptive title and subtitle (issuer or organisation).`,
+- For entries that do not clearly fit experience, education, skills, or projects (e.g. certifications, awards, publications, volunteer work, courses), place them in the "other" array with a descriptive title and subtitle (issuer or organisation).
+- Projects may optionally have a start/end date or just an end date, using the same date rules as experience — if a project is ongoing set current=true and omit endDate.`,
             },
           ],
         },
@@ -241,6 +245,9 @@ Rules:
             title: proj.title,
             slug,
             summary: proj.summary ?? null,
+            startDate: proj.startDate ?? null,
+            endDate: proj.endDate ?? null,
+            current: proj.current ?? false,
             url: proj.url ?? null,
             sourceUrl: proj.sourceUrl ?? null,
             skills: proj.skills ?? [],

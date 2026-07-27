@@ -57,6 +57,10 @@ export type CvProject = {
   title: string;
   slug?: string | null;
   summary?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  current?: boolean | null;
+  publishedAt?: string | null; // fallback date shown only when no start/end date is set
   imageUrl?: string | null;
   url?: string | null;
   sourceUrl?: string | null;
