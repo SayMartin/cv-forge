@@ -21,11 +21,7 @@ export default async function ContentPage() {
       prisma.profile.findMany({ where: { userId }, orderBy: { profileName: "asc" } }),
       prisma.experience.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
       prisma.education.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
-      prisma.skill.findMany({
-        where: { userId },
-        orderBy: [{ order: "asc" }, { name: "asc" }],
-        include: { category: true },
-      }),
+      prisma.skill.findMany({ where: { userId }, orderBy: { name: "asc" } }),
       prisma.skillCategory.findMany({
         where: { userId },
         orderBy: [{ order: "asc" }, { name: "asc" }],
@@ -51,17 +47,11 @@ export default async function ContentPage() {
     social: { linkedin: p.linkedin ?? undefined, github: p.github ?? undefined, website: p.website ?? undefined, portfolio: p.portfolio ?? undefined },
   }));
 
-  // Mapped explicitly rather than cast: `category` is a relation on the row but a
-  // display name on the client, so a cast would hide the mismatch instead of
-  // surfacing it.
   const skills: Skill[] = rawSkills.map((s) => ({
     id: s.id,
     name: s.name,
-    categoryId: s.categoryId ?? undefined,
-    category: s.category?.name ?? undefined,
     level: s.level ?? undefined,
     cefrLevel: s.cefrLevel ?? undefined,
-    order: s.order,
   }));
 
   const projects: Project[] = rawProjects.map((p) => ({

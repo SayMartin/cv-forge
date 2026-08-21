@@ -6,6 +6,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { CvSkillGroup } from "@/lib/cv-content-types";
 import { CvEditShell } from "./CvEditShell";
 
 type Params = { params: Promise<{ cvId: string }> };
@@ -34,6 +35,7 @@ export default async function CvEditorPage({ params }: Params) {
     experiences,
     educations,
     skills,
+    skillCategories,
     rawProjects,
     others,
     themes,
@@ -44,10 +46,11 @@ export default async function CvEditorPage({ params }: Params) {
     prisma.avatar.findUnique({ where: { userId } }),
     prisma.experience.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
     prisma.education.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
-    prisma.skill.findMany({
+    prisma.skill.findMany({ where: { userId }, orderBy: { name: "asc" } }),
+    prisma.skillCategory.findMany({
       where: { userId },
       orderBy: [{ order: "asc" }, { name: "asc" }],
-      include: { category: true },
+      select: { id: true, name: true, kind: true },
     }),
     prisma.project.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
     prisma.other.findMany({ where: { userId }, orderBy: [{ order: "asc" }, { createdAt: "desc" }] }),
@@ -103,9 +106,8 @@ export default async function CvEditorPage({ params }: Params) {
   const mappedSkills = skills.map((s) => ({
     id: s.id,
     name: s.name,
-    category: s.category?.name ?? undefined,
     level: s.level ?? undefined,
-    order: s.order,
+    cefrLevel: s.cefrLevel ?? undefined,
   }));
 
   const mappedOthers = others.map((o) => ({
@@ -132,6 +134,7 @@ export default async function CvEditorPage({ params }: Params) {
           initialExperienceIds={cv.experienceIds}
           initialEducationIds={cv.educationIds}
           initialSkillIds={cv.skillIds}
+          initialSkillGroups={(cv.skillGroups as CvSkillGroup[] | null) ?? []}
           initialProjectIds={cv.projectIds}
           initialOtherIds={cv.otherIds ?? []}
           initialTargetRole={cv.targetRole ?? null}
@@ -143,6 +146,7 @@ export default async function CvEditorPage({ params }: Params) {
           experiences={mappedExperiences}
           educations={mappedEducations}
           skills={mappedSkills}
+          skillCategories={skillCategories}
           projects={projects}
           others={mappedOthers}
           themes={themes}

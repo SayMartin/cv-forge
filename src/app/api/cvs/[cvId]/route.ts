@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { CvSkillGroup } from "@/lib/cv-content-types";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export async function PATCH(request: Request, { params }: Params) {
     coverLetter?: string | null;
     sectionOrder?: string[];
     chronological?: boolean;
+    skillGroups?: CvSkillGroup[];
   } = {};
 
   if (body.name !== undefined) data.name = String(body.name).trim();
@@ -68,6 +70,59 @@ export async function PATCH(request: Request, { params }: Params) {
   if (body.coverLetter !== undefined) data.coverLetter = body.coverLetter ?? null;
   if (Array.isArray(body.sectionOrder)) data.sectionOrder = body.sectionOrder;
   if (typeof body.chronological === "boolean") data.chronological = body.chronological;
+
+  // skillGroups carries the whole per-CV skills arrangement, so it is validated
+  // rather than trusted: unknown category ids would render as empty headings, and
+  // foreign skill ids would be silently dropped by the view page's userId filter —
+  // both failures that only show up in an exported PDF.
+  if (Array.isArray(body.skillGroups)) {
+    const [ownedCategories, ownedSkills] = await Promise.all([
+      prisma.skillCategory.findMany({ where: { userId: session.user.id }, select: { id: true } }),
+      prisma.skill.findMany({ where: { userId: session.user.id }, select: { id: true } }),
+    ]);
+    const categoryIds = new Set(ownedCategories.map((c) => c.id));
+    const skillIds = new Set(ownedSkills.map((s) => s.id));
+
+    const seenCategories = new Set<string>();
+    const seenSkills = new Set<string>();
+    const groups: CvSkillGroup[] = [];
+
+    for (const raw of body.skillGroups) {
+      if (!raw || typeof raw !== "object") continue;
+      const categoryId = String(raw.categoryId ?? "");
+      // A category may appear once: twice would give two identical headings, and
+      // the same skill may sit in only one group.
+      if (!categoryIds.has(categoryId) || seenCategories.has(categoryId)) continue;
+      seenCategories.add(categoryId);
+
+      const ids = Array.isArray(raw.skillIds) ? raw.skillIds : [];
+      const groupSkills: string[] = [];
+      for (const id of ids) {
+        const skillId = String(id);
+        if (!skillIds.has(skillId) || seenSkills.has(skillId)) continue;
+        seenSkills.add(skillId);
+        groupSkills.push(skillId);
+      }
+
+      groups.push({
+        categoryId,
+        ...(raw.hidden === true ? { hidden: true } : {}),
+        skillIds: groupSkills,
+      });
+    }
+
+    data.skillGroups = groups;
+  }
+
+  // The invariant: a skill can only be selected if it is placed in a group. Applied
+  // against whichever groups this request results in — the incoming ones, or the
+  // stored ones when only the selection is being patched.
+  if (data.skillIds || data.skillGroups) {
+    const groups = data.skillGroups ?? (existing.skillGroups as CvSkillGroup[] | null) ?? [];
+    const placed = new Set(groups.flatMap((g) => g.skillIds ?? []));
+    const selection = data.skillIds ?? existing.skillIds;
+    data.skillIds = selection.filter((id) => placed.has(id));
+  }
 
   // profileId and themeId are patched straight from the request body. profileId has
   // no FK at all, so without this guard any cuid is accepted and the view page would

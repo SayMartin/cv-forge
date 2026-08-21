@@ -6,6 +6,8 @@ import { CV_LAYOUTS, DEFAULT_LAYOUT_ID, DEFAULT_SECTION_ORDER, type SectionKey }
 import { LayoutThumb } from "@/components/cv-layouts/thumbnails";
 import { SectionOrderEditor } from "./SectionOrderEditor";
 import { SortableEntryList } from "./SortableEntryList";
+import { CvSkillsEditor, type CategoryOption } from "./CvSkillsEditor";
+import type { CvSkillGroup } from "@/lib/cv-content-types";
 
 type Entry = { id: string; [key: string]: unknown };
 type Experience = Entry & { company: string; role: string };
@@ -42,6 +44,7 @@ interface Props {
   initialExperienceIds: string[];
   initialEducationIds: string[];
   initialSkillIds: string[];
+  initialSkillGroups: CvSkillGroup[];
   initialProjectIds: string[];
   initialOtherIds: string[];
   initialTargetRole: string | null;
@@ -53,6 +56,7 @@ interface Props {
   experiences: Experience[];
   educations: Education[];
   skills: Skill[];
+  skillCategories: CategoryOption[];
   projects: Project[];
   others: Other[];
   themes: ThemeEntry[];
@@ -70,6 +74,7 @@ export function CvEditor({
   initialExperienceIds,
   initialEducationIds,
   initialSkillIds,
+  initialSkillGroups,
   initialProjectIds,
   initialOtherIds,
   initialTargetRole,
@@ -81,6 +86,7 @@ export function CvEditor({
   experiences,
   educations,
   skills,
+  skillCategories,
   projects,
   others,
   themes: initialThemes,
@@ -102,6 +108,7 @@ export function CvEditor({
   const [experienceIds, setExperienceIds] = useState<string[]>(initialExperienceIds);
   const [educationIds, setEducationIds] = useState<string[]>(initialEducationIds);
   const [skillIds, setSkillIds] = useState<string[]>(initialSkillIds);
+  const [skillGroups, setSkillGroups] = useState<CvSkillGroup[]>(initialSkillGroups);
   const [projectIds, setProjectIds] = useState<string[]>(initialProjectIds);
   const [otherIds, setOtherIds] = useState<string[]>(initialOtherIds);
 
@@ -213,6 +220,7 @@ export function CvEditor({
         experienceIds,
         educationIds,
         skillIds,
+        skillGroups,
         projectIds,
         otherIds,
         sectionOrder,
@@ -608,23 +616,16 @@ export function CvEditor({
         </Section>
       )}
 
-      {/* Skills */}
+      {/* Skills — grouped per CV, so the arrangement is not a checkbox list */}
       {skills.length > 0 && (
-        <Section
-          title="Skills"
-          allIds={skills.map((s) => s.id)}
-          selectedIds={skillIds}
-          onToggleAll={() =>
-            toggleAll(skillIds, setSkillIds, skills.map((s) => s.id))
-          }
-        >
-          <SortableEntryList
-            ids={skillIds}
-            onReorder={(ids) => { setSkillIds(ids); markDirty(); }}
-            entries={skills}
-            getLabel={(s) => s.name}
-            onToggle={(id) => toggle(skillIds, setSkillIds, id)}
-            columns={2}
+        <Section title="Skills">
+          <CvSkillsEditor
+            skills={skills}
+            categories={skillCategories}
+            groups={skillGroups}
+            selectedIds={skillIds}
+            onGroupsChange={(g) => { setSkillGroups(g); markDirty(); }}
+            onSelectedChange={(ids) => { setSkillIds(ids); markDirty(); }}
           />
         </Section>
       )}

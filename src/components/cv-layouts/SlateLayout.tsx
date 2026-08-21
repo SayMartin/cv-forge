@@ -1,4 +1,3 @@
-import { groupSkillsByCategory, isLanguageSkill } from "@/lib/cv-content-types";
 import type { CvContent, CvEducation, CvExperience, CvOther } from "@/lib/cv-content-types";
 import { getContrastColor } from "@/lib/color-utils";
 import type { CvTheme } from "@/lib/cv-theme";
@@ -157,7 +156,7 @@ export function SlateLayout({
   sectionOrder?: SectionKey[];
   chronological?: boolean;
 }) {
-  const { profile, experiences, educations, skills, projects, others } = content;
+  const { profile, experiences, educations, skillGroups, projects, others } = content;
 
   const ACCENT = theme?.accentColor ?? DEFAULT_ACCENT;
   const SIDEBAR_BG = theme?.sidebarColor ?? DEFAULT_SIDEBAR_BG;
@@ -167,9 +166,8 @@ export function SlateLayout({
 
   const colors: SColors = { accent: ACCENT, sidebarText: SIDEBAR_TEXT, sidebarMuted: SIDEBAR_MUTED };
 
-  const languageSkills = skills.filter(isLanguageSkill);
-  const techSkills = skills.filter((s) => !isLanguageSkill(s));
-  const skillGroups = groupSkillsByCategory(techSkills);
+  const languageSkills = skillGroups.find((g) => g.kind === "language")?.skills ?? [];
+  const techGroups = skillGroups.filter((g) => g.kind !== "language");
 
   const initials = profile?.name
     ? profile.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
@@ -375,11 +373,11 @@ export function SlateLayout({
 
       <SidebarDivider sidebarBg={SIDEBAR_BG} />
 
-      {skillGroups.length > 0 && (
+      {techGroups.length > 0 && (
         <div className="px-6 py-4 flex flex-col gap-4">
           <SidebarLabel text="Skills" colors={colors} />
-          {skillGroups.map(([category, catSkills]) => (
-            <div key={category} className="flex flex-col gap-2">
+          {techGroups.map(({ categoryId, name: category, skills: catSkills }) => (
+            <div key={categoryId} className="flex flex-col gap-2">
               <SidebarCategoryLabel text={category} colors={colors} />
               {catSkills.map((s) => (
                 <div key={s.id} className="flex items-center justify-between gap-2">

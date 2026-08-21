@@ -23,6 +23,18 @@ export type SkillCategory = (typeof SKILL_CATEGORIES)[number];
 // rather than a second list, so the names above stay the single source.
 export const LANGUAGE_CATEGORY_NAME = "Language";
 
+// One group in a CV's skills section. Array position is display order, both for
+// the groups themselves and for the skills inside them.
+//
+// `hidden` exists so a category can be taken off a CV without losing where its
+// skills were placed — removing the group instead would discard that arrangement,
+// and the user would have to rebuild it to bring the category back.
+export type CvSkillGroup = {
+  categoryId: string;
+  hidden?: boolean;
+  skillIds: string[];
+};
+
 // Categories are user-owned rows; more than this many stops fitting a CV page.
 // A layout limit, not a data one — enforced on create, never retroactively, so a
 // migration can never make existing rows invalid.
@@ -71,28 +83,16 @@ export type CvEducation = {
   description?: string | null;
 };
 
+// A skill carries no category: which group it appears under is a per-CV decision,
+// resolved into CvSkillSection before a layout sees it.
 export type CvSkill = {
   id: string;
   name: string;
-  // The category's display name — used for the group heading, which the user may
-  // rename freely.
-  category?: string | null;
-  // The category's role: "language" | "normal". Layouts must branch on this, never
-  // on `category`, so renaming a group cannot break the CEFR table or the language
-  // section in any layout.
-  categoryKind?: string | null;
-  // The category's own sort position. This, not SKILL_CATEGORIES, decides group
-  // order once the user has arranged their categories.
-  categoryOrder?: number | null;
   level?: number | null;
-  cefrLevel?: string | null; // A1–C2, only meaningful on a "language"-kind category
+  cefrLevel?: string | null; // A1–C2, rendered only inside a "language"-kind group
   icon?: string | null;
 };
 
-// True when a skill belongs to the spoken-language group, whatever it is called.
-export function isLanguageSkill(skill: CvSkill): boolean {
-  return skill.categoryKind === "language";
-}
 
 export type CvProject = {
   id: string;
@@ -118,38 +118,29 @@ export type CvOther = {
   url?: string | null;
 };
 
+// One rendered skills group, already resolved by the view page: hidden groups,
+// unselected skills and categories that no longer exist are gone by the time a
+// layout sees this. Layouts render it as given — they no longer group anything
+// themselves, because grouping is now a per-CV decision rather than a property of
+// the data.
+export type CvSkillSection = {
+  categoryId: string;
+  name: string;
+  kind: string; // "language" | "normal"
+  skills: CvSkill[];
+};
+
 export type CvContent = {
   profile: CvProfile | null;
   avatarUrl: string | null;
   experiences: CvExperience[];
   educations: CvEducation[];
+  // Flat list of every skill that survived selection — for "is this section empty"
+  // checks. The arrangement lives in skillGroups.
   skills: CvSkill[];
+  skillGroups: CvSkillSection[];
   projects: CvProject[];
   others: CvOther[];
 };
 
-// Groups skills for display, ordered by SKILL_CATEGORIES rather than by whatever
-// order the rows happened to come back from the database in.
-//
-// Categories outside that list are kept and appended after the known ones, never
-// dropped: rows written before the taxonomy changed still carry values like
-// "Framework" or "Tool", and a skill must not silently vanish from a CV because
-// its category is no longer offered in the editor.
-export function groupSkillsByCategory(skills: CvSkill[]): [string, CvSkill[]][] {
-  const groups = new Map<string, CvSkill[]>();
-  for (const skill of skills) {
-    const category = skill.category ?? "Other";
-    if (!groups.has(category)) groups.set(category, []);
-    groups.get(category)!.push(skill);
-  }
 
-  const seedOrder = new Map<string, number>(SKILL_CATEGORIES.map((c, i) => [c, i]));
-
-  // The user's own category order wins. SKILL_CATEGORIES is only a fallback, for
-  // skills with no category at all; anything unrecognised sorts last.
-  const rank = ([name, items]: [string, CvSkill[]]) =>
-    items[0]?.categoryOrder ?? seedOrder.get(name) ?? SKILL_CATEGORIES.length;
-
-  // Array.prototype.sort is stable, so equal ranks keep insertion order.
-  return Array.from(groups.entries()).sort((a, b) => rank(a) - rank(b));
-}

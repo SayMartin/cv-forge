@@ -1,4 +1,3 @@
-import { groupSkillsByCategory } from "@/lib/cv-content-types";
 import type { CvContent, CvEducation, CvExperience, CvOther, CvProject } from "@/lib/cv-content-types";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
@@ -96,9 +95,8 @@ export function DefaultLayout({
   sectionOrder?: SectionKey[];
   chronological?: boolean;
 }) {
-  const { profile, experiences, educations, skills, projects, others } = content;
+  const { profile, experiences, educations, skillGroups, projects, others } = content;
 
-  const skillGroups = groupSkillsByCategory(skills);
 
   function educationEntry(edu: CvEducation, badge?: boolean) {
     const dateStr = [
@@ -244,9 +242,9 @@ export function DefaultLayout({
                   <div className="mb-6">
                     <SectionTitle title="Skills" />
                     <div className="space-y-2">
-                      {skillGroups.map(([category, items]) => (
+                      {skillGroups.map(({ categoryId, name: category, skills: items }) => (
                         <div
-                          key={category}
+                          key={categoryId}
                           className="flex gap-2 flex-wrap items-baseline"
                         >
                           <span className="text-xs font-medium text-zinc-400 uppercase tracking-wide w-20 shrink-0">

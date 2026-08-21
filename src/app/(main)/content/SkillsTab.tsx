@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { SkillCategoryManager } from "./SkillCategoryManager";
-import { SkillBoard } from "./SkillBoard";
 import type { Skill, SkillCategoryOption } from "./ContentTabs";
 
 interface Props {
@@ -12,23 +11,18 @@ interface Props {
 
 const CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
-const EMPTY_FORM = { name: "", categoryId: "", level: "", cefrLevel: "", order: "" };
+const EMPTY_FORM = { name: "", level: "", cefrLevel: "" };
 type FormState = typeof EMPTY_FORM;
 
 function SkillForm({
-  initial, submitLabel, categories, onSubmit, onCancel,
+  initial, submitLabel, onSubmit, onCancel,
 }: {
-  initial: FormState; submitLabel: string; categories: SkillCategoryOption[];
+  initial: FormState; submitLabel: string;
   onSubmit: (data: FormState) => Promise<void>; onCancel: () => void;
 }) {
   const [form, setForm] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // CEFR applies to spoken languages. Keyed on the category's role, never on its
-  // name, so renaming the group to "Språk" does not hide the field.
-  const isLanguage =
-    categories.find((c) => c.id === form.categoryId)?.kind === "language";
 
   function set(field: keyof FormState, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -50,31 +44,19 @@ function SkillForm({
           <input type="text" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="TypeScript" required className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)" />
         </div>
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-(--cl-text)">Category</label>
-          <select value={form.categoryId} onChange={(e) => set("categoryId", e.target.value)} className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)">
-            <option value="">— none —</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          {categories.length === 0 && (
-            <p className="text-xs text-(--cl-muted)">No categories yet.</p>
-          )}
-        </div>
-        <div className="space-y-1">
           <label className="block text-xs font-medium text-(--cl-text)">Level (1–5)</label>
           <input type="number" min={1} max={5} value={form.level} onChange={(e) => set("level", e.target.value)} placeholder="e.g. 4" className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)" />
         </div>
-        {isLanguage && (
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-(--cl-text)">CEFR level</label>
-            <select value={form.cefrLevel} onChange={(e) => set("cefrLevel", e.target.value)} className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)">
-              <option value="">— none —</option>
-              {CEFR_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
-        )}
+        {/* Always offered, never gated on a category: whether a skill is a spoken
+            language is a property of the skill, while which group it appears under
+            is decided per CV. The level only renders on a CV that places this skill
+            in the language category. */}
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-(--cl-text)">Display order</label>
-          <input type="number" value={form.order} onChange={(e) => set("order", e.target.value)} placeholder="e.g. 10" className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)" />
+          <label className="block text-xs font-medium text-(--cl-text)">CEFR level</label>
+          <select value={form.cefrLevel} onChange={(e) => set("cefrLevel", e.target.value)} className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)">
+            <option value="">— none —</option>
+            {CEFR_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+          </select>
         </div>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -89,17 +71,17 @@ function SkillForm({
 function itemToForm(item: Skill): FormState {
   return {
     name: item.name ?? "",
-    categoryId: item.categoryId ?? "",
     level: item.level != null ? String(item.level) : "",
     cefrLevel: item.cefrLevel ?? "",
-    order: item.order != null ? String(item.order) : "",
   };
 }
 
+function byName(a: Skill, b: Skill) {
+  return a.name.localeCompare(b.name);
+}
+
 export function SkillsTab({ initialItems, categories: initialCategories }: Props) {
-  const [items, setItems] = useState<Skill[]>(initialItems);
-  // Owned here, not in the manager: the form's dropdown reads the same list, so a
-  // rename or a new category has to be visible in both without a page reload.
+  const [items, setItems] = useState<Skill[]>([...initialItems].sort(byName));
   const [categories, setCategories] = useState<SkillCategoryOption[]>(initialCategories);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -107,39 +89,20 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
 
   const editingSkill = items.find((item) => item.id === editingId) ?? null;
 
-  // A rename must also update the denormalised name shown on each skill row.
-  function handleCategoriesChange(next: SkillCategoryOption[]) {
-    setCategories(next);
-    setItems((prev) =>
-      prev.map((item) =>
-        item.categoryId
-          ? { ...item, category: next.find((c) => c.id === item.categoryId)?.name }
-          : item,
-      ),
-    );
-  }
-
-  // The API stores an id; the list renders a name. Resolve it locally so the row
-  // updates without a round-trip.
   function toItem(id: string, form: FormState): Skill {
     return {
       id,
       name: form.name,
-      categoryId: form.categoryId || undefined,
-      category: categories.find((c) => c.id === form.categoryId)?.name,
       level: form.level ? Number(form.level) : undefined,
       cefrLevel: form.cefrLevel || undefined,
-      order: form.order ? Number(form.order) : undefined,
     };
   }
 
   function toPayload(form: FormState) {
     return {
       name: form.name,
-      categoryId: form.categoryId,
       level: form.level,
       cefrLevel: form.cefrLevel,
-      order: form.order,
     };
   }
 
@@ -151,7 +114,7 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed to create");
-    setItems((prev) => [...prev, toItem(data.id, form)]);
+    setItems((prev) => [...prev, toItem(data.id, form)].sort(byName));
     setCreating(false);
   }
 
@@ -163,36 +126,10 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed to update");
-    setItems((prev) => prev.map((item) => (item.id === id ? toItem(id, form) : item)));
-    setEditingId(null);
-  }
-
-  // Optimistic: the card has already moved under the cursor, so render the result
-  // and put it back if the server refuses.
-  async function handleMove(skillId: string, categoryId: string | null) {
-    const previous = items;
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === skillId
-          ? {
-              ...item,
-              categoryId: categoryId ?? undefined,
-              category: categories.find((c) => c.id === categoryId)?.name,
-            }
-          : item,
-      ),
+      prev.map((item) => (item.id === id ? toItem(id, form) : item)).sort(byName),
     );
-    setError(null);
-
-    const res = await fetch(`/api/content/skills/${skillId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categoryId: categoryId ?? "" }),
-    });
-    if (!res.ok) {
-      setItems(previous);
-      setError("Could not move that skill");
-    }
+    setEditingId(null);
   }
 
   async function handleDelete(id: string) {
@@ -204,7 +141,7 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
 
   return (
     <div className="space-y-4">
-      <SkillCategoryManager categories={categories} onChange={handleCategoriesChange} />
+      <SkillCategoryManager categories={categories} onChange={setCategories} />
 
       {!creating ? (
         <button type="button" onClick={() => setCreating(true)} className="flex items-center gap-2 rounded-lg border border-dashed border-(--cl-border) px-4 py-2 text-sm text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors">
@@ -213,7 +150,7 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
       ) : (
         <div className="bg-white border border-(--cl-accent) rounded-xl px-5 py-4">
           <p className="text-sm font-medium text-(--cl-text) mb-4">New skill</p>
-          <SkillForm initial={EMPTY_FORM} submitLabel="Create" categories={categories} onSubmit={handleCreate} onCancel={() => setCreating(false)} />
+          <SkillForm initial={EMPTY_FORM} submitLabel="Create" onSubmit={handleCreate} onCancel={() => setCreating(false)} />
         </div>
       )}
 
@@ -223,7 +160,6 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
           <SkillForm
             initial={itemToForm(editingSkill)}
             submitLabel="Save changes"
-            categories={categories}
             onSubmit={(form) => handleUpdate(editingSkill.id, form)}
             onCancel={() => setEditingId(null)}
           />
@@ -235,13 +171,39 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
       {items.length === 0 && !creating ? (
         <p className="text-sm text-(--cl-muted)">No skills yet — add one above.</p>
       ) : (
-        <SkillBoard
-          skills={items}
-          categories={categories}
-          onMove={handleMove}
-          onEdit={setEditingId}
-          onDelete={handleDelete}
-        />
+        // A flat, alphabetical list. Which category a skill appears under, and in
+        // what order, is decided per CV in the CV editor — not here.
+        <div className="flex flex-wrap gap-1.5">
+          {items.map((item) => (
+            <span
+              key={item.id}
+              className="inline-flex items-center gap-2 rounded-lg border border-(--cl-border) bg-white px-2.5 py-1.5"
+            >
+              <span className="text-sm text-(--cl-text)">{item.name}</span>
+              {item.level != null && (
+                <span className="text-xs text-(--cl-muted)">{item.level}/5</span>
+              )}
+              {item.cefrLevel && (
+                <span className="text-xs text-(--cl-muted)">{item.cefrLevel}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setEditingId(item.id)}
+                className="text-xs text-(--cl-muted) hover:text-(--cl-accent) transition-colors"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(item.id)}
+                aria-label={`Delete ${item.name}`}
+                className="text-xs text-red-500 hover:text-red-700 transition-colors"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );

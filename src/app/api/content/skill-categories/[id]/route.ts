@@ -78,13 +78,28 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     );
   }
 
-  // The FK is SET NULL, so deleting a populated category would silently
-  // uncategorise its skills — a change the user would only discover in an exported
-  // CV. Refuse instead, and let them move the skills first.
-  const inUse = await prisma.skill.count({ where: { categoryId: id } });
-  if (inUse > 0) {
+  // "In use" now means "some CV lays skills out under it" — skills themselves no
+  // longer belong to a category. Deleting one that a CV references would silently
+  // drop a whole group from that CV's skills section, which the user would only
+  // discover in an exported PDF.
+  const cvs = await prisma.cV.findMany({
+    where: { userId: session.user.id },
+    select: { name: true, skillGroups: true },
+  });
+
+  const usedBy = cvs
+    .filter((cv) => {
+      const groups = Array.isArray(cv.skillGroups) ? cv.skillGroups : [];
+      return groups.some(
+        (g) => g !== null && typeof g === "object" && !Array.isArray(g) &&
+          (g as { categoryId?: unknown }).categoryId === id,
+      );
+    })
+    .map((cv) => cv.name);
+
+  if (usedBy.length > 0) {
     return NextResponse.json(
-      { error: `Category still holds ${inUse} skill${inUse === 1 ? "" : "s"}` },
+      { error: `Still used by ${usedBy.length === 1 ? "CV" : "CVs"}: ${usedBy.join(", ")}` },
       { status: 409 },
     );
   }

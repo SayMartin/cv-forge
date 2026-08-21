@@ -1,4 +1,3 @@
-import { isLanguageSkill } from "@/lib/cv-content-types";
 import type { CvContent, CvOther } from "@/lib/cv-content-types";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
@@ -154,14 +153,14 @@ export function TerminalLayout({
   sectionOrder?: SectionKey[];
   chronological?: boolean;
 }) {
-  const { profile, experiences, educations, skills, projects, others } = content;
+  const { profile, experiences, educations, skillGroups, projects, others } = content;
 
   const ACCENT = theme?.accentColor ?? DEFAULT_ACCENT;
   const SIDEBAR_BG = theme?.sidebarColor ?? DEFAULT_SIDEBAR_BG;
   const colors: TColors = { accent: ACCENT };
 
-  const techSkills = skills.filter((s) => !isLanguageSkill(s));
-  const languageSkills = skills.filter(isLanguageSkill);
+  const languageSkills = skillGroups.find((g) => g.kind === "language")?.skills ?? [];
+  const techGroups = skillGroups.filter((g) => g.kind !== "language");
 
   const initials = profile?.name
     ? profile.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
@@ -383,13 +382,17 @@ export function TerminalLayout({
         </div>
       )}
       <SidebarDivider />
-      {techSkills.length > 0 && (
+      {techGroups.length > 0 && (
         <div className="flex flex-col gap-2">
           <SectionLabel label="TECH STACK" colors={colors} />
           <div className="flex flex-wrap gap-1.5">
-            {techSkills.map((s) => (
-              <SkillTag key={s.id} name={s.name} color={skillTagColor(s.category, ACCENT)} />
-            ))}
+            {/* Iterated by group rather than flattened, because the tag colour is
+                derived from the group's name — a skill no longer carries one. */}
+            {techGroups.flatMap((group) =>
+              group.skills.map((s) => (
+                <SkillTag key={s.id} name={s.name} color={skillTagColor(group.name, ACCENT)} />
+              )),
+            )}
           </div>
         </div>
       )}

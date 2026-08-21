@@ -23,29 +23,3 @@ export async function seedSkillCategories(userId: string): Promise<void> {
   });
 }
 
-/**
- * Resolves a client-supplied skill category id against the caller's own categories.
- *
- * Same class of check as the `profileId` guard on CV PATCH: the id arrives in a
- * request body, so without verifying ownership a user could file a skill under —
- * and then render — another user's category. `categoryId` is nullable by design;
- * an uncategorised skill is a valid state, so an empty value is accepted rather
- * than rejected.
- *
- * Returns `{ ok: false }` for an id that is neither empty nor owned by the user,
- * letting the caller answer 400 instead of silently dropping the value.
- */
-export async function resolveCategoryId(
-  raw: unknown,
-  userId: string,
-): Promise<{ ok: true; categoryId: string | null } | { ok: false }> {
-  if (raw == null || raw === "") return { ok: true, categoryId: null };
-  if (typeof raw !== "string") return { ok: false };
-
-  const category = await prisma.skillCategory.findFirst({
-    where: { id: raw, userId },
-    select: { id: true },
-  });
-
-  return category ? { ok: true, categoryId: category.id } : { ok: false };
-}

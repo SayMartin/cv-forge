@@ -1,40 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { MAX_SKILL_CATEGORIES } from "@/lib/cv-content-types";
 import type { SkillCategoryOption } from "./ContentTabs";
 
-function GripIcon() {
-  return (
-    <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true">
-      <circle cx="3" cy="3" r="1.5" />
-      <circle cx="9" cy="3" r="1.5" />
-      <circle cx="3" cy="8" r="1.5" />
-      <circle cx="9" cy="8" r="1.5" />
-      <circle cx="3" cy="13" r="1.5" />
-      <circle cx="9" cy="13" r="1.5" />
-    </svg>
-  );
-}
-
-function SortableCategoryRow({
+function CategoryRow({
   category,
   onRename,
   onDelete,
@@ -43,18 +13,9 @@ function SortableCategoryRow({
   onRename: (id: string, name: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: category.id });
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(category.name);
   const [busy, setBusy] = useState(false);
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-    zIndex: isDragging ? 10 : undefined,
-  };
 
   async function commit() {
     const name = draft.trim();
@@ -73,13 +34,7 @@ function SortableCategoryRow({
   }
 
   return (
-    <li
-      ref={setNodeRef}
-      style={style}
-      className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 bg-white ${
-        isDragging ? "border-(--cl-accent) shadow-md" : "border-(--cl-border)"
-      }`}
-    >
+    <li className="flex items-center gap-3 rounded-lg border border-(--cl-border) px-3 py-2.5 bg-white">
       {category.kind === "language" ? (
         // Fixed in both name and role: Europass requires this category to exist and
         // be identifiable, and nothing in the UI could recreate it once changed.
@@ -134,16 +89,6 @@ function SortableCategoryRow({
         </button>
       )}
 
-      <button
-        ref={setActivatorNodeRef}
-        {...attributes}
-        {...listeners}
-        type="button"
-        aria-label={`Reorder ${category.name}`}
-        className="text-(--cl-muted) hover:text-(--cl-text) cursor-grab active:cursor-grabbing touch-none shrink-0 opacity-50 hover:opacity-100"
-      >
-        <GripIcon />
-      </button>
     </li>
   );
 }
@@ -157,35 +102,6 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  async function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = categories.findIndex((c) => c.id === active.id);
-    const newIndex = categories.findIndex((c) => c.id === over.id);
-    const reordered = arrayMove(categories, oldIndex, newIndex);
-
-    // Optimistic: the drag has already visually happened, so show the result and
-    // roll back if the server disagrees.
-    onChange(reordered);
-    setError(null);
-
-    const res = await fetch("/api/content/skill-categories/reorder", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: reordered.map((c) => c.id) }),
-    });
-    if (!res.ok) {
-      onChange(categories);
-      setError("Could not save the new order");
-    }
-  }
 
   async function handleRename(id: string, name: string) {
     setError(null);
@@ -246,25 +162,22 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
       <div>
         <p className="text-sm font-medium text-(--cl-text)">Categories</p>
         <p className="text-xs text-(--cl-muted) mt-0.5">
-          Your own grouping. Drag to set the order they appear in on a CV; click a name to rename it.
-          The language category is fixed — the Europass layout needs it.
+          Your own grouping. Click a name to rename it. Which categories a CV shows,
+          in what order, and which skills go in each is decided per CV in the CV
+          editor. The language category is fixed — the Europass layout needs it.
         </p>
       </div>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={categories.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-          <ol className="space-y-1.5">
-            {categories.map((category) => (
-              <SortableCategoryRow
-                key={category.id}
-                category={category}
-                onRename={handleRename}
-                onDelete={handleDelete}
-              />
-            ))}
-          </ol>
-        </SortableContext>
-      </DndContext>
+      <ol className="space-y-1.5">
+        {categories.map((category) => (
+          <CategoryRow
+            key={category.id}
+            category={category}
+            onRename={handleRename}
+            onDelete={handleDelete}
+          />
+        ))}
+      </ol>
 
       {categories.length === 0 && (
         <p className="text-sm text-(--cl-muted)">No categories yet — add one below.</p>

@@ -1,4 +1,3 @@
-import { isLanguageSkill } from "@/lib/cv-content-types";
 import type { CvContent, CvEducation, CvExperience, CvOther, CvProject } from "@/lib/cv-content-types";
 import {
   darkenColor,
@@ -162,7 +161,7 @@ export function ModernLayout({
   sectionOrder?: SectionKey[];
   chronological?: boolean;
 }) {
-  const { profile, experiences, educations, skills, projects, others } = content;
+  const { profile, experiences, educations, skillGroups, projects, others } = content;
 
   const SIDEBAR_BG = theme?.sidebarColor ?? DEFAULT_SIDEBAR_BG;
   const GOLD = theme?.accentColor ?? DEFAULT_GOLD;
@@ -170,12 +169,8 @@ export function ModernLayout({
   const SIDEBAR_TEXT = getContrastColor(SIDEBAR_BG);
   const SIDEBAR_GRADIENT = `linear-gradient(to right, ${sidebarGradient(SIDEBAR_BG)})`;
 
-  const languageSkills = skills.filter(
-    isLanguageSkill,
-  );
-  const otherSkills = skills.filter(
-    (s) => !isLanguageSkill(s),
-  );
+  const languageSkills = skillGroups.find((g) => g.kind === "language")?.skills ?? [];
+  const otherSkills = skillGroups.filter((g) => g.kind !== "language").flatMap((g) => g.skills);
 
   const nameParts = profile?.name?.split(" ") ?? [];
   const firstName = nameParts[0] ?? "";

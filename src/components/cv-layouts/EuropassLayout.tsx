@@ -1,4 +1,3 @@
-import { groupSkillsByCategory, isLanguageSkill } from "@/lib/cv-content-types";
 import type { CvContent, CvEducation, CvExperience, CvOther, CvProject } from "@/lib/cv-content-types";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
@@ -76,19 +75,14 @@ export function EuropassLayout({
   sectionOrder?: SectionKey[];
   chronological?: boolean;
 }) {
-  const { profile, experiences, educations, skills, projects, others } = content;
+  const { profile, experiences, educations, skills, skillGroups, projects, others } = content;
   const ACCENT = theme?.sidebarColor ?? EUROPASS_BLUE;
 
-  // Spoken languages are pulled out by category *role*, not by heading text: the
-  // Europass format requires them in their own CEFR table, so this filter must keep
-  // matching "Language" even if the visible grouping changes around it.
-  const languageSkills = skills.filter(isLanguageSkill);
-
-  // Everything else is grouped and ordered by SKILL_CATEGORIES, so each category
-  // becomes its own labelled block instead of collapsing into two fixed buckets.
-  const skillGroups = groupSkillsByCategory(
-    skills.filter((s) => !isLanguageSkill(s)),
-  );
+  // Spoken languages are picked out by the group's *role*, not its heading text:
+  // the Europass format requires them in their own CEFR table, and the user is
+  // free to call the group whatever they like on any given CV.
+  const languageSkills = skillGroups.find((g) => g.kind === "language")?.skills ?? [];
+  const otherGroups = skillGroups.filter((g) => g.kind !== "language");
 
   // Pure "one entry's content" builders — reused both by the grouped-by-section
   // path (title fused into the first entry) and the chronological path (a
@@ -237,8 +231,8 @@ export function EuropassLayout({
                           </p>
                         </div>
                       )}
-                      {skillGroups.map(([category, items]) => (
-                        <div key={category}>
+                      {otherGroups.map(({ categoryId, name: category, skills: items }) => (
+                        <div key={categoryId}>
                           <p className="text-xs font-semibold text-zinc-700 mb-1.5">{category}</p>
                           <div className="flex flex-wrap gap-1.5">
                             {items.map((s) => (

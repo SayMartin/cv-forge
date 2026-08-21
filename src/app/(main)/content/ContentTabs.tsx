@@ -59,16 +59,13 @@ export type Education = {
   description?: string;
 };
 
+// A skill carries no category and no order: both are per-CV decisions, held in
+// cv.skillGroups.
 export type Skill = {
   id: string;
   name: string;
-  categoryId?: string;
-  // Display name of the category, denormalised for rendering the list. The id is
-  // what gets written back.
-  category?: string;
   level?: number;
   cefrLevel?: string;
-  order?: number;
 };
 
 export type SkillCategoryOption = {

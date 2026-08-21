@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLayoutComponent } from "@/components/cv-layouts";
 import { getLayoutMeta, DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
-import type { CvContent, CvProfile } from "@/lib/cv-content-types";
+import type { CvContent, CvProfile, CvSkillGroup } from "@/lib/cv-content-types";
 import { CvScaleWrapper } from "./CvScaleWrapper";
 import { ViewToolbar } from "./ViewToolbar";
 
@@ -42,6 +42,7 @@ export default async function CvViewPage({ params }: Params) {
     rawProjects,
     others,
     theme,
+    skillCategories,
   ] = await Promise.all([
     cv.profileId
       ? prisma.profile.findFirst({ where: { id: cv.profileId, userId } })
@@ -54,10 +55,7 @@ export default async function CvViewPage({ params }: Params) {
       ? prisma.education.findMany({ where: { id: { in: cv.educationIds }, userId } })
       : Promise.resolve([]),
     cv.skillIds.length
-      ? prisma.skill.findMany({
-          where: { id: { in: cv.skillIds }, userId },
-          include: { category: true },
-        })
+      ? prisma.skill.findMany({ where: { id: { in: cv.skillIds }, userId } })
       : Promise.resolve([]),
     cv.projectIds.length
       ? prisma.project.findMany({ where: { id: { in: cv.projectIds }, userId } })
@@ -68,6 +66,10 @@ export default async function CvViewPage({ params }: Params) {
     cv.themeId
       ? prisma.cvTheme.findFirst({ where: { id: cv.themeId, userId } })
       : Promise.resolve(null),
+    prisma.skillCategory.findMany({
+      where: { userId },
+      select: { id: true, name: true, kind: true },
+    }),
   ]);
 
   const avatarUrl =
@@ -119,18 +121,42 @@ export default async function CvViewPage({ params }: Params) {
     skills: p.skills,
   }));
 
+  // Resolve the CV's own skills arrangement into ready-to-render groups. Three
+  // things are dropped here rather than in every layout: groups the user hid,
+  // skills they did not select, and categories that have since been deleted.
+  // An emptied group is dropped too — a heading with nothing under it is noise.
+  const categoryById = new Map(skillCategories.map((c) => [c.id, c]));
+  const skillById = new Map(skills.map((s) => [s.id, s]));
+  const selected = new Set(cv.skillIds);
+
+  const skillGroups = ((cv.skillGroups as CvSkillGroup[] | null) ?? [])
+    .filter((group) => !group.hidden)
+    .flatMap((group) => {
+      const category = categoryById.get(group.categoryId);
+      if (!category) return [];
+
+      const groupSkills = (group.skillIds ?? [])
+        .filter((id) => selected.has(id))
+        .map((id) => skillById.get(id))
+        .filter((s): s is (typeof skills)[number] => Boolean(s));
+
+      if (groupSkills.length === 0) return [];
+
+      return [{
+        categoryId: category.id,
+        name: category.name,
+        kind: category.kind,
+        skills: groupSkills,
+      }];
+    });
+
   const content: CvContent = {
     profile,
     avatarUrl,
     experiences: byIds(experiences, cv.experienceIds),
     educations: byIds(educations, cv.educationIds),
-    // Flatten the category relation into the name + role the layouts consume.
-    skills: byIds(skills, cv.skillIds).map((s) => ({
-      ...s,
-      category: s.category?.name ?? null,
-      categoryKind: s.category?.kind ?? null,
-      categoryOrder: s.category?.order ?? null,
-    })),
+    skills: skillGroups.flatMap((g) => g.skills),
+    skillGroups,
     projects: byIds(projects, cv.projectIds),
     others: byIds(others, cv.otherIds),
   };
