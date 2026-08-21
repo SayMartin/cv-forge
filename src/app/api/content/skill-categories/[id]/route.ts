@@ -20,6 +20,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  // The spoken-language category is fixed in both name and role: Europass depends
+  // on it always being present and identifiable, and it cannot be recreated from
+  // the UI once changed, since `kind` is not settable when creating a category.
+  if (existing.kind === "language") {
+    return NextResponse.json(
+      { error: "The language category cannot be renamed" },
+      { status: 409 },
+    );
+  }
+
   const body = await req.json();
   const name = String(body.name ?? "").trim();
   if (!name) {
@@ -54,6 +64,18 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const existing = await prisma.skillCategory.findUnique({ where: { id } });
   if (!existing || existing.userId !== session.user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // The spoken-language category is structural, not user content. Deleting it
+  // would be irreversible from the UI — `kind` cannot be set when creating a
+  // category, so every replacement would be "normal" — and it would permanently
+  // remove the CEFR field and the Europass language table, which that format
+  // requires. It can still be renamed; only the role is fixed.
+  if (existing.kind === "language") {
+    return NextResponse.json(
+      { error: "The language category cannot be deleted — rename it instead" },
+      { status: 409 },
+    );
   }
 
   // The FK is SET NULL, so deleting a populated category would silently

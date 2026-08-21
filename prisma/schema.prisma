@@ -105,6 +105,17 @@ model CV {
   experienceIds String[]
   educationIds  String[]
   skillIds      String[]
+  // Per-CV skill composition: [{ categoryId, skillIds: [...] }].
+  //
+  // Array order is display order, for both the groups and the skills inside them;
+  // presence is visibility. This lives on the CV, not on the skill, so two CVs can
+  // arrange the same library differently — the same separation `experienceIds` and
+  // `sectionOrder` already use.
+  //
+  // `skillIds` above stays the selection, and is kept a subset of the ids appearing
+  // here: a skill that is not placed in a group cannot be selected. The API enforces
+  // that on write so the two fields cannot drift apart.
+  skillGroups   Json?
   projectIds    String[]
   otherIds      String[]
   // Section order for the CV renderer (e.g. ["experience","education","skills","projects","other"])
@@ -237,19 +248,19 @@ model Skill {
   userId         String
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
+  // ─── DEPRECATED ────────────────────────────────────────────────────────────
+  // A skill no longer owns a category or a display order: both are per-CV
+  // decisions, stored in `cv.skillGroups`. These three columns are read only by
+  // the backfill in 20260821_move_skill_grouping_to_cv and are kept for one
+  // release so that backfill stays auditable. Drop them together afterwards.
   categoryId     String?
-  // SetNull, not Restrict: a Restrict here would make `prisma.user.delete()` fail
-  // when the cascade reaches categories before skills, breaking account erasure.
-  // "Can't delete a category that still holds skills" is enforced in the API instead.
   category       SkillCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  // Pre-taxonomy string value, kept as a safety net so the one-time backfill in
-  // migration 20260821_add_skill_categories can be audited. Safe to drop once the
-  // migrated categories have been reviewed.
   legacyCategory String?
+  order          Int            @default(0)
+  // ───────────────────────────────────────────────────────────────────────────
   level          Int? // 1–5
   cefrLevel      String? // A1 / A2 / B1 / B2 / C1 / C2 — set only on a "language"-kind category
   icon           String? // image URL
-  order          Int            @default(0)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 

@@ -80,7 +80,11 @@ function SortableCategoryRow({
         isDragging ? "border-(--cl-accent) shadow-md" : "border-(--cl-border)"
       }`}
     >
-      {editing ? (
+      {category.kind === "language" ? (
+        // Fixed in both name and role: Europass requires this category to exist and
+        // be identifiable, and nothing in the UI could recreate it once changed.
+        <span className="flex-1 text-sm text-(--cl-text)">{category.name}</span>
+      ) : editing ? (
         <input
           type="text"
           value={draft}
@@ -106,21 +110,29 @@ function SortableCategoryRow({
         </button>
       )}
 
-      {/* The role is fixed, not renameable — it is what makes the CEFR field and the
-          Europass language table work, so it is surfaced rather than hidden. */}
+      {/* The role is fixed even though the name is not — it is what makes the CEFR
+          field and the Europass language table work, so it is surfaced rather than
+          hidden. */}
       {category.kind === "language" && !editing && (
-        <span className="text-xs text-(--cl-muted) shrink-0" title="Spoken languages — enables CEFR levels">
+        <span
+          className="text-xs text-(--cl-muted) shrink-0"
+          title="Spoken languages — enables CEFR levels and the Europass language table. Fixed: cannot be renamed or deleted."
+        >
           CEFR
         </span>
       )}
 
-      <button
-        type="button"
-        onClick={() => onDelete(category.id)}
-        className="text-xs text-red-500 hover:text-red-700 transition-colors shrink-0"
-      >
-        Delete
-      </button>
+      {/* Deleting this one is refused by the API too; hiding the button keeps the
+          UI from offering an action that cannot succeed. */}
+      {category.kind !== "language" && (
+        <button
+          type="button"
+          onClick={() => onDelete(category.id)}
+          className="text-xs text-red-500 hover:text-red-700 transition-colors shrink-0"
+        >
+          Delete
+        </button>
+      )}
 
       <button
         ref={setActivatorNodeRef}
@@ -235,6 +247,7 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
         <p className="text-sm font-medium text-(--cl-text)">Categories</p>
         <p className="text-xs text-(--cl-muted) mt-0.5">
           Your own grouping. Drag to set the order they appear in on a CV; click a name to rename it.
+          The language category is fixed — the Europass layout needs it.
         </p>
       </div>
 
