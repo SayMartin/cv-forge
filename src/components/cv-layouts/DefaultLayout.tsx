@@ -1,4 +1,5 @@
-import type { CvContent, CvEducation, CvExperience, CvOther, CvProject, CvSkill } from "@/lib/cv-content-types";
+import { groupSkillsByCategory } from "@/lib/cv-content-types";
+import type { CvContent, CvEducation, CvExperience, CvOther, CvProject } from "@/lib/cv-content-types";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
 import { buildTimeline, TIMELINE_TYPE_LABEL } from "@/lib/cv-timeline";
@@ -97,14 +98,7 @@ export function DefaultLayout({
 }) {
   const { profile, experiences, educations, skills, projects, others } = content;
 
-  const skillsByCategory = skills.reduce<Record<string, CvSkill[]>>(
-    (acc, s) => {
-      const cat = s.category ?? "Other";
-      (acc[cat] ??= []).push(s);
-      return acc;
-    },
-    {},
-  );
+  const skillGroups = groupSkillsByCategory(skills);
 
   function educationEntry(edu: CvEducation, badge?: boolean) {
     const dateStr = [
@@ -242,7 +236,7 @@ export function DefaultLayout({
         }));
 
       case "skills":
-        return Object.keys(skillsByCategory).length > 0
+        return skillGroups.length > 0
           ? [
               {
                 id: "skills",
@@ -250,7 +244,7 @@ export function DefaultLayout({
                   <div className="mb-6">
                     <SectionTitle title="Skills" />
                     <div className="space-y-2">
-                      {Object.entries(skillsByCategory).map(([category, items]) => (
+                      {skillGroups.map(([category, items]) => (
                         <div
                           key={category}
                           className="flex gap-2 flex-wrap items-baseline"

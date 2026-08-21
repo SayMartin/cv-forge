@@ -16,12 +16,21 @@ export default async function ContentPage() {
 
   const userId = session.user.id;
 
-  const [rawProfiles, experiences, educations, skills, rawProjects, others, avatarDoc] =
+  const [rawProfiles, experiences, educations, rawSkills, skillCategories, rawProjects, others, avatarDoc] =
     await Promise.all([
       prisma.profile.findMany({ where: { userId }, orderBy: { profileName: "asc" } }),
       prisma.experience.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
       prisma.education.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
-      prisma.skill.findMany({ where: { userId }, orderBy: [{ order: "asc" }, { name: "asc" }] }),
+      prisma.skill.findMany({
+        where: { userId },
+        orderBy: [{ order: "asc" }, { name: "asc" }],
+        include: { category: true },
+      }),
+      prisma.skillCategory.findMany({
+        where: { userId },
+        orderBy: [{ order: "asc" }, { name: "asc" }],
+        select: { id: true, name: true, kind: true },
+      }),
       prisma.project.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
       prisma.other.findMany({ where: { userId }, orderBy: [{ order: "asc" }, { createdAt: "desc" }] }),
       prisma.avatar.findUnique({ where: { userId } }),
@@ -40,6 +49,19 @@ export default async function ContentPage() {
     dateOfBirth: p.dateOfBirth ? p.dateOfBirth.toISOString().slice(0, 10) : undefined,
     drivingLicense: p.drivingLicense ?? undefined,
     social: { linkedin: p.linkedin ?? undefined, github: p.github ?? undefined, website: p.website ?? undefined, portfolio: p.portfolio ?? undefined },
+  }));
+
+  // Mapped explicitly rather than cast: `category` is a relation on the row but a
+  // display name on the client, so a cast would hide the mismatch instead of
+  // surfacing it.
+  const skills: Skill[] = rawSkills.map((s) => ({
+    id: s.id,
+    name: s.name,
+    categoryId: s.categoryId ?? undefined,
+    category: s.category?.name ?? undefined,
+    level: s.level ?? undefined,
+    cefrLevel: s.cefrLevel ?? undefined,
+    order: s.order,
   }));
 
   const projects: Project[] = rawProjects.map((p) => ({
@@ -70,7 +92,8 @@ export default async function ContentPage() {
           initialProfiles={profiles}
           initialExperiences={experiences as Experience[]}
           initialEducations={educations as Education[]}
-          initialSkills={skills as Skill[]}
+          initialSkills={skills}
+          skillCategories={skillCategories}
           initialProjects={projects}
           initialOthers={others as Other[]}
           initialAvatarImages={avatarDoc?.images ?? []}

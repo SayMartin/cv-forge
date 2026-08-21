@@ -62,10 +62,19 @@ export type Education = {
 export type Skill = {
   id: string;
   name: string;
+  categoryId?: string;
+  // Display name of the category, denormalised for rendering the list. The id is
+  // what gets written back.
   category?: string;
   level?: number;
   cefrLevel?: string;
   order?: number;
+};
+
+export type SkillCategoryOption = {
+  id: string;
+  name: string;
+  kind: string; // "language" | "normal"
 };
 
 export type Project = {
@@ -96,6 +105,7 @@ interface Props {
   initialExperiences: Experience[];
   initialEducations: Education[];
   initialSkills: Skill[];
+  skillCategories: SkillCategoryOption[];
   initialProjects: Project[];
   initialOthers: Other[];
   initialAvatarImages: string[];
@@ -130,6 +140,7 @@ export function ContentTabs({
   initialExperiences,
   initialEducations,
   initialSkills,
+  skillCategories,
   initialProjects,
   initialOthers,
   initialAvatarImages,
@@ -155,7 +166,7 @@ export function ContentTabs({
       <div className={activeTab === "profiles" ? "" : "hidden"}><ProfilesTab initialItems={initialProfiles} /></div>
       <div className={activeTab === "experience" ? "" : "hidden"}><ExperienceTab initialItems={initialExperiences} /></div>
       <div className={activeTab === "education" ? "" : "hidden"}><EducationTab initialItems={initialEducations} /></div>
-      <div className={activeTab === "skills" ? "" : "hidden"}><SkillsTab initialItems={initialSkills} /></div>
+      <div className={activeTab === "skills" ? "" : "hidden"}><SkillsTab initialItems={initialSkills} categories={skillCategories} /></div>
       <div className={activeTab === "projects" ? "" : "hidden"}><ProjectsTab initialItems={initialProjects} /></div>
       <div className={activeTab === "other" ? "" : "hidden"}><OtherTab initialItems={initialOthers} /></div>
       <div className={activeTab === "avatars" ? "" : "hidden"}><AvatarsTab initialImages={initialAvatarImages} /></div>

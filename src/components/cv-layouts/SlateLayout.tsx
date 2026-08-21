@@ -1,4 +1,5 @@
-import type { CvContent, CvEducation, CvExperience, CvOther, CvSkill } from "@/lib/cv-content-types";
+import { groupSkillsByCategory, isLanguageSkill } from "@/lib/cv-content-types";
+import type { CvContent, CvEducation, CvExperience, CvOther } from "@/lib/cv-content-types";
 import { getContrastColor } from "@/lib/color-utils";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
@@ -19,15 +20,6 @@ function formatDate(dateStr?: string | null) {
   });
 }
 
-function groupSkillsByCategory(skills: CvSkill[]): [string, CvSkill[]][] {
-  const map = new Map<string, CvSkill[]>();
-  for (const skill of skills) {
-    const cat = skill.category ?? "Other";
-    if (!map.has(cat)) map.set(cat, []);
-    map.get(cat)!.push(skill);
-  }
-  return Array.from(map.entries());
-}
 
 type SColors = { accent: string; sidebarText: string; sidebarMuted: string };
 
@@ -175,8 +167,8 @@ export function SlateLayout({
 
   const colors: SColors = { accent: ACCENT, sidebarText: SIDEBAR_TEXT, sidebarMuted: SIDEBAR_MUTED };
 
-  const languageSkills = skills.filter((s) => s.category?.toLowerCase() === "language");
-  const techSkills = skills.filter((s) => s.category?.toLowerCase() !== "language");
+  const languageSkills = skills.filter(isLanguageSkill);
+  const techSkills = skills.filter((s) => !isLanguageSkill(s));
   const skillGroups = groupSkillsByCategory(techSkills);
 
   const initials = profile?.name

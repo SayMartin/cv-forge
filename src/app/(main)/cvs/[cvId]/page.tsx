@@ -44,7 +44,11 @@ export default async function CvEditorPage({ params }: Params) {
     prisma.avatar.findUnique({ where: { userId } }),
     prisma.experience.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
     prisma.education.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
-    prisma.skill.findMany({ where: { userId }, orderBy: [{ order: "asc" }, { name: "asc" }] }),
+    prisma.skill.findMany({
+      where: { userId },
+      orderBy: [{ order: "asc" }, { name: "asc" }],
+      include: { category: true },
+    }),
     prisma.project.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
     prisma.other.findMany({ where: { userId }, orderBy: [{ order: "asc" }, { createdAt: "desc" }] }),
     prisma.cvTheme.findMany({
@@ -99,7 +103,7 @@ export default async function CvEditorPage({ params }: Params) {
   const mappedSkills = skills.map((s) => ({
     id: s.id,
     name: s.name,
-    category: s.category ?? undefined,
+    category: s.category?.name ?? undefined,
     level: s.level ?? undefined,
     order: s.order,
   }));

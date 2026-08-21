@@ -498,6 +498,20 @@ All main app pages live under `src/app/(main)/`. This group has its own `layout.
 npm run migrate:dev
 ```
 
+> **There is no staging step. Pushing to `main` *is* the production migration.** The `migrate` job runs automatically against the live database before the new image ships, so a migration cannot be "tried in CI first" — by the time the pipeline has built anything, production has already been altered.
+>
+> For a structural, additive migration that is fine. For one that **moves or rewrites data**, test it first against a restored copy. The migration files are plain SQL, so this needs no image build and no push:
+>
+> ```bash
+> PG=<postgres-container>
+> docker exec "$PG" psql -U postgres -c "CREATE DATABASE cvforge_test OWNER cvforge;"
+> docker exec -i "$PG" pg_restore -U cvforge -d cvforge_test < latest.dump
+> docker exec -i "$PG" psql -U cvforge -d cvforge_test \
+>   < prisma/migrations/<timestamp>_<name>/migration.sql
+> ```
+>
+> Inspect the result, then push. `_prisma_migrations` is not updated by this — deliberately, since the copy is a throwaway.
+
 `migrate:dev` uses `dotenv-cli` to load `DATABASE_URL` from `.env.local`. In production, migrations are **not** run via the `migrate:deploy` npm script (which also assumes `.env.local`, absent in containers) — instead the `migrate` job in `.github/workflows/build-and-push.yml` runs them automatically on every push to `main`, from the separate `:migrator` Docker image (which has a full `node_modules` including the Prisma CLI, unlike the minimal `app` runtime image), executed on a self-hosted runner on the server. See `README.md` → Deployment → step 4 for the runner setup and the equivalent manual command.
 
 ---
@@ -597,7 +611,36 @@ docker run --rm --env-file .env --network postgres_default \
   ghcr.io/saymartin/cv-forge:migrator npx prisma migrate deploy
 ```
 
-### 5. Routing
+### 5. Backups
+
+`scripts/backup.sh` dumps the `cvforge` database, encrypts it, and uploads it to a **separate, private** R2 bucket. Copy `scripts/backup.env.example` to `scripts/backup.env` on the server and fill it in (that filename is gitignored), then schedule it:
+
+```bash
+sudo apt install age
+crontab -e
+# 03:15 nightly
+15 3 * * * /home/USER/cv-forge/scripts/backup.sh >> /home/USER/backups/backup.log 2>&1
+```
+
+Three properties this arrangement depends on, none of which are cosmetic:
+
+- **The backup bucket is not the avatars bucket.** The avatars bucket is public via a Custom Domain, so anything in it is retrievable by anyone who knows the key. The backup bucket must be private, with no Custom Domain, and its API token scoped to it alone — which also stops the nightly job from being able to delete users' avatar images.
+- **Encryption is public-key (`age`), not a passphrase.** The server holds only the public recipient key: it can write backups but cannot read them back. Keep the private key off the server, in a password manager. Putting it on the server discards the property entirely.
+- **Remote retention is an R2 lifecycle rule**, set on the bucket in the Cloudflare dashboard, not logic in the script — server-side expiry keeps working even when the script does not.
+
+Restoring:
+
+```bash
+age --decrypt -i cvforge-backup.key cvforge-….dump.age > restore.dump
+docker exec "$PG" psql -U postgres -c "CREATE DATABASE cvforge_restore OWNER cvforge;"
+docker exec -i "$PG" pg_restore -U cvforge -d cvforge_restore < restore.dump
+```
+
+> A backup nobody has restored is a hypothesis. Run the restore into a scratch database occasionally and confirm the data is there.
+>
+> **GDPR:** these dumps contain every personal-data field in the system. They need a stated retention period — the lifecycle rule is what makes that real — and the privacy policy must name Cloudflare as a recipient. Encrypting before upload means Cloudflare stores ciphertext rather than readable personal data.
+
+### 6. Routing
 
 `cv-forge.appfinningar.se` is published directly by Cloudflare Tunnel to the server's LAN IP on the `app` container's published port (`3005` by default — see `docker-compose.yml`), configured under **Cloudflare Zero Trust → Networks → Tunnels → [tunnel] → Published application routes**. No reverse proxy in front; Cloudflare terminates TLS at the edge. File storage (`S3_PUBLIC_URL`) is served directly by R2 via its Custom Domain, unrelated to the Tunnel.
 

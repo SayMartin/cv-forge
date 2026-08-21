@@ -1,3 +1,4 @@
+import { groupSkillsByCategory, isLanguageSkill } from "@/lib/cv-content-types";
 import type { CvContent, CvEducation, CvExperience, CvOther, CvProject } from "@/lib/cv-content-types";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
@@ -78,12 +79,16 @@ export function EuropassLayout({
   const { profile, experiences, educations, skills, projects, others } = content;
   const ACCENT = theme?.sidebarColor ?? EUROPASS_BLUE;
 
-  const languageSkills = skills.filter((s) => s.category?.toLowerCase() === "language");
-  const digitalSkills = skills.filter((s) => ["tool", "platform"].includes(s.category?.toLowerCase() ?? ""));
-  const otherSkills = skills.filter((s) => {
-    const c = s.category?.toLowerCase();
-    return c !== "language" && c !== "tool" && c !== "platform";
-  });
+  // Spoken languages are pulled out by category *role*, not by heading text: the
+  // Europass format requires them in their own CEFR table, so this filter must keep
+  // matching "Language" even if the visible grouping changes around it.
+  const languageSkills = skills.filter(isLanguageSkill);
+
+  // Everything else is grouped and ordered by SKILL_CATEGORIES, so each category
+  // becomes its own labelled block instead of collapsing into two fixed buckets.
+  const skillGroups = groupSkillsByCategory(
+    skills.filter((s) => !isLanguageSkill(s)),
+  );
 
   // Pure "one entry's content" builders — reused both by the grouped-by-section
   // path (title fused into the first entry) and the chronological path (a
@@ -232,30 +237,18 @@ export function EuropassLayout({
                           </p>
                         </div>
                       )}
-                      {digitalSkills.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-zinc-700 mb-1.5">Digital skills</p>
+                      {skillGroups.map(([category, items]) => (
+                        <div key={category}>
+                          <p className="text-xs font-semibold text-zinc-700 mb-1.5">{category}</p>
                           <div className="flex flex-wrap gap-1.5">
-                            {digitalSkills.map((s) => (
+                            {items.map((s) => (
                               <span key={s.id} className="text-xs px-2 py-0.5 rounded" style={{ background: ACCENT + "14", color: ACCENT }}>
                                 {s.name}
                               </span>
                             ))}
                           </div>
                         </div>
-                      )}
-                      {otherSkills.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-zinc-700 mb-1.5">Other skills</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {otherSkills.map((s) => (
-                              <span key={s.id} className="text-xs px-2 py-0.5 rounded" style={{ background: ACCENT + "14", color: ACCENT }}>
-                                {s.name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      ))}
                       {profile?.drivingLicense && (
                         <div>
                           <p className="text-xs font-semibold text-zinc-700 mb-1">Driving licence</p>

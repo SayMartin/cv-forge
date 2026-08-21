@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveCategoryId } from "@/lib/skill-categories";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const body = await req.json();
   const data: Record<string, unknown> = {};
   if (body.name !== undefined) data.name = String(body.name).trim();
-  if (body.category !== undefined) data.category = body.category || null;
+  if (body.categoryId !== undefined) {
+    const category = await resolveCategoryId(body.categoryId, session.user.id);
+    if (!category.ok) {
+      return NextResponse.json({ error: "Unknown category" }, { status: 400 });
+    }
+    data.categoryId = category.categoryId;
+  }
   if (body.level !== undefined) data.level = body.level ? Number(body.level) : null;
   if (body.cefrLevel !== undefined) data.cefrLevel = body.cefrLevel || null;
   if (body.order !== undefined) data.order = body.order !== "" ? Number(body.order) : 0;

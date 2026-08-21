@@ -3,6 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin } from "better-auth/plugins";
 import { prisma } from "@/lib/prisma";
 import { safeError } from "@/lib/log";
+import { seedSkillCategories } from "@/lib/skill-categories";
 import { Resend } from "resend";
 
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "CV Forge <noreply@appfinningar.se>";
@@ -152,6 +153,24 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        // Every account starts with a usable set of skill categories. Placed here
+        // rather than in the sign-up page so Google sign-in — which creates an
+        // account without ever touching that page — is covered too.
+        after: async (user) => {
+          try {
+            await seedSkillCategories(user.id);
+          } catch (error) {
+            // Never fail account creation over this: an empty category list is a
+            // recoverable state, a half-created account is not.
+            console.error("[auth] skill category seeding failed:", safeError(error));
+          }
+        },
+      },
     },
   },
   plugins: [admin()],

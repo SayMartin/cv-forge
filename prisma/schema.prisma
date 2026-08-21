@@ -15,29 +15,30 @@ datasource db {
 // ─── Better Auth core schema ───────────────────────────────────────────────────
 
 model User {
-  id            String       @id
-  name          String
-  email         String       @unique
-  emailVerified Boolean
-  image         String?
-  createdAt     DateTime
-  updatedAt     DateTime
+  id              String          @id
+  name            String
+  email           String          @unique
+  emailVerified   Boolean
+  image           String?
+  createdAt       DateTime
+  updatedAt       DateTime
   // Better Auth admin plugin fields
-  role          String?
-  banned        Boolean?
-  banReason     String?
-  banExpires    DateTime?
-  sessions      Session[]
-  accounts      Account[]
-  cvs           CV[]
-  cvThemes      CvTheme[]
-  profiles      Profile[]
-  avatar        Avatar?
-  experiences   Experience[]
-  educations    Education[]
-  skills        Skill[]
-  projects      Project[]
-  others        Other[]
+  role            String?
+  banned          Boolean?
+  banReason       String?
+  banExpires      DateTime?
+  sessions        Session[]
+  accounts        Account[]
+  cvs             CV[]
+  cvThemes        CvTheme[]
+  profiles        Profile[]
+  avatar          Avatar?
+  experiences     Experience[]
+  educations      Education[]
+  skills          Skill[]
+  skillCategories SkillCategory[]
+  projects        Project[]
+  others          Other[]
 
   @@map("user")
 }
@@ -208,18 +209,49 @@ model Education {
   @@map("education")
 }
 
-model Skill {
+// User-owned, renameable, reorderable skill groups. Seeded with defaults on
+// sign-up; the taxonomy is the user's, not the product's — not every user is a
+// developer.
+model SkillCategory {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
-  category  String? // Language / Framework / Tool / Platform / Other
-  level     Int? // 1–5
-  cefrLevel String? // A1 / A2 / B1 / B2 / C1 / C2 — set only when category === "Language"
-  icon      String? // image URL
+  // "language" | "normal". The spoken-language group drives the CEFR field in the
+  // editor and the CEFR table in the Europass layout. That role is stored here,
+  // separately from `name`, so the group can be renamed ("Språk", "Idiomas")
+  // without either feature silently breaking — the failure mode of matching on
+  // the heading text instead.
+  kind      String   @default("normal")
   order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  skills    Skill[]
+
+  @@unique([userId, name])
+  @@map("skill_category")
+}
+
+model Skill {
+  id             String         @id @default(cuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  categoryId     String?
+  // SetNull, not Restrict: a Restrict here would make `prisma.user.delete()` fail
+  // when the cascade reaches categories before skills, breaking account erasure.
+  // "Can't delete a category that still holds skills" is enforced in the API instead.
+  category       SkillCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  // Pre-taxonomy string value, kept as a safety net so the one-time backfill in
+  // migration 20260821_add_skill_categories can be audited. Safe to drop once the
+  // migrated categories have been reviewed.
+  legacyCategory String?
+  level          Int? // 1–5
+  cefrLevel      String? // A1 / A2 / B1 / B2 / C1 / C2 — set only on a "language"-kind category
+  icon           String? // image URL
+  order          Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@map("skill")
 }

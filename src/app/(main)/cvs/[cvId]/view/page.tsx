@@ -54,7 +54,10 @@ export default async function CvViewPage({ params }: Params) {
       ? prisma.education.findMany({ where: { id: { in: cv.educationIds }, userId } })
       : Promise.resolve([]),
     cv.skillIds.length
-      ? prisma.skill.findMany({ where: { id: { in: cv.skillIds }, userId } })
+      ? prisma.skill.findMany({
+          where: { id: { in: cv.skillIds }, userId },
+          include: { category: true },
+        })
       : Promise.resolve([]),
     cv.projectIds.length
       ? prisma.project.findMany({ where: { id: { in: cv.projectIds }, userId } })
@@ -121,7 +124,13 @@ export default async function CvViewPage({ params }: Params) {
     avatarUrl,
     experiences: byIds(experiences, cv.experienceIds),
     educations: byIds(educations, cv.educationIds),
-    skills: byIds(skills, cv.skillIds),
+    // Flatten the category relation into the name + role the layouts consume.
+    skills: byIds(skills, cv.skillIds).map((s) => ({
+      ...s,
+      category: s.category?.name ?? null,
+      categoryKind: s.category?.kind ?? null,
+      categoryOrder: s.category?.order ?? null,
+    })),
     projects: byIds(projects, cv.projectIds),
     others: byIds(others, cv.otherIds),
   };

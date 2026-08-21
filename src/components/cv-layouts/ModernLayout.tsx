@@ -1,3 +1,4 @@
+import { isLanguageSkill } from "@/lib/cv-content-types";
 import type { CvContent, CvEducation, CvExperience, CvOther, CvProject } from "@/lib/cv-content-types";
 import {
   darkenColor,
@@ -170,10 +171,10 @@ export function ModernLayout({
   const SIDEBAR_GRADIENT = `linear-gradient(to right, ${sidebarGradient(SIDEBAR_BG)})`;
 
   const languageSkills = skills.filter(
-    (s) => s.category?.toLowerCase() === "language",
+    isLanguageSkill,
   );
   const otherSkills = skills.filter(
-    (s) => s.category?.toLowerCase() !== "language",
+    (s) => !isLanguageSkill(s),
   );
 
   const nameParts = profile?.name?.split(" ") ?? [];

@@ -1,3 +1,4 @@
+import { isLanguageSkill } from "@/lib/cv-content-types";
 import type { CvContent, CvOther } from "@/lib/cv-content-types";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
@@ -159,8 +160,8 @@ export function TerminalLayout({
   const SIDEBAR_BG = theme?.sidebarColor ?? DEFAULT_SIDEBAR_BG;
   const colors: TColors = { accent: ACCENT };
 
-  const techSkills = skills.filter((s) => s.category?.toLowerCase() !== "language");
-  const languageSkills = skills.filter((s) => s.category?.toLowerCase() === "language");
+  const techSkills = skills.filter((s) => !isLanguageSkill(s));
+  const languageSkills = skills.filter(isLanguageSkill);
 
   const initials = profile?.name
     ? profile.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()

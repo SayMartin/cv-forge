@@ -58,3 +58,6 @@ prisma/dev.db-journal
 # OpenNext build output
 .open-next/
 
+
+# backup script secrets (see scripts/backup.env.example)
+scripts/backup.env

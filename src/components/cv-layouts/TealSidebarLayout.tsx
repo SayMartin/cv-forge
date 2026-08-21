@@ -1,3 +1,4 @@
+import { isLanguageSkill } from "@/lib/cv-content-types";
 import type { CvContent, CvEducation, CvExperience, CvOther, CvProject } from "@/lib/cv-content-types";
 import {
   darkenColor,
@@ -86,8 +87,8 @@ export function TealSidebarLayout({
   const SIDEBAR_TEXT = getContrastColor(TEAL);
   const SIDEBAR_GRADIENT = `linear-gradient(to right, ${sidebarGradient(TEAL)})`;
 
-  const languageSkills = skills.filter((s) => s.category?.toLowerCase() === "language");
-  const otherSkills = skills.filter((s) => s.category?.toLowerCase() !== "language");
+  const languageSkills = skills.filter(isLanguageSkill);
+  const otherSkills = skills.filter((s) => !isLanguageSkill(s));
 
   const tealColors: TealColors = { teal: TEAL, tealDark: TEAL_DARK, sidebarText: SIDEBAR_TEXT };
 

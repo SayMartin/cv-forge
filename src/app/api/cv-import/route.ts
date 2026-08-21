@@ -221,13 +221,26 @@ Rules:
         });
       }
 
-      // Skills
+      // Skills. The model returns a category *name* from SKILL_CATEGORIES; categories
+      // are user-owned rows, so resolve the name against this user's own categories.
+      // An unmatched name (a renamed or deleted category) leaves the skill
+      // uncategorised rather than failing the whole import.
       if (cv.skills.length) {
+        const categories = await tx.skillCategory.findMany({
+          where: { userId },
+          select: { id: true, name: true },
+        });
+        const categoryIdByName = new Map(
+          categories.map((c) => [c.name.toLowerCase(), c.id]),
+        );
+
         await tx.skill.createMany({
           data: cv.skills.map((skill, i) => ({
             userId,
             name: skill.name,
-            category: skill.category ?? null,
+            categoryId: skill.category
+              ? categoryIdByName.get(skill.category.toLowerCase()) ?? null
+              : null,
             level: skill.level ?? null,
             order: i + 1,
           })),
