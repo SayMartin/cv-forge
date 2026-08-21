@@ -183,11 +183,6 @@ export function TerminalLayout({
                 {i === 0 && <SectionLabel label="EXPERIENCE" colors={colors} />}
                 <div className="break-inside-avoid">
                   <ExpHeader role={job.role} company={job.company} dateStr={dateStr} />
-                  {job.url && (
-                    <p className="font-mono text-xs mt-1 wrap-break-word" style={{ color: TEXT_MUTED }}>
-                      Live at: <a href={job.url} style={{ color: TEXT_LINK }}>{job.url}</a>
-                    </p>
-                  )}
                   {job.skills && job.skills.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {job.skills.map((s) => (
@@ -199,6 +194,11 @@ export function TerminalLayout({
                   )}
                   {job.description && (
                     <p className="font-mono text-sm mt-2 whitespace-pre-line leading-relaxed" style={{ color: TEXT_MUTED }}>{job.description}</p>
+                  )}
+                  {job.url && (
+                    <p className="font-mono text-xs mt-1 wrap-break-word" style={{ color: TEXT_MUTED }}>
+                      Live at: <a href={job.url} style={{ color: TEXT_LINK }}>{job.url}</a>
+                    </p>
                   )}
                   {i < experiences.length - 1 && <div className="mt-4 h-px" style={{ background: BORDER_COLOR }} />}
                 </div>

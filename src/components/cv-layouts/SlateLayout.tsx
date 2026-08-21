@@ -203,13 +203,13 @@ export function SlateLayout({
             {job.skills.map((s) => <TechPill key={s} label={s} />)}
           </div>
         )}
-        {job.url && (
-          <p className="text-xs text-slate-400 wrap-break-word mb-2">
-            Live at: <a href={job.url} style={{ color: ACCENT }}>{job.url}</a>
-          </p>
-        )}
         {job.description && (
           <p className="text-sm text-slate-500 whitespace-pre-line leading-relaxed">{job.description}</p>
+        )}
+        {job.url && (
+          <p className="text-xs text-slate-400 wrap-break-word mt-1">
+            Live at: <a href={job.url} style={{ color: ACCENT }}>{job.url}</a>
+          </p>
         )}
         {opts?.divider && <div className="mt-4 border-b border-slate-100" />}
       </div>

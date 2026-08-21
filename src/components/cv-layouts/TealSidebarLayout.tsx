@@ -98,13 +98,13 @@ export function TealSidebarLayout({
         {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.experience} />}
         {dateStr && <p className="text-xs font-semibold" style={{ color: TEAL }}>{dateStr}</p>}
         <p className="font-bold text-zinc-800">{job.role} — {job.company}</p>
-        {job.url && (
-          <p className="text-xs text-zinc-400 wrap-break-word mt-0.5">
-            Live at: <a href={job.url} style={{ color: TEAL }}>{job.url}</a>
-          </p>
-        )}
         {job.description && (
           <p className="text-zinc-500 mt-0.5 text-sm leading-relaxed whitespace-pre-line">{job.description}</p>
+        )}
+        {job.url && (
+          <p className="text-xs text-zinc-500 wrap-break-word mt-1">
+            Live at: <a href={job.url} style={{ color: TEAL }}>{job.url}</a>
+          </p>
         )}
         {job.skills && job.skills.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
