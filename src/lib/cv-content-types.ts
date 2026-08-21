@@ -1,6 +1,24 @@
 // Shared CV content types — used by layout components, view pages, and PDF export.
 // These match the shapes returned by Prisma queries.
 
+// Skill categories, in the order groups should be rendered on a CV.
+// Single source of truth: the SkillsTab dropdown and every layout that groups
+// skills read this list, so a new category appears in both without drifting.
+// "Language" means spoken/natural languages — it drives the CEFR field in the
+// editor and the CEFR table in the Europass layout. Programming languages go
+// under "Programming".
+export const SKILL_CATEGORIES = [
+  "Programming",
+  "Backend",
+  "Frontend",
+  "DevOps & Cloud",
+  "Tools & methods",
+  "Language",
+  "Other",
+] as const;
+
+export type SkillCategory = (typeof SKILL_CATEGORIES)[number];
+
 export type CvProfile = {
   id: string;
   profileName: string;

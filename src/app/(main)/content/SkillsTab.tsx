@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { SKILL_CATEGORIES } from "@/lib/cv-content-types";
 import type { Skill } from "./ContentTabs";
 
 interface Props {
   initialItems: Skill[];
 }
 
-const CATEGORIES = ["Language", "Framework", "Tool", "Platform", "Other"];
 const CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
 const EMPTY_FORM = { name: "", category: "", level: "", cefrLevel: "", order: "" };
@@ -46,7 +46,7 @@ function SkillForm({
           <label className="block text-xs font-medium text-(--cl-text)">Category</label>
           <select value={form.category} onChange={(e) => set("category", e.target.value)} className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)">
             <option value="">— none —</option>
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            {SKILL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div className="space-y-1">

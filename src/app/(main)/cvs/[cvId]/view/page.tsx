@@ -44,7 +44,7 @@ export default async function CvViewPage({ params }: Params) {
     theme,
   ] = await Promise.all([
     cv.profileId
-      ? prisma.profile.findUnique({ where: { id: cv.profileId } })
+      ? prisma.profile.findFirst({ where: { id: cv.profileId, userId } })
       : Promise.resolve(null),
     prisma.avatar.findUnique({ where: { userId } }),
     cv.experienceIds.length
@@ -63,7 +63,7 @@ export default async function CvViewPage({ params }: Params) {
       ? prisma.other.findMany({ where: { id: { in: cv.otherIds }, userId } })
       : Promise.resolve([]),
     cv.themeId
-      ? prisma.cvTheme.findUnique({ where: { id: cv.themeId } })
+      ? prisma.cvTheme.findFirst({ where: { id: cv.themeId, userId } })
       : Promise.resolve(null),
   ]);
 

@@ -3,6 +3,11 @@ services:
     image: ghcr.io/saymartin/cv-forge:latest
     container_name: cv-forge-app
     restart: unless-stopped
+    logging: # bound stdout — Docker's json-file driver is otherwise unlimited
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     env_file: .env
     ports:
       - "3005:3000" # Cloudflare Tunnel routes cv-forge.appfinningar.se here
@@ -16,6 +21,11 @@ services:
     image: ghcr.io/nicholas-fedor/watchtower:latest
     container_name: cv-forge-watchtower
     restart: unless-stopped
+    logging: # bound stdout — Docker's json-file driver is otherwise unlimited
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${HOME}/.docker/config.json:/config.json:ro # GHCR pull credentials (docker login ghcr.io on the host)

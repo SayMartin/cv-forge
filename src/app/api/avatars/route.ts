@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { blobPut, blobDelete } from "@/lib/r2";
+import { safeError } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -67,11 +68,8 @@ export async function POST(req: NextRequest) {
   try {
     url = await blobPut(key, buffer, { contentType: mimeType });
   } catch (err) {
-    console.error("[avatars] blobPut failed:", err);
-    return NextResponse.json(
-      { error: "Failed to upload image", detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    console.error("[avatars] blobPut failed:", safeError(err));
+    return NextResponse.json({ error: "Failed to upload image" }, { status: 500 });
   }
 
   let updated: Awaited<ReturnType<typeof prisma.avatar.upsert>>;
@@ -82,11 +80,8 @@ export async function POST(req: NextRequest) {
       update: { images: { push: url } },
     });
   } catch (err) {
-    console.error("[avatars] prisma upsert failed:", err);
-    return NextResponse.json(
-      { error: "Failed to save image record", detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    console.error("[avatars] prisma upsert failed:", safeError(err));
+    return NextResponse.json({ error: "Failed to save image record" }, { status: 500 });
   }
 
   return NextResponse.json({ images: updated.images }, { status: 201 });

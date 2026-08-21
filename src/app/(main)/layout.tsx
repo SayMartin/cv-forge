@@ -1,7 +1,6 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { NavBar } from "./NavBar";
-import { SyncAppUserId } from "./SyncAppUserId";
 import { BotanicalBackground } from "@/components/BotanicalBackground";
 
 export default async function MainLayout({
@@ -21,7 +20,6 @@ export default async function MainLayout({
   return (
     <div className="flex flex-col min-h-screen">
       <BotanicalBackground />
-      <SyncAppUserId userId={session?.user.id ?? null} />
       <div className="print:hidden">
         <NavBar user={user} />
       </div>

@@ -111,7 +111,6 @@ cv-cms/
 │   │   │   ├── layout.tsx                           ← reads session; renders BotanicalBackground + NavBar; footer with support email
 │   │   │   ├── NavBar.tsx                           ← client nav; logo + "CV Forge" wordmark; desktop inline / mobile hamburger
 │   │   │   ├── SignOutButton.tsx                    ← client sign-out; variant="nav"|"page"
-│   │   │   ├── SyncAppUserId.tsx                    ← legacy stub; was used for Sanity Studio localStorage bridge; inert
 │   │   │   ├── page.tsx                             ← landing page: hero + how-it-works (4 steps) + CTA (visitors only)
 │   │   │   ├── import/
 │   │   │   │   ├── layout.tsx                       ← metadata: title "Import CV"
@@ -129,7 +128,6 @@ cv-cms/
 │   │   │   ├── profiles/
 │   │   │   │   ├── page.tsx                         ← profile list + create (auth-gated)
 │   │   │   │   └── CreateProfileForm.tsx            ← "New Profile" client form
-│   │   │   ├── projects/[slug]/page.tsx
 │   │   │   ├── settings/
 │   │   │   │   ├── page.tsx                         ← account card (email, sign-out, delete account)
 │   │   │   │   └── DeleteAccountSection.tsx         ← client: email-confirm dialog → DELETE /api/user
@@ -166,7 +164,6 @@ cv-cms/
 │   │       │   ├── skills/route.ts + [id]/route.ts
 │   │       │   ├── projects/route.ts + [id]/route.ts
 │   │       │   └── other/route.ts + [id]/route.ts
-│   │       ├── upload/route.ts                      ← general-purpose R2 upload (PUT ?key=…); auth-gated; JPEG/PNG/WebP/GIF/SVG/PDF
 │   │       └── user/route.ts                        ← DELETE: prisma.user.delete() → cascades all content
 │   ├── components/
 │   │   ├── Logo.tsx                                 ← inline SVG logo (page + leaf motif); uses currentColor; matches app icon
@@ -372,8 +369,15 @@ Accessible at `/settings`.
 - **Sign out** — `SignOutButton` (variant `"page"`) calls `authClient.signOut()` and redirects to `/`
 - **Delete account** — `DeleteAccountSection` presents a confirmation dialog that requires the user to type their email, then calls `DELETE /api/user`:
   1. **Admin guard** — returns `403` if `session.user.role === "admin"`
-  2. `prisma.user.delete({ where: { id } })` — all content models have `onDelete: Cascade`, so this single delete removes everything: sessions, accounts, CVs, themes, profiles, avatars, experience, education, skills, projects, other
+  2. `prisma.user.delete({ where: { id } })` — all content models have `onDelete: Cascade`, so this single delete removes every **database** row: sessions, accounts, CVs, themes, profiles, avatars, experience, education, skills, projects, other
   3. Client calls `authClient.signOut()` and redirects to `/`
+
+> **Deletion is currently incomplete — GDPR gap.** The cascade covers Postgres only. Two things survive it:
+>
+> - **Avatar image files in R2.** `blobDelete` is called only when a single image is removed via `PATCH /api/avatars`; the account-delete path never touches the bucket. Because the bucket is public via a Custom Domain, uploaded face photos stay retrievable at `files.appfinningar.se/avatars/<userId>/<ts>.<ext>` indefinitely after the account is gone.
+> - **`Verification` rows.** The model has no `userId` and no FK (see the schema), so pending verification and password-reset records — keyed by the user's email address — are not cascaded and are never cleaned up.
+>
+> Both are scheduled for the GDPR phase. Until then, do not describe account deletion to users as erasing everything.
 
 ---
 

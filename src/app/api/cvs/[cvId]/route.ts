@@ -69,6 +69,26 @@ export async function PATCH(request: Request, { params }: Params) {
   if (Array.isArray(body.sectionOrder)) data.sectionOrder = body.sectionOrder;
   if (typeof body.chronological === "boolean") data.chronological = body.chronological;
 
+  // profileId and themeId are patched straight from the request body. profileId has
+  // no FK at all, so without this guard any cuid is accepted and the view page would
+  // later resolve and render another user's profile (name, phone, dateOfBirth, …).
+  // The *Ids arrays need no guard: the view page re-filters each findMany by userId.
+  if (data.profileId) {
+    const profile = await prisma.profile.findFirst({
+      where: { id: data.profileId, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!profile) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (data.themeId) {
+    const theme = await prisma.cvTheme.findFirst({
+      where: { id: data.themeId, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!theme) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const updated = await prisma.cV.update({ where: { id: cvId }, data });
   return NextResponse.json(updated);
 }

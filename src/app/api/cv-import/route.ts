@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { SKILL_CATEGORIES } from "@/lib/cv-content-types";
+import { safeError } from "@/lib/log";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 
 const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -55,7 +57,7 @@ const CvSchema = z.object({
     z.object({
       name: z.string(),
       category: z
-        .enum(["Language", "Framework", "Tool", "Platform", "Other"])
+        .enum(SKILL_CATEGORIES)
         .optional(),
       level: z.number().min(1).max(5).optional(),
     }),
@@ -149,7 +151,7 @@ Rules:
 - Skill levels: 1=beginner, 2=basic, 3=intermediate, 4=advanced, 5=expert. Infer from context.
 - Only include URLs that are explicitly present in the document — do not invent them.
 - Keep description fields concise (2–4 sentences max).
-- For skills, pick the most appropriate category: Language, Framework, Tool, Platform, Other. "Language" means spoken/natural languages only (e.g. English, Swedish, German) — programming languages (e.g. Kotlin, Java, Python, TypeScript) must use "Tool", never "Language".
+- For skills, pick the most appropriate category: Programming, Backend, Frontend, DevOps & Cloud, Tools & methods, Language, Other. "Language" means spoken/natural languages only (e.g. English, Swedish, German) — programming languages (e.g. Kotlin, Java, Python, TypeScript) must use "Programming", never "Language". Frameworks and libraries go under Backend or Frontend by where they run; infrastructure and hosting under "DevOps & Cloud"; editors, IDEs, and ways of working under "Tools & methods".
 - For entries that do not clearly fit experience, education, skills, or projects (e.g. certifications, awards, publications, volunteer work, courses), place them in the "other" array with a descriptive title and subtitle (issuer or organisation).
 - Projects may optionally have a start/end date or just an end date, using the same date rules as experience — if a project is ongoing set current=true and omit endDate.`,
             },
@@ -159,7 +161,7 @@ Rules:
     });
     cv = object;
   } catch (err) {
-    console.error("Gemini extraction error:", err);
+    console.error("[cv-import] Gemini extraction error:", safeError(err));
     return NextResponse.json(
       { error: "AI extraction failed" },
       { status: 502 },
@@ -272,7 +274,7 @@ Rules:
       }
     });
   } catch (err) {
-    console.error("Database write error:", err);
+    console.error("[cv-import] Database write error:", safeError(err));
     return NextResponse.json(
       { error: "Failed to save imported content" },
       { status: 502 },

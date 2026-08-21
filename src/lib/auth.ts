@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin } from "better-auth/plugins";
 import { prisma } from "@/lib/prisma";
+import { safeError } from "@/lib/log";
 import { Resend } from "resend";
 
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "CV Forge <noreply@appfinningar.se>";
@@ -77,7 +78,7 @@ export const auth = betterAuth({
 </html>`,
       });
       if (error) {
-        console.error("[auth] Resend error (reset password):", JSON.stringify(error));
+        console.error("[auth] Resend error (reset password):", safeError(error));
       }
     },
   },
@@ -142,7 +143,7 @@ export const auth = betterAuth({
 </html>`,
       });
       if (error) {
-        console.error("[auth] Resend error:", JSON.stringify(error));
+        console.error("[auth] Resend error:", safeError(error));
         throw new Error("Failed to send verification email");
       }
     },
