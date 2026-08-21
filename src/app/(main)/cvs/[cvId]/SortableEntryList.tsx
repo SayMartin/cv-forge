@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import {
   DndContext,
   closestCenter,
@@ -141,9 +142,15 @@ export function SortableEntryList<T extends { id: string }>({
   const gridClass = columns === 2 ? "columns-2 gap-x-6" : "";
   const strategy = columns === 2 ? rectSortingStrategy : verticalListSortingStrategy;
 
+  // Without an explicit id, dnd-kit names its screen-reader description element
+  // from a module-level counter. That counter is not shared between the server
+  // render and the client render, so the aria-describedby values disagree and
+  // React reports a hydration mismatch. useId is stable across both.
+  const dndId = useId();
+
   return (
     <div>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={ids} strategy={strategy}>
           <div className={gridClass}>
             {selected.map((entry) => (

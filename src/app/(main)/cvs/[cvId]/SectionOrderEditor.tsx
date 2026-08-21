@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import {
   DndContext,
   closestCenter,
@@ -119,8 +120,13 @@ export function SectionOrderEditor({ sectionOrder, onChange }: Props) {
     onChange(arrayMove(sectionOrder, oldIndex, newIndex));
   }
 
+  // See the note in SortableEntryList: an explicit id keeps dnd-kit's
+  // aria-describedby stable between the server and client renders.
+  const dndId = useId();
+
   return (
     <DndContext
+      id={dndId}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}

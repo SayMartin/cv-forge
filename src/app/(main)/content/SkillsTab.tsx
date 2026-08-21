@@ -15,13 +15,15 @@ const EMPTY_FORM = { name: "", level: "", cefrLevel: "" };
 type FormState = typeof EMPTY_FORM;
 
 function SkillForm({
-  initial, submitLabel, onSubmit, onCancel,
+  initial, submitLabel, onSubmit, onCancel, onDelete,
 }: {
   initial: FormState; submitLabel: string;
   onSubmit: (data: FormState) => Promise<void>; onCancel: () => void;
+  onDelete?: () => Promise<void>;
 }) {
   const [form, setForm] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function set(field: keyof FormState, value: string) {
@@ -34,6 +36,14 @@ function SkillForm({
     setError(null);
     try { await onSubmit(form); }
     catch (err) { setError(err instanceof Error ? err.message : "Save failed"); setSaving(false); }
+  }
+
+  async function handleDelete() {
+    if (!onDelete) return;
+    setDeleting(true);
+    setError(null);
+    try { await onDelete(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Delete failed"); setDeleting(false); }
   }
 
   return (
@@ -61,8 +71,13 @@ function SkillForm({
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex items-center gap-2 pt-1">
-        <button type="submit" disabled={saving} className="bg-(--cl-accent) text-white rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-50 hover:bg-(--cl-accent-hov) transition-colors">{saving ? "Saving…" : submitLabel}</button>
+        <button type="submit" disabled={saving || deleting} className="bg-(--cl-accent) text-white rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-50 hover:bg-(--cl-accent-hov) transition-colors">{saving ? "Saving…" : submitLabel}</button>
         <button type="button" onClick={onCancel} className="rounded-lg border border-(--cl-border) px-4 py-1.5 text-sm text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors">Cancel</button>
+        {/* Deletion sits here rather than on the chip: from inside the edit card
+            you can see exactly which skill you are about to remove. */}
+        {onDelete && (
+          <button type="button" onClick={handleDelete} disabled={saving || deleting} className="ml-auto rounded-lg border border-red-200 px-4 py-1.5 text-sm text-red-600 disabled:opacity-50 hover:border-red-500 hover:bg-red-50 transition-colors">{deleting ? "Deleting…" : "Delete"}</button>
+        )}
       </div>
     </form>
   );
@@ -85,7 +100,6 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
   const [categories, setCategories] = useState<SkillCategoryOption[]>(initialCategories);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const editingSkill = items.find((item) => item.id === editingId) ?? null;
 
@@ -132,11 +146,12 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
     setEditingId(null);
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this skill?")) return;
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete "${name}"? It will disappear from every CV that uses it.`)) return;
     const res = await fetch(`/api/content/skills/${id}`, { method: "DELETE" });
-    if (!res.ok) { setError("Delete failed"); return; }
+    if (!res.ok) throw new Error("Delete failed");
     setItems((prev) => prev.filter((item) => item.id !== id));
+    setEditingId(null);
   }
 
   return (
@@ -162,11 +177,10 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
             submitLabel="Save changes"
             onSubmit={(form) => handleUpdate(editingSkill.id, form)}
             onCancel={() => setEditingId(null)}
+            onDelete={() => handleDelete(editingSkill.id, editingSkill.name)}
           />
         </div>
       )}
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
 
       {items.length === 0 && !creating ? (
         <p className="text-sm text-(--cl-muted)">No skills yet — add one above.</p>
@@ -177,7 +191,9 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
           {items.map((item) => (
             <span
               key={item.id}
-              className="inline-flex items-center gap-2 rounded-lg border border-(--cl-border) bg-white px-2.5 py-1.5"
+              className={`inline-flex items-center gap-2 rounded-lg border bg-white px-2.5 py-1.5 ${
+                item.id === editingId ? "border-(--cl-accent)" : "border-(--cl-border)"
+              }`}
             >
               <span className="text-sm text-(--cl-text)">{item.name}</span>
               {item.level != null && (
@@ -192,14 +208,6 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
                 className="text-xs text-(--cl-muted) hover:text-(--cl-accent) transition-colors"
               >
                 Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(item.id)}
-                aria-label={`Delete ${item.name}`}
-                className="text-xs text-red-500 hover:text-red-700 transition-colors"
-              >
-                ×
               </button>
             </span>
           ))}
