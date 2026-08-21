@@ -13,3 +13,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 # Project reference
 
 `ARCHITECTURE.md` documents the stack, data model, CV layout system, and deploy/migration pipeline. Read it before touching the Prisma schema, a layout, or the deploy path — don't re-derive the structure from the code.
+
+Keep it current in the same change that makes a claim in it stale. The runbook is the thing people follow at 2am; a wrong one is worse than none.
+
+# Environment
+
+- **Production runs on a home server ("smurfserver") that no agent can reach.** No SSH, no `docker exec`, no `psql` against it. Anything that has to happen there is a command for the user to run.
+- **Development runs against a local `cvforge-dev-db` container** holding a copy of production — see `ARCHITECTURE.md` → Local development database. `.env.local` points at it.
+- **There is no staging. Pushing to `main` *is* the production migration**, applied automatically before the new image ships. A migration that moves or rewrites data must be rehearsed locally first; the rehearsal is in `ARCHITECTURE.md` → Migrations.
+- **Quality gates run locally, not in CI.** CI neither lints nor tests, and there are no tests at all — `npx tsc --noEmit` and `npx eslint src` are the whole net. Note that neither catches a runtime break behind an `any` from `req.json()`.

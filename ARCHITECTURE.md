@@ -117,12 +117,13 @@ cv-cms/
 │   │   │   │   └── page.tsx                         ← PDF CV import UI
 │   │   │   ├── content/
 │   │   │   │   ├── page.tsx                         ← tabbed content library (auth-gated)
-│   │   │   │   ├── ContentTabs.tsx                  ← client tab switcher
+│   │   │   │   ├── ContentTabs.tsx                  ← client tab switcher; open tab lives in ?tab=, carries ?from= back to a CV
 │   │   │   │   ├── AvatarsTab.tsx                   ← upload / remove avatar images (POST/PATCH /api/avatars); max 5, 5 MB, JPEG/PNG/WebP
 │   │   │   │   ├── ProfilesTab.tsx
 │   │   │   │   ├── ExperienceTab.tsx
 │   │   │   │   ├── EducationTab.tsx
-│   │   │   │   ├── SkillsTab.tsx
+│   │   │   │   ├── SkillsTab.tsx                    ← flat alphabetical skill library; delete lives inside the edit card
+│   │   │   │   ├── SkillCategoryManager.tsx         ← create/rename/reorder/delete categories (max 8; the language one is locked)
 │   │   │   │   ├── ProjectsTab.tsx
 │   │   │   │   └── OtherTab.tsx
 │   │   │   ├── profiles/
@@ -137,15 +138,17 @@ cv-cms/
 │   │   │       ├── DuplicateCvButton.tsx
 │   │   │       └── [cvId]/
 │   │   │           ├── page.tsx                     ← CV editor page (server); renders CvEditShell
-│   │   │           ├── CvEditShell.tsx              ← client wrapper: holds live CV name; keeps CvSwitcher in sync on successful save
+│   │   │           ├── CvEditShell.tsx              ← client wrapper: breadcrumb + Preview link; holds live CV name and the dirty flag
 │   │   │           ├── CvSwitcher.tsx               ← select dropdown to switch between CVs
 │   │   │           ├── CvEditor.tsx                 ← layout picker + theme picker + profile radio + avatar picker + entry checkboxes + section order + cover letter; dirty-state save button; maxLength on all text inputs; calls onNameChange on successful save
 │   │   │           ├── SectionOrderEditor.tsx       ← drag-and-drop section reorder (dnd-kit)
 │   │   │           ├── SortableEntryList.tsx        ← drag-and-drop entry list with checkboxes
+│   │   │           ├── CvSkillsEditor.tsx           ← per-CV skill grouping: reorder categories, drag skills between them, show/hide
+│   │   │           ├── UnsavedChangesGuard.tsx      ← beforeunload + capture-phase link interception while the editor is dirty
 │   │   │           └── view/
 │   │   │               ├── page.tsx                 ← A4 CV preview (server)
 │   │   │               ├── CvScaleWrapper.tsx       ← client wrapper: scales CV to fit viewport (transform: scale)
-│   │   │               ├── ViewToolbar.tsx          ← client toolbar: ← Edit | centred CV name | layout badge + PDF
+│   │   │               ├── ViewToolbar.tsx          ← client toolbar: breadcrumb (CV name links back) | layout badge + PDF
 │   │   │               └── ExportButton.tsx         ← "Save as PDF" client button (calls window.print())
 │   │   └── api/
 │   │       ├── auth/[...all]/route.ts               ← Better Auth catch-all handler
@@ -161,11 +164,13 @@ cv-cms/
 │   │       ├── content/
 │   │       │   ├── experience/route.ts + [id]/route.ts
 │   │       │   ├── education/route.ts + [id]/route.ts
-│   │       │   ├── skills/route.ts + [id]/route.ts
+│   │       │   ├── skills/route.ts + [id]/route.ts  ← DELETE also strips the id from every CV's skillIds and skillGroups
+│   │       │   ├── skill-categories/route.ts + [id]/route.ts
 │   │       │   ├── projects/route.ts + [id]/route.ts
 │   │       │   └── other/route.ts + [id]/route.ts
 │   │       └── user/route.ts                        ← DELETE: prisma.user.delete() → cascades all content
 │   ├── components/
+│   │   ├── Breadcrumbs.tsx                          ← Breadcrumbs / CrumbLink / CrumbCurrent; used by the CV editor and preview
 │   │   ├── Logo.tsx                                 ← inline SVG logo (page + leaf motif); uses currentColor; matches app icon
 │   │   ├── BotanicalBackground.tsx                  ← fixed full-viewport SVG; two vine clusters; 0.3 opacity; print:hidden
 │   │   └── cv-layouts/
@@ -263,11 +268,45 @@ A **CV** is a named, versioned selection of the user's content entries plus a ch
 | `experienceIds` | `TEXT[]`      | Prisma `id` values of selected Experience rows       |
 | `educationIds`  | `TEXT[]`      | Prisma `id` values of selected Education rows        |
 | `skillIds`      | `TEXT[]`      | Prisma `id` values of selected Skill rows            |
+| `skillGroups`   | `JSONB?`      | This CV's skill arrangement — see below              |
 | `projectIds`    | `TEXT[]`      | Prisma `id` values of selected Project rows          |
 | `otherIds`      | `TEXT[]`      | Prisma `id` values of selected Other rows            |
 | `sectionOrder`  | `TEXT[]`      | Section display order in the CV renderer             |
 | `targetRole`    | `TEXT?`       | "Tailored for" label — shown in CV list only; max 100 chars |
 | `coverLetter`   | `TEXT?`       | Printed as a separate page before the CV; max 5000 chars |
+
+### Skills — the library is dumb, the CV decides
+
+A skill row carries only what is true about the skill everywhere: its name, an optional 1–5 level, and an optional CEFR level. It has **no category and no sort order**. Those are per-CV decisions, so they live on the CV.
+
+Categories are user-defined, up to eight, in `skill_category`:
+
+| Column   | Type          | Notes                                                              |
+| -------- | ------------- | ------------------------------------------------------------------ |
+| `id`     | `TEXT` (cuid) | Primary key                                                        |
+| `userId` | `TEXT`        | FK → `user.id`, CASCADE delete                                     |
+| `name`   | `TEXT`        | Unique per user                                                    |
+| `kind`   | `TEXT`        | `"normal"`, or `"language"` for the one Europass needs             |
+| `order`  | `INT`         | Order in the management UI — *not* the order on any CV             |
+
+`kind` exists so that the **role** of a category survives a rename. Europass renders a CEFR table, and the layouts find that group with `kind === "language"` rather than by matching a heading, which free-text names would make unreliable. The language category cannot be renamed or deleted; every other one can.
+
+`cv.skillGroups` holds the arrangement, ordered:
+
+```jsonc
+[
+  { "categoryId": "skc_…", "skillIds": ["cm…", "cm…"] },
+  { "categoryId": "skc_…", "skillIds": ["cm…"], "hidden": true }
+]
+```
+
+Two CVs can therefore lay out the same library completely differently — different categories, different order, different visibility — which is the entire point of keeping the content dumb.
+
+**The invariant:** a skill may only be selected if it is placed in a group. `PATCH /api/cvs/[cvId]` enforces this on every write by intersecting `skillIds` with the ids present in `skillGroups`, so an unplaced skill cannot be smuggled onto a CV by a client that skips the UI.
+
+Three kinds of leftovers are dropped when the view page resolves the groups, rather than in each of the six layouts: hidden groups, unselected skills, and categories that have since been deleted. Emptied groups go too — a heading with nothing under it is noise in a printed CV.
+
+Nothing at the database level links a CV to a skill (`skillIds` is a scalar array, `skillGroups` is JSON), so no cascade reaches them. `DELETE /api/content/skills/[id]` therefore rewrites the affected CVs and deletes the skill in one transaction. Category deletion takes the opposite approach — it **refuses** with 409 while any CV still lays out skills under it, because losing a category loses a whole grouping, while losing a skill loses one chip.
 
 ### Avatar resolution
 
@@ -350,7 +389,7 @@ Currently available layouts:
 **CV management:**
 
 - `GET /cvs` — list all user's CVs
-- `GET /cvs/[cvId]` — editor: rename, pick layout and colour theme, select profile + avatar, select + reorder entries; CvSwitcher label updates on successful save
+- `GET /cvs/[cvId]` — editor: rename, pick layout and colour theme, select profile + avatar, select + reorder entries, arrange skills into categories; warns before leaving with unsaved changes; CvSwitcher label updates on successful save
 - `GET /cvs/[cvId]/view` — A4 preview with "Save as PDF" button
 
 **PDF export flow:**
@@ -484,6 +523,27 @@ All main app pages live under `src/app/(main)/`. This group has its own `layout.
 ### CV edit page — CvEditShell
 
 `CvEditShell` is a thin client wrapper around `CvSwitcher` + `CvEditor`. It holds `liveName` state (initialised from the current CV's name) and patches it into the `cvs` array passed to `CvSwitcher` whenever `CvEditor` reports a successful save via `onNameChange`. This keeps the dropdown label in sync without a page reload.
+
+The page has no heading of its own; the breadcrumb is the heading. `My CVs / [switcher]` — the switcher **is** the CV segment, because a bare `<select>` reads as a control rather than as a title, and having both would mean two elements competing to say where you are.
+
+### Unsaved changes
+
+`CvEditor` reports its dirty flag up through `onDirtyChange`, and `CvEditShell` arms `useUnsavedChangesWarning`. Two nets are needed:
+
+- `beforeunload` — reloads, closing the tab, links out of the app
+- a **capture-phase** `click` listener on `document` — Next's client router never fires `beforeunload`, so an in-app link would swap the page out silently. Capture is the only point at which the navigation can still be stopped.
+
+Listening on `document` rather than wrapping individual links means the global nav is covered too, without `NavBar` having to know anything about the CV editor. Modified clicks (⌘/ctrl/middle) are let through — they open a new tab, so this page stays put.
+
+`CvSwitcher` navigates via `router.push` from a `<select>`, not through an anchor, so the listener never sees it; it takes an `onBeforeSwitch` callback instead. Cancelling a switch re-renders nothing, so the select's value is restored by hand or it would sit showing a CV that was never opened.
+
+**Not covered:** the browser's back button. App Router offers no way to cancel a `popstate`, and the only known workaround is pushing decoy history entries, which breaks the back button for real.
+
+### Editor ↔ My Content
+
+A CV section picks entries from the library but cannot edit their wording, so each of the seven library-backed sections carries a `My Content →` link. It names the tab and carries the CV: `/content?tab=experience&from=<cvId>`. The content page opens that tab and shows a `← <CV name>` link straight back, which survives switching tabs.
+
+`from` is resolved with `findFirst({ where: { id, userId } })` — an id in a URL is whatever the visitor typed, and without the owner filter it would be a way to read other people's CV names.
 
 ### CV view page — responsive scaling
 

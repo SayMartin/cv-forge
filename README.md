@@ -12,6 +12,7 @@ Designed, built, and deployed solo: Next.js frontend, Postgres data model, Docke
 - **Content library** — manage profiles, experience, education, skills, projects, and a catch-all "other" category for certifications and awards
 - **Multiple profiles** — several profiles (e.g. "Fullstack Developer", "Mobile Developer"), each with its own headline, bio, and contact details, selectable per CV
 - **Compose CVs** — pick which entries to include, in which order, under which layout and colour theme; reorder by drag and drop
+- **Skills arranged per CV** — the library holds plain skills; each CV decides its own categories, their order, which are shown, and which skills sit where. Two CVs can present the same set of skills completely differently
 - **Chronological mode** — merge experience, education, and projects into a single date-sorted timeline instead of grouped sections
 - **Paginated A4 output** — content blocks are measured and distributed across pages so entries are never split mid-block
 - **Export to PDF** — A4 export via the browser print dialog, colour theme preserved
@@ -56,9 +57,17 @@ Every push to `main` builds the image in GitHub Actions, applies pending Prisma 
 ```bash
 npm install
 cp .env.example .env.local   # see the file for where each value comes from
-npm run migrate:deploy
+
+# A throwaway Postgres for development
+docker run -d --name cvforge-dev-db \
+  -e POSTGRES_USER=cvforge -e POSTGRES_PASSWORD=devpassword -e POSTGRES_DB=cvforge \
+  -p 127.0.0.1:5432:5432 -v cvforge-dev-db-data:/var/lib/postgresql/data postgres:16
+
+npm run migrate:deploy       # reads DATABASE_URL from .env.local
 npm run dev
 ```
+
+Point `DATABASE_URL` at that container. Note that the R2 and Resend credentials in `.env.local` are the live ones, so uploads and emails are real — see [ARCHITECTURE.md](ARCHITECTURE.md) → Local development database.
 
 ## Documentation
 
