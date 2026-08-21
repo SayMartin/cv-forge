@@ -203,6 +203,11 @@ export function SlateLayout({
             {job.skills.map((s) => <TechPill key={s} label={s} />)}
           </div>
         )}
+        {job.url && (
+          <p className="text-xs text-slate-400 wrap-break-word mb-2">
+            Live at: <a href={job.url} style={{ color: ACCENT }}>{job.url}</a>
+          </p>
+        )}
         {job.description && (
           <p className="text-sm text-slate-500 whitespace-pre-line leading-relaxed">{job.description}</p>
         )}
@@ -247,6 +252,11 @@ export function SlateLayout({
           </p>
           {o.date && <p className="text-xs text-slate-400 shrink-0">{formatDate(o.date)}</p>}
         </div>
+        {o.url && (
+          <p className="text-xs text-slate-400 wrap-break-word mb-1">
+            <a href={o.url} style={{ color: ACCENT }}>{o.url}</a>
+          </p>
+        )}
         {o.description && (
           <p className="text-sm text-slate-500 leading-relaxed">{o.description}</p>
         )}

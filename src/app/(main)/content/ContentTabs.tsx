@@ -44,6 +44,7 @@ export type Experience = {
   endDate?: string;
   current?: boolean;
   description?: string;
+  url?: string;
   skills?: string[];
 };
 

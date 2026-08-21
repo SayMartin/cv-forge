@@ -57,6 +57,11 @@ function ExperienceItem({ job, badge }: { job: CvExperience; badge?: boolean }) 
           </span>
         )}
       </div>
+      {job.url && (
+        <span className="block wrap-break-word text-xs text-zinc-400 mt-0.5">
+          Live at: <a href={job.url} className="hover:text-black">{job.url}</a>
+        </span>
+      )}
       {job.description && (
         <p className="mt-1 text-sm text-zinc-600 whitespace-pre-line">
           {job.description}

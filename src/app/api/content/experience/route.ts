@@ -26,6 +26,7 @@ export async function POST(req: Request) {
       endDate: body.endDate || null,
       current: body.current === true,
       description: body.description || null,
+      url: body.url || null,
       skills: Array.isArray(body.skills) ? body.skills.filter(Boolean) : [],
     },
   });

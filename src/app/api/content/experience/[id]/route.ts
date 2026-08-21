@@ -24,6 +24,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.endDate !== undefined) data.endDate = body.endDate || null;
   if (body.current !== undefined) data.current = body.current === true;
   if (body.description !== undefined) data.description = body.description || null;
+  if (body.url !== undefined) data.url = body.url || null;
   if (body.skills !== undefined) data.skills = Array.isArray(body.skills) ? body.skills.filter(Boolean) : [];
 
   const updated = await prisma.experience.update({ where: { id }, data });

@@ -209,6 +209,11 @@ export function ModernLayout({
         <p className="text-sm font-medium mt-0.5" style={{ color: GOLD }}>
           {job.role}
         </p>
+        {job.url && (
+          <span className="block wrap-break-word text-xs text-zinc-400 mt-0.5">
+            Live at: <a href={job.url}>{job.url}</a>
+          </span>
+        )}
         {job.description && (
           <p className="mt-1 text-sm text-zinc-600 whitespace-pre-line">
             {job.description}
@@ -314,6 +319,11 @@ export function ModernLayout({
             </span>
           )}
         </div>
+        {o.url && (
+          <span className="block wrap-break-word text-xs text-zinc-400 mt-0.5">
+            <a href={o.url}>{o.url}</a>
+          </span>
+        )}
         {o.description && (
           <p className="text-sm text-zinc-500 mt-0.5">{o.description}</p>
         )}

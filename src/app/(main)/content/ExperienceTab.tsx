@@ -14,6 +14,7 @@ const EMPTY_FORM = {
   endDate: "",
   current: false,
   description: "",
+  url: "",
   skills: "",
 };
 
@@ -63,6 +64,7 @@ function ExperienceForm({
         Current position
       </label>
       <Field label="Description" value={form.description} onChange={(v) => set("description", v)} multiline placeholder="Key responsibilities and achievements…" />
+      <Field label="Live URL" value={form.url} onChange={(v) => set("url", v)} placeholder="https://example.com" />
       <Field label="Skills used (comma-separated)" value={form.skills} onChange={(v) => set("skills", v)} placeholder="React, TypeScript, Node.js" />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex items-center gap-2 pt-1">
@@ -85,6 +87,7 @@ function formToPayload(form: FormState) {
     endDate: form.endDate,
     current: form.current,
     description: form.description,
+    url: form.url,
     skills: form.skills.split(",").map((s) => s.trim()).filter(Boolean),
   };
 }
@@ -97,6 +100,7 @@ function itemToForm(item: Experience): FormState {
     endDate: item.endDate ?? "",
     current: item.current ?? false,
     description: item.description ?? "",
+    url: item.url ?? "",
     skills: (item.skills ?? []).join(", "),
   };
 }

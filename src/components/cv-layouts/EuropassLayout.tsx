@@ -95,6 +95,11 @@ export function EuropassLayout({
         {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.experience} accent={ACCENT} />}
         <p className="font-bold text-zinc-800 text-sm">{job.role}</p>
         <p className="text-zinc-600 text-sm">{job.company}</p>
+        {job.url && (
+          <p className="text-xs text-zinc-400 wrap-break-word mt-0.5">
+            Live at: <a href={job.url} style={{ color: ACCENT }}>{job.url}</a>
+          </p>
+        )}
         {job.description && (
           <p className="text-zinc-500 mt-1 text-sm leading-relaxed whitespace-pre-line">{job.description}</p>
         )}
@@ -152,6 +157,11 @@ export function EuropassLayout({
         <p className="font-bold text-zinc-800 text-sm">
           {o.title}{o.subtitle && ` — ${o.subtitle}`}
         </p>
+        {o.url && (
+          <p className="text-xs text-zinc-400 wrap-break-word mt-0.5">
+            <a href={o.url} style={{ color: ACCENT }}>{o.url}</a>
+          </p>
+        )}
         {o.description && (
           <p className="text-zinc-500 mt-0.5 text-sm leading-relaxed">{o.description}</p>
         )}

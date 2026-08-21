@@ -29,6 +29,7 @@ export type CvExperience = {
   endDate?: string | null;
   current?: boolean | null;
   description?: string | null;
+  url?: string | null;
   skills?: string[] | null;
 };
 

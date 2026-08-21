@@ -183,6 +183,7 @@ model Experience {
   endDate     String?
   current     Boolean  @default(false)
   description String?
+  url         String?
   skills      String[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
