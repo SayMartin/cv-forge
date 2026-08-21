@@ -1,18 +1,21 @@
 # CV Forge
 
-A multi-user CV creation app. Each user maintains a library of CV content (experience, education, skills, projects, and other entries) and can compose multiple named CVs from that library — each with a selectable layout and colour theme — and export them as A4 PDFs via the browser's built-in print dialog.
+**Live at [cv-forge.appfinningar.se](https://cv-forge.appfinningar.se)**
+
+A multi-user CV builder. Each user keeps a library of CV content — experience, education, skills, projects — and composes multiple named CVs from it, each with its own layout, colour theme, and section order, exported as an A4 PDF.
+
+Designed, built, and deployed solo: Next.js frontend, Postgres data model, Docker image built in CI, self-hosted behind a Cloudflare Tunnel.
 
 ## What it does
 
-- **Sign up / sign in** — open registration via email + password or Google OAuth; email verification is required before signing in for the first time
-- **Import from PDF** — upload an existing CV as a PDF; AI extracts and writes all content to your library automatically; entries that don't fit standard categories are saved as "Other"
-- **Manage content** — edit your profiles, experience, education, skills, projects, and other entries in the `/content` library
-- **Multiple profiles** — maintain several profiles (e.g. "Frontend Developer", "Senior Engineer") each with its own headline, bio, and contact details
-- **Avatars** — maintain a separate avatar library (up to 5 images); select which avatar to use per CV, independently of the profile
-- **Compose CVs** — create named CVs by selecting which library entries to include, which profile and avatar to use, which layout to apply, and an optional colour theme (custom sidebar + accent colours with live thumbnail preview)
-- **Preview** — view an A4 browser preview of any CV before exporting
-- **Export to PDF** — print an A4 PDF via the browser's print-to-PDF dialog; the selected colour theme is applied to the output
-- **Account settings** — sign out or permanently delete your account and all associated data from `/settings`
+- **Import from PDF** — upload an existing CV; Gemini extracts the content and writes it straight into your library
+- **Content library** — manage profiles, experience, education, skills, projects, and a catch-all "other" category for certifications and awards
+- **Multiple profiles** — several profiles (e.g. "Fullstack Developer", "Mobile Developer"), each with its own headline, bio, and contact details, selectable per CV
+- **Compose CVs** — pick which entries to include, in which order, under which layout and colour theme; reorder by drag and drop
+- **Chronological mode** — merge experience, education, and projects into a single date-sorted timeline instead of grouped sections
+- **Paginated A4 output** — content blocks are measured and distributed across pages so entries are never split mid-block
+- **Export to PDF** — A4 export via the browser print dialog, colour theme preserved
+- **Auth** — email + password or Google OAuth, with email verification
 
 ## Stack
 
@@ -20,179 +23,43 @@ A multi-user CV creation app. Each user maintains a library of CV content (exper
 | --------- | --------------------------------------------------------------- |
 | Framework | Next.js 16 (App Router) + TypeScript                            |
 | Styling   | Tailwind CSS                                                     |
-| Database  | Self-hosted PostgreSQL via Prisma — all data                     |
-| Storage   | Cloudflare R2 (S3-compatible object storage)                     |
+| Database  | Self-hosted PostgreSQL via Prisma                                |
+| Storage   | Cloudflare R2 (S3-compatible)                                    |
 | Auth      | Better Auth (email + password + Google OAuth)                    |
-| Email     | Resend (`noreply@appfinningar.se`)                                |
-| AI        | Google Gemini 2.5 Flash                                          |
-| PDF       | Browser `window.print()`                                         |
-| Hosting   | Self-hosted (Docker + Docker Compose, `cv-forge.appfinningar.se`) |
-| Proxy     | Cloudflare Tunnel (direct to host ports, no reverse proxy)        |
+| Email     | Resend                                                           |
+| AI        | Google Gemini 2.5 Flash (PDF CV parsing)                         |
+| Hosting   | Self-hosted, Docker Compose                                      |
+| CI/CD     | GitHub Actions → GHCR → Watchtower, with automatic migrations    |
+| Ingress   | Cloudflare Tunnel (no reverse proxy)                             |
 
-For a full technical breakdown see [ARCHITECTURE.md](ARCHITECTURE.md).
+## CV layouts
 
-## Local development
-
-### Prerequisites
-
-- Node.js 20+
-- A PostgreSQL database (any standard Postgres instance — self-hosted or managed)
-- An S3-compatible storage bucket (Cloudflare R2, or any other S3-compatible provider)
-- A [Google AI Studio](https://aistudio.google.com) API key (free tier)
-- A [Google Cloud Console](https://console.cloud.google.com/apis/credentials) OAuth 2.0 Client ID (for Google sign-in)
-- A [Resend](https://resend.com) account with a verified sending domain
-
-### 1. Clone and install
-
-```bash
-git clone <repo-url>
-cd cv-cms
-npm install
-```
-
-### 2. Environment variables
-
-Copy `.env.example` to `.env.local` and fill in the values:
-
-```bash
-cp .env.example .env.local
-```
-
-See `.env.example` for the full list of variables and comments on where each value comes from. For local development, point `DATABASE_URL` and `S3_*` at any Postgres and S3-compatible instance you have reachable (e.g. a separate dev database/bucket, or a local Postgres instance).
-
-For Google OAuth, register `http://localhost:3000` as an authorised origin and `http://localhost:3000/api/auth/callback/google` as a redirect URI in Google Cloud Console.
-
-### 3. Run database migrations
-
-```bash
-npm run migrate:deploy
-```
-
-### 4. Start the dev server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-## Key URLs
-
-| URL              | Description                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------ |
-| `/`              | Landing page — hero, how-it-works steps, CTAs for new visitors                                   |
-| `/sign-up`       | Create an account (email + password or Google)                                                   |
-| `/sign-in`       | Sign in                                                                                          |
-| `/content`       | Content library — manage profiles, avatars, experience, education, skills, projects, other       |
-| `/cvs`           | Your CV list                                                                                     |
-| `/cvs/[id]`      | CV editor — select entries, choose layout with live thumbnail, pick avatar, manage colour themes |
-| `/cvs/[id]/view` | A4 preview + export to PDF                                                                       |
-| `/import`        | Import a CV from a PDF file                                                                      |
-| `/settings`      | Account settings — sign out, delete account                                                      |
-
-## CV Layouts
-
-Five layouts are available, selectable per CV:
+Six layouts, selectable per CV, each themeable with a custom sidebar and accent colour:
 
 | ID         | Name     | Description                                                         |
 | ---------- | -------- | ------------------------------------------------------------------- |
 | `default`  | Classic  | Clean typography on a light grey background                         |
-| `modern`   | Modern   | Two-column dark sidebar with gold accents                           |
+| `modern`   | Modern   | Dark sidebar with gold accents                                      |
 | `teal`     | Teal     | Teal sidebar with rating boxes and rounded section headers          |
 | `slate`    | Slate    | Dark slate sidebar, indigo accent, grouped skills with dot ratings  |
 | `terminal` | Terminal | GitHub-dark palette, monospace, code-style tags, repo-card projects |
+| `europass` | Europass | EU-standardised structure with a CEFR language table                |
 
-Each layout supports an optional **colour theme** — a named set of sidebar and accent colours stored in the `cv_theme` table and shared across any CV that selects it. Changes to a theme propagate immediately to all CVs using it. The layout picker shows live `120×170 px` thumbnails reflecting the current theme colours.
+The layout picker renders live thumbnails that reflect the currently selected theme colours.
 
-### Adding a new CV layout
+## Deployment
 
-1. Create `src/components/cv-layouts/YourLayout.tsx` (web preview, Tailwind)
-2. Add a thumbnail component `src/components/cv-layouts/thumbnails/YourThumb.tsx`
-3. Add an entry to `CV_LAYOUTS` in `src/lib/cv-layouts.ts`
-4. Register the layout and thumbnail in `src/components/cv-layouts/index.ts` and `thumbnails/index.tsx`
+Every push to `main` builds the image in GitHub Actions, applies pending Prisma migrations against production via a self-hosted runner, then publishes to GHCR — where Watchtower picks it up and restarts the app. Migrations run *before* the new image ships, so the schema is never behind the code that depends on it. No inbound access to the server is opened at any point.
 
-The new layout will appear immediately in the layout picker on every CV editor.
-
-## Creating content
-
-All content (profiles, avatars, experience, education, skills, projects, other) is managed in the `/content` library. Each tab lets you create, edit, and delete entries. All data is stored in PostgreSQL and scoped to the logged-in user.
-
-The **Avatar** tab holds up to 5 images per user. It is separate from the profile — one avatar library is shared across all profiles. The CV editor lets you pick which image to use (or none); the chosen index is stored on the CV record and resolved to a URL at render time.
-
-The **Other** tab is a catch-all for entries that don't fit standard categories — certifications, awards, publications, volunteer work, courses, etc. Each entry has a title, optional subtitle (issuer/organisation), date, description, and URL.
-
-## Scripts
+## Local development
 
 ```bash
-npm run dev              # start development server
-npm run build            # production build
-npm run migrate:dev      # create and apply a new migration (development)
-npm run migrate:deploy   # apply pending migrations (production)
-npm run prisma:generate  # regenerate Prisma client after schema changes
+npm install
+cp .env.example .env.local   # see the file for where each value comes from
+npm run migrate:deploy
+npm run dev
 ```
 
-## Deployment (self-hosted, Docker + CI/CD)
+## Documentation
 
-The app is self-hosted via Docker Compose. It runs alongside other services on the same server, reusing an existing PostgreSQL container for the database. File storage is Cloudflare R2 (external, S3-compatible — not self-hosted).
-
-The image is **not built on the server**. GitHub Actions (`.github/workflows/build-and-push.yml`) builds the Docker image on every push to `main` and pushes it to GitHub Container Registry (`ghcr.io/saymartin/cv-forge`). A [Watchtower](https://containrrr.dev/watchtower/) container on the server polls the registry every 60 seconds and automatically pulls + restarts the app when a new image is published — no SSH access from CI into the server is needed, since the server only makes outbound requests.
-
-Database migrations are applied automatically as part of the same workflow, via a **self-hosted GitHub Actions runner installed directly on the server**: `build-migrator` (pushes the `:migrator` tag) → `migrate` (runs on the self-hosted runner, applies pending migrations against the production database) → `build-app` (pushes `:latest`/`:sha`, which Watchtower then picks up). Running the migration job on a self-hosted runner means it can reach the `postgres_default` docker network directly, without exposing the database or opening inbound access (SSH or otherwise) to the server. The migration-before-code-push ordering guarantees the schema is always ready before Watchtower deploys code that depends on it.
-
-### 0. One-time server setup
-
-The server needs registry credentials so both `docker compose pull` and Watchtower can pull the (private) image:
-
-```bash
-docker login ghcr.io -u SayMartin   # password: a GitHub PAT with `read:packages` scope
-```
-
-### 1. Environment file
-
-Copy `.env.example` to `.env` on the server and fill in production values:
-
-- `DATABASE_URL` / `DIRECT_URL` — point at the existing Postgres container's network alias, using a dedicated database + user created for this app (see step 2)
-- `BETTER_AUTH_URL` = `https://cv-forge.appfinningar.se`
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — add `https://cv-forge.appfinningar.se` as an authorised origin and `https://cv-forge.appfinningar.se/api/auth/callback/google` as a redirect URI in Google Cloud Console
-- `RESEND_API_KEY` — from Resend dashboard; requires a verified sending domain with DKIM + SPF records in DNS
-- `EMAIL_FROM` — sender address, must be on the verified Resend domain
-- `S3_ENDPOINT` / `S3_PUBLIC_URL` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` — Cloudflare R2 connection details (R2 dashboard → bucket → Settings for the API endpoint and Custom Domain; R2 API Tokens for the access key/secret)
-
-### 2. Create the database
-
-On the existing Postgres container:
-
-```bash
-docker exec -it <postgres-container-name> psql -U postgres -c \
-  "CREATE DATABASE cvforge; CREATE USER cvforge WITH PASSWORD '...'; GRANT ALL PRIVILEGES ON DATABASE cvforge TO cvforge;"
-```
-
-### 3. Start
-
-```bash
-docker compose up -d
-```
-
-This pulls the latest published image and starts the app and Watchtower. Watchtower then keeps `app` up to date automatically on every subsequent push to `main` — no manual pull/restart needed after the first run.
-
-### 4. Register the self-hosted runner (one-time)
-
-Migrations are applied automatically by a `migrate` job in `.github/workflows/build-and-push.yml`, which requires a self-hosted GitHub Actions runner installed on the server so the job can reach the `postgres_default` network directly:
-
-1. On GitHub: repo → **Settings → Actions → Runners → New self-hosted runner** (Linux), and follow the exact commands shown there (they include a one-time registration token) to install the runner in its own directory (e.g. `~/actions-runner`, kept separate from the `cv-forge` checkout).
-2. Install it as a systemd service so it survives reboots: `sudo ./svc.sh install && sudo ./svc.sh start`.
-3. Make sure the runner's user can run `docker` (`sudo usermod -aG docker <user>`).
-
-Once registered and idle, every push to `main` runs `build-migrator` → `migrate` (on this runner) → `build-app`, in that order — no manual step needed.
-
-For a one-off manual run (e.g. troubleshooting), the runtime image (`app`) is intentionally minimal and does not include the Prisma CLI — only the already-generated client needed to serve requests. Use the separate `:migrator` image instead (the build stage with a full `node_modules`, published alongside `:latest`):
-
-```bash
-docker pull ghcr.io/saymartin/cv-forge:migrator
-docker run --rm --env-file .env --network postgres_default \
-  ghcr.io/saymartin/cv-forge:migrator npx prisma migrate deploy
-```
-
-### 5. Routing
-
-`cv-forge.appfinningar.se` is published directly by Cloudflare Tunnel to the server's LAN IP on the `app` container's published port (`3005` by default — see `docker-compose.yml`), configured under **Cloudflare Zero Trust → Networks → Tunnels → [tunnel] → Published application routes**. There is no reverse proxy in front of it — Cloudflare terminates TLS at the edge. File storage (`S3_PUBLIC_URL`) is served directly by Cloudflare R2 via its Custom Domain feature, unrelated to the Tunnel.
+[ARCHITECTURE.md](ARCHITECTURE.md) — data model, layout system, auth, deployment runbook, and the reasoning behind the setup.

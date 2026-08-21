@@ -178,14 +178,19 @@ cv-cms/
 │   │       ├── TealSidebarLayout.tsx
 │   │       ├── SlateLayout.tsx
 │   │       ├── TerminalLayout.tsx
+│   │       ├── EuropassLayout.tsx
+│   │       ├── pagination/
+│   │       │   ├── Paginated.tsx                    ← measures blocks, distributes them across A4 pages
+│   │       │   └── types.ts                         ← PageBlock type shared by all layouts
 │   │       └── thumbnails/
 │   │           ├── index.tsx
-│   │           ├── LayoutThumb.tsx
+│   │           ├── LayoutThumb.tsx                  ← the registration point (switch on layoutId)
 │   │           ├── DefaultThumb.tsx
 │   │           ├── ModernThumb.tsx
 │   │           ├── TealThumb.tsx
 │   │           ├── SlateThumb.tsx
-│   │           └── TerminalThumb.tsx
+│   │           ├── TerminalThumb.tsx
+│   │           └── EuropassThumb.tsx
 │   └── lib/
 │       ├── auth.ts                                  ← exported `auth` singleton (Better Auth)
 │       ├── auth-client.ts                           ← createAuthClient ("use client" only)
@@ -316,7 +321,9 @@ Layouts are defined in code, not the database. Adding a new layout:
 1. Create `src/components/cv-layouts/YourLayout.tsx` (web, Tailwind)
 2. Add an entry to `CV_LAYOUTS` in `src/lib/cv-layouts.ts`
 3. Register the component in `src/components/cv-layouts/index.ts`
-4. Create `src/components/cv-layouts/thumbnails/YourThumb.tsx` and add it to `LayoutThumb.tsx`
+4. Create `src/components/cv-layouts/thumbnails/YourThumb.tsx` and add a `case` for it in `thumbnails/LayoutThumb.tsx`
+
+> `thumbnails/index.tsx` is **not** a registration point — it only re-exports `LayoutThumb` (plus three unused named thumbs). `LayoutThumb.tsx` imports each thumb directly, so nothing needs adding to the barrel.
 
 Each layout receives a `CvContent` object and an optional `theme?: CvTheme`. When no theme is provided the layout falls back to its built-in default colors. The layout decides independently where (or whether) to render the avatar.
 
@@ -337,6 +344,7 @@ Currently available layouts:
 | `teal`     | Teal     | `#2d7d8a` / n/a               | Two-row; teal sidebar + rating boxes                                                                                                                                 |
 | `slate`    | Slate    | `#1e293b` / `#6366f1`         | Two-column; dark slate sidebar; grouped skills with dot ratings; `Company · Role` inline; IT/dev-focused                                                             |
 | `terminal` | Terminal | `#0f172a` / `#3fb950`         | Two-column; GitHub-dark palette; monospace; code-style skill tags; repo-card projects; IT/dev-focused                                                                |
+| `europass` | Europass | `#003399` (sidebar-derived accent) | EU-standardised structure; personal details block, CEFR language table, dated timeline sections; multi-page                                                     |
 
 **Thumbnail components** — each layout has a matching `*Thumb.tsx` in `src/components/cv-layouts/thumbnails/`. Fixed `120×170px` pure-div blueprints; accept `sidebarColor?`, `accentColor?`, `selected?`; derive the same color variants as the full layouts for live preview.
 
@@ -531,6 +539,63 @@ S3_SECRET_ACCESS_KEY=                  # R2 API Token
 | `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | R2 API Token (Object Read & Write, scoped to the bucket) |
 
 **Important:** `S3_PUBLIC_URL` is also needed at **Docker build time** (not just runtime) — `next.config.ts` derives `images.remotePatterns` from it during `next build`, and that config is baked into the built image. It's passed as a `--build-arg` in `.github/workflows/build-and-push.yml`, hardcoded to the production value. If this argument is missing, avatar images silently fall back to a placeholder (Next.js Image blocks the unrecognised hostname) even though upload succeeds.
+
+---
+
+## Deployment runbook (self-hosted)
+
+One-time setup steps for bringing the app up on a new server. Day-to-day deploys need none of this — a push to `main` migrates and ships on its own (see **Deployment model** above).
+
+### 0. Registry credentials
+
+The server needs them so both `docker compose pull` and Watchtower can pull the private image:
+
+```bash
+docker login ghcr.io -u SayMartin   # password: a GitHub PAT with `read:packages` scope
+```
+
+### 1. Environment file
+
+Copy `.env.example` to `.env` on the server and fill in production values — see **Environment Variables** above for where each one comes from. `DATABASE_URL`/`DIRECT_URL` point at the existing Postgres container's network alias, using the dedicated database and user created in step 2.
+
+### 2. Create the database
+
+On the existing Postgres container:
+
+```bash
+docker exec -it <postgres-container-name> psql -U postgres -c \
+  "CREATE DATABASE cvforge; CREATE USER cvforge WITH PASSWORD '...'; GRANT ALL PRIVILEGES ON DATABASE cvforge TO cvforge;"
+```
+
+### 3. Start
+
+```bash
+docker compose up -d
+```
+
+Pulls the latest published image and starts `app` and Watchtower. Watchtower keeps `app` up to date on every subsequent push to `main` — no manual pull or restart after the first run.
+
+### 4. Register the self-hosted runner
+
+The `migrate` job needs a self-hosted GitHub Actions runner on the server so it can reach the `postgres_default` network directly:
+
+1. On GitHub: repo → **Settings → Actions → Runners → New self-hosted runner** (Linux), and follow the commands shown there (they include a one-time registration token). Install it in its own directory (e.g. `~/actions-runner`, separate from the `cv-forge` checkout).
+2. Install as a systemd service so it survives reboots: `sudo ./svc.sh install && sudo ./svc.sh start`.
+3. Give the runner's user docker access: `sudo usermod -aG docker <user>`.
+
+Once registered and idle, every push to `main` runs `build-migrator` → `migrate` → `build-app`, in that order.
+
+For a one-off manual migration (troubleshooting), the runtime image is intentionally minimal and has no Prisma CLI — use the `:migrator` image instead:
+
+```bash
+docker pull ghcr.io/saymartin/cv-forge:migrator
+docker run --rm --env-file .env --network postgres_default \
+  ghcr.io/saymartin/cv-forge:migrator npx prisma migrate deploy
+```
+
+### 5. Routing
+
+`cv-forge.appfinningar.se` is published directly by Cloudflare Tunnel to the server's LAN IP on the `app` container's published port (`3005` by default — see `docker-compose.yml`), configured under **Cloudflare Zero Trust → Networks → Tunnels → [tunnel] → Published application routes**. No reverse proxy in front; Cloudflare terminates TLS at the edge. File storage (`S3_PUBLIC_URL`) is served directly by R2 via its Custom Domain, unrelated to the Tunnel.
 
 ---
 

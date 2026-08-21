@@ -9,3 +9,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **One step at a time.** Propose and implement one logical step, then stop and wait for confirmation before proceeding to the next.
 - **Explain every decision.** Before writing any code for a step, state: (1) what you are about to do, (2) why this approach was chosen over alternatives, and (3) what tradeoffs or risks it carries. Keep explanations concise but complete enough for a developer to learn from them.
 - **Ask before assuming.** If a step has two or more reasonable approaches, present the options with their tradeoffs and let the user decide.
+
+# Project reference
+
+`ARCHITECTURE.md` documents the stack, data model, CV layout system, and deploy/migration pipeline. Read it before touching the Prisma schema, a layout, or the deploy path — don't re-derive the structure from the code.
