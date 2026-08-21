@@ -489,7 +489,7 @@ All main app pages live under `src/app/(main)/`. This group has its own `layout.
 
 `CvScaleWrapper` measures the container width via `ResizeObserver` and applies `transform: scale(s)` + `transformOrigin: top left` so the fixed-width `210mm` CV fits the viewport. On print (`print:transform-none`) scaling is removed and the browser renders at full A4 size.
 
-`ViewToolbar` uses a three-column grid (`grid-cols-[1fr_auto_1fr]`) so the CV name is always truly centred.
+`ViewToolbar` carries a breadcrumb (`My CVs / <CV name> / Preview`) where the CV name links back to the editor, plus the layout badge and the PDF button. It shares the `max-w-5xl mx-auto px-6` container with the nav bar and the footer so the three bands line up.
 
 ### Migrations
 
@@ -500,17 +500,40 @@ npm run migrate:dev
 
 > **There is no staging step. Pushing to `main` *is* the production migration.** The `migrate` job runs automatically against the live database before the new image ships, so a migration cannot be "tried in CI first" — by the time the pipeline has built anything, production has already been altered.
 >
-> For a structural, additive migration that is fine. For one that **moves or rewrites data**, test it first against a restored copy. The migration files are plain SQL, so this needs no image build and no push:
+> For a structural, additive migration that is fine. For one that **moves or rewrites data**, test it first against a restored copy. The migration files are plain SQL, so this needs no image build and no push.
+>
+> Test **locally**, against the dev container described below, rather than in a second database on the server — a rehearsal that runs on the production host is one typo away from being the real thing.
 >
 > ```bash
-> PG=<postgres-container>
-> docker exec "$PG" psql -U postgres -c "CREATE DATABASE cvforge_test OWNER cvforge;"
-> docker exec -i "$PG" pg_restore -U cvforge -d cvforge_test < latest.dump
-> docker exec -i "$PG" psql -U cvforge -d cvforge_test \
+> # On the server: dump production
+> docker exec postgres-postgres-1 pg_dump -U cvforge -d cvforge -Fc > ~/cvforge.dump
+> #   then copy it over: scp martin@<server>:~/cvforge.dump .
+>
+> # Locally: restore into the dev container, then run the migration by hand
+> docker exec -i cvforge-dev-db pg_restore -U cvforge -d cvforge \
+>   --no-owner --no-privileges --clean --if-exists < cvforge.dump
+> docker exec -i cvforge-dev-db psql -U cvforge -d cvforge -v ON_ERROR_STOP=1 -1 \
 >   < prisma/migrations/<timestamp>_<name>/migration.sql
 > ```
 >
-> Inspect the result, then push. `_prisma_migrations` is not updated by this — deliberately, since the copy is a throwaway.
+> `-v ON_ERROR_STOP=1 -1` runs the whole file in one transaction that rolls back on the first error, so a half-applied migration cannot be mistaken for a passing one. Inspect the result, then push. `_prisma_migrations` is not updated by this — deliberately, since the copy is a throwaway.
+>
+> Two things that cost time the first time round: `docker cp` and shell redirection both fail on files in `~/Downloads`, because macOS withholds that folder from the calling process — keep the dump somewhere else. And the dump carries password hashes and OAuth tokens, so delete it once restored.
+
+### Local development database
+
+`npm run dev` reads `DATABASE_URL` from `.env.local`, which points at a throwaway Postgres container holding a copy of production:
+
+```bash
+docker run -d --name cvforge-dev-db \
+  -e POSTGRES_USER=cvforge -e POSTGRES_PASSWORD=devpassword -e POSTGRES_DB=cvforge \
+  -p 127.0.0.1:5432:5432 -v cvforge-dev-db-data:/var/lib/postgresql/data \
+  --restart unless-stopped postgres:16
+```
+
+Bound to `127.0.0.1`, not `0.0.0.0` — a published port with a weak password has no business being reachable from the rest of the network. `docker rm -f cvforge-dev-db && docker volume rm cvforge-dev-db-data` removes it entirely.
+
+Note that `S3_BUCKET` in `.env.local` is the **production** avatar bucket: local development reads the real images, and anything uploaded lands among them. `RESEND_API_KEY` is live too, so verification emails are really sent.
 
 `migrate:dev` uses `dotenv-cli` to load `DATABASE_URL` from `.env.local`. In production, migrations are **not** run via the `migrate:deploy` npm script (which also assumes `.env.local`, absent in containers) — instead the `migrate` job in `.github/workflows/build-and-push.yml` runs them automatically on every push to `main`, from the separate `:migrator` Docker image (which has a full `node_modules` including the Prisma CLI, unlike the minimal `app` runtime image), executed on a self-hosted runner on the server. See `README.md` → Deployment → step 4 for the runner setup and the equivalent manual command.
 

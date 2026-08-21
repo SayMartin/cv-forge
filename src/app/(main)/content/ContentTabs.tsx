@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ExperienceTab } from "./ExperienceTab";
 import { EducationTab } from "./EducationTab";
 import { SkillsTab } from "./SkillsTab";
@@ -106,6 +107,10 @@ interface Props {
   initialProjects: Project[];
   initialOthers: Other[];
   initialAvatarImages: string[];
+  /** Tab to open, from the ?tab= query. Unknown values fall back to the first tab. */
+  initialTab?: string;
+  /** The CV the user came from, carried along so switching tabs does not lose it. */
+  returnToCvId?: string;
 }
 
 export default function TabButton({
@@ -141,8 +146,23 @@ export function ContentTabs({
   initialProjects,
   initialOthers,
   initialAvatarImages,
+  initialTab,
+  returnToCvId,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>("profiles");
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabId>(
+    TABS.some((tab) => tab.id === initialTab) ? (initialTab as TabId) : "profiles",
+  );
+
+  // The open tab belongs in the URL: it is what makes a link from the CV editor
+  // able to land on the right one. replace rather than push, so the browser's
+  // back button still leaves the page instead of walking through the tabs.
+  function selectTab(id: TabId) {
+    setActiveTab(id);
+    const query = new URLSearchParams({ tab: id });
+    if (returnToCvId) query.set("from", returnToCvId);
+    router.replace(`/content?${query}`, { scroll: false });
+  }
 
   return (
     <div className="space-y-6">
@@ -152,7 +172,7 @@ export function ContentTabs({
           <TabButton
             key={tab.id}
             active={activeTab === tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => selectTab(tab.id)}
           >
             {tab.label}
           </TabButton>

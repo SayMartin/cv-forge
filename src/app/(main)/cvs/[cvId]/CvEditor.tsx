@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CV_LAYOUTS, DEFAULT_LAYOUT_ID, DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
 import { LayoutThumb } from "@/components/cv-layouts/thumbnails";
@@ -37,6 +38,7 @@ interface Props {
   cvId: string;
   initialName: string;
   onNameChange?: (name: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
   initialLayoutId: string;
   initialThemeId: string | null;
   initialProfileId: string | null;
@@ -67,6 +69,7 @@ export function CvEditor({
   cvId,
   initialName,
   onNameChange,
+  onDirtyChange,
   initialLayoutId,
   initialThemeId,
   initialProfileId,
@@ -134,6 +137,7 @@ export function CvEditor({
 
   function markDirty() {
     setIsDirty(true);
+    onDirtyChange?.(true);
     setSaved(false);
   }
 
@@ -236,6 +240,7 @@ export function CvEditor({
     } else {
       setSaved(true);
       setIsDirty(false);
+      onDirtyChange?.(false);
       onNameChange?.(name);
     }
     setSaving(false);
@@ -260,6 +265,7 @@ export function CvEditor({
     setTargetRole(initialTargetRole ?? "");
     setCoverLetter(initialCoverLetter ?? "");
     setIsDirty(false);
+    onDirtyChange?.(false);
     setSaved(false);
   }
 
@@ -510,7 +516,7 @@ export function CvEditor({
 
       {/* Profile */}
       {profiles.length > 0 && (
-        <Section title="Profile">
+        <Section title="Profile" headerAction={<ContentLink cvId={cvId} tab="profiles" />}>
           <div className="space-y-2">
             {profiles.map((p) => {
               const selected = profileId === p.id;
@@ -539,7 +545,7 @@ export function CvEditor({
 
       {/* Avatar */}
       {avatarDoc && avatarDoc.images.length > 0 && (
-        <Section title="Avatar">
+        <Section title="Avatar" headerAction={<ContentLink cvId={cvId} tab="avatars" />}>
           <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
@@ -580,6 +586,7 @@ export function CvEditor({
       {experiences.length > 0 && (
         <Section
           title="Experience"
+          headerAction={<ContentLink cvId={cvId} tab="experience" />}
           allIds={experiences.map((e) => e.id)}
           selectedIds={experienceIds}
           onToggleAll={() =>
@@ -600,6 +607,7 @@ export function CvEditor({
       {educations.length > 0 && (
         <Section
           title="Education"
+          headerAction={<ContentLink cvId={cvId} tab="education" />}
           allIds={educations.map((e) => e.id)}
           selectedIds={educationIds}
           onToggleAll={() =>
@@ -618,7 +626,7 @@ export function CvEditor({
 
       {/* Skills — grouped per CV, so the arrangement is not a checkbox list */}
       {skills.length > 0 && (
-        <Section title="Skills">
+        <Section title="Skills" headerAction={<ContentLink cvId={cvId} tab="skills" />}>
           <CvSkillsEditor
             skills={skills}
             categories={skillCategories}
@@ -634,6 +642,7 @@ export function CvEditor({
       {projects.length > 0 && (
         <Section
           title="Projects"
+          headerAction={<ContentLink cvId={cvId} tab="projects" />}
           allIds={projects.map((p) => p.id)}
           selectedIds={projectIds}
           onToggleAll={() =>
@@ -654,6 +663,7 @@ export function CvEditor({
       {others.length > 0 && (
         <Section
           title="Other"
+          headerAction={<ContentLink cvId={cvId} tab="other" />}
           allIds={others.map((o) => o.id)}
           selectedIds={otherIds}
           onToggleAll={() =>
@@ -802,6 +812,20 @@ function SaveButton({
     >
       Save
     </button>
+  );
+}
+
+// A CV section only picks from the library; the wording lives in My Content. The
+// link carries the CV along so that page can offer a way straight back, and names
+// the tab so the trip lands on the right one.
+function ContentLink({ cvId, tab }: { cvId: string; tab: string }) {
+  return (
+    <Link
+      href={`/content?tab=${tab}&from=${cvId}`}
+      className="text-xs text-(--cl-muted) hover:text-(--cl-accent) transition-colors whitespace-nowrap"
+    >
+      My Content →
+    </Link>
   );
 }
 

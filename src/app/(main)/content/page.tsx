@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -10,11 +11,26 @@ import type { Profile, Experience, Education, Skill, Project, Other } from "./Co
 
 export const metadata: Metadata = { title: "My Content" };
 
-export default async function ContentPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
+type SearchParams = Promise<{ tab?: string; from?: string }>;
+
+export default async function ContentPage({ searchParams }: { searchParams: SearchParams }) {
+  const [session, query] = await Promise.all([
+    auth.api.getSession({ headers: await headers() }),
+    searchParams,
+  ]);
   if (!session) redirect("/sign-in?callbackUrl=/content");
 
   const userId = session.user.id;
+
+  // `from` names the CV the user stepped away from, so this page can offer a way
+  // back. Scoped to the owner like every other read here — an id in the URL is
+  // the user's to supply, and it must not become a way to read someone's CV name.
+  const returnTo = query.from
+    ? await prisma.cV.findFirst({
+        where: { id: query.from, userId },
+        select: { id: true, name: true },
+      })
+    : null;
 
   const [rawProfiles, experiences, educations, rawSkills, skillCategories, rawProjects, others, avatarDoc] =
     await Promise.all([
@@ -71,6 +87,14 @@ export default async function ContentPage() {
     <main className="min-h-screen py-12 px-4">
       <div className="max-w-2xl mx-auto space-y-8">
         <div>
+          {returnTo && (
+            <Link
+              href={`/cvs/${returnTo.id}`}
+              className="inline-block text-sm text-(--cl-muted) hover:text-(--cl-text) transition-colors mb-3"
+            >
+              ← {returnTo.name}
+            </Link>
+          )}
           <h1 className="text-3xl font-bold tracking-tight text-(--cl-text)">
             My Content
           </h1>
@@ -79,6 +103,8 @@ export default async function ContentPage() {
           </p>
         </div>
         <ContentTabs
+          initialTab={query.tab}
+          returnToCvId={returnTo?.id}
           initialProfiles={profiles}
           initialExperiences={experiences as Experience[]}
           initialEducations={educations as Education[]}
