@@ -696,6 +696,8 @@ S3_SECRET_ACCESS_KEY=                  # R2 API Token
 
 One-time setup steps for bringing the app up on a new server. Day-to-day deploys need none of this — a push to `main` migrates and ships on its own (see **Deployment model** above).
 
+Reaching the server: `ssh martin@192.168.50.131` (hostname `smurfserver`; `smurfserver.local` resolves over mDNS on the same network). LAN only — Cloudflare Tunnel means no inbound access is opened from the internet, so this works from home and nowhere else. The checkout lives at `~/cv-forge`, which is both the git working copy and the directory `docker compose` runs from.
+
 ### 0. Registry credentials
 
 The server needs them so both `docker compose pull` and Watchtower can pull the private image:
