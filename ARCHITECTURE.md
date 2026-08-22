@@ -788,9 +788,9 @@ docker exec -i "$PG" pg_restore -U cvforge -d cvforge_restore < restore.dump
   "@dnd-kit/sortable": "^10.x",
   "@dnd-kit/utilities": "^3.2.2",
   "dotenv-cli": "^11.x",
-  "@react-pdf/renderer": "^4.3.2",
-  "styled-components": "^6.3.12"
+  "@react-pdf/renderer": "^4.6.1",
+  "styled-components": "^6.5.3"
 }
 ```
 
-> `@react-pdf/renderer` and `styled-components` are installed but not yet integrated — likely staged for a future programmatic PDF export path to replace or supplement `window.print()`.
+> `@react-pdf/renderer` and `styled-components` are installed but not yet integrated — likely staged for a future programmatic PDF export path to replace or supplement `window.print()`. Verified 2026-08-22: neither is imported anywhere outside `next.config.ts` (`serverExternalPackages`), so bumping them cannot cause a regression, and `npm audit` findings against them are not reachable. They are dead weight in the image until that path is built.
