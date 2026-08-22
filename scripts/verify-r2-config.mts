@@ -8,11 +8,10 @@
  * Pass --list-only to skip every write, which makes it safe to aim at the
  * production bucket.
  *
- * The app needs exactly two operations — PutObject (avatar upload) and
- * DeleteObject (removing one image, and account deletion). It deliberately does
- * NOT use ListObjectsV2: listing is bucket-level and would push the token above
- * object-level rights. A failing LIST below is therefore informational, not a
- * problem.
+ * The app needs four operations: PutObject (avatar upload), DeleteObject
+ * (removing one image), and ListObjectsV2 + DeleteObjects (account deletion,
+ * which clears the whole avatars/<userId>/ prefix). All four are covered by an
+ * Object Read & Write token.
  *
  * The axis that does matter is addressing style. src/lib/r2.ts uses
  * virtual-hosted addressing, so that is the column which has to pass. Path
@@ -82,7 +81,7 @@ for (const [style, forcePathStyle] of [
   const client = makeClient(forcePathStyle);
   const key = `avatars/__selftest_${randomBytes(4).toString("hex")}.txt`;
 
-  await attempt("LIST      (not used by the app)", () =>
+  const list = await attempt("LIST      (account deletion)", () =>
     client.send(new ListObjectsV2Command({ Bucket: bucket, MaxKeys: 1 })),
   );
 
@@ -95,7 +94,7 @@ for (const [style, forcePathStyle] of [
           client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })),
         )
       : false;
-    works[String(forcePathStyle)] = put && del;
+    works[String(forcePathStyle)] = list && put && del;
   }
   console.log();
 }
@@ -104,15 +103,16 @@ if (listOnly) process.exit(0);
 
 console.log("Verdict:");
 if (works["false"]) {
-  console.log("  Virtual-hosted PUT and DELETE both work — this configuration is good.");
+  console.log("  Virtual-hosted LIST, PUT and DELETE all work — this configuration is good.");
   if (works["true"]) {
     console.log("  (Path style also succeeded. If the token is scoped to a DIFFERENT");
     console.log("   bucket than S3_BUCKET, that 'success' wrote into the token's bucket");
     console.log("   under a key beginning with the bucket name. Worth a look.)");
   }
 } else {
-  console.log("  Virtual-hosted PUT/DELETE failed, which is what the app uses. Check that");
-  console.log("  the token is scoped to this bucket, issued as 'Object Read & Write', and");
-  console.log("  that S3_ENDPOINT carries the right jurisdiction segment.");
+  console.log("  Something the app needs failed under virtual-hosted addressing, which is");
+  console.log("  what src/lib/r2.ts uses. Check that the token is scoped to this bucket and");
+  console.log("  issued as 'Object Read & Write', and that S3_ENDPOINT carries the right");
+  console.log("  jurisdiction segment. Account deletion needs LIST as well as DELETE.");
 }
 process.exit(works["false"] ? 0 : 1);

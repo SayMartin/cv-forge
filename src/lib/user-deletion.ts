@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { blobDelete } from "@/lib/r2";
+import { blobDeletePrefix } from "@/lib/r2";
 
 /**
  * Remove the parts of a user's data that `prisma.user.delete()` does not reach.
@@ -16,32 +16,24 @@ import { blobDelete } from "@/lib/r2";
  *   (a signed JWT, no row), and the only rows carrying a user id are
  *   password-reset ones, which store it in `value`.
  *
- * Call this *before* deleting the user. The `avatar` row is what names the files,
- * and it cascades away with the user — delete the user first and the URLs go
- * with it, leaving files that nothing points at. This throws if storage cleanup
- * fails, so the caller can abort instead.
+ * Call this *before* deleting the user, and let it throw rather than swallowing a
+ * storage failure, so the caller can abort and leave the account intact for a
+ * retry. Best-effort deletion is what left an orphaned photo in the bucket in the
+ * first place.
  *
- * Files are removed by their stored URL rather than by listing the
- * `avatars/<userId>/` prefix. Listing is a bucket-level operation, and avoiding
- * it means the app's R2 token never needs more than object-level rights. The
- * cost is that only files the database knows about are removed, so an object
- * orphaned by some earlier bug would be missed. Nothing can orphan one now — the
- * object and its URL are written in the same request — which makes that a good
- * trade for an app that cannot delete its own buckets.
+ * Files go by **prefix**, not by the URLs recorded in `avatar.images`, because the
+ * database is not a complete record of what is in the bucket. `POST /api/avatars`
+ * calls `blobPut` before `prisma.avatar.upsert`; if the upsert fails, the route
+ * returns 500 with the object already stored and no row naming it. Deleting only
+ * what the database knows about would leave exactly that file behind — and
+ * erasure is the one place where "narrow but reachable" still counts.
+ *
+ * `ListObjectsV2` and `DeleteObjects` are both covered by an `Object Read & Write`
+ * token, so this costs no extra permission.
  *
  * Idempotent: safe to run against a user whose files are already gone.
  */
 export async function purgeUserSideEffects(userId: string): Promise<void> {
-  const avatar = await prisma.avatar.findUnique({
-    where: { userId },
-    select: { images: true },
-  });
-
-  // Sequential, and deliberately not best-effort: at most five files, and a
-  // throw here leaves the account intact so the whole operation can be retried.
-  for (const url of avatar?.images ?? []) {
-    await blobDelete(url);
-  }
-
+  await blobDeletePrefix(`avatars/${userId}/`);
   await prisma.verification.deleteMany({ where: { value: userId } });
 }

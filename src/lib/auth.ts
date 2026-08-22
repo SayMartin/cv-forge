@@ -9,6 +9,24 @@ import { Resend } from "resend";
 
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "CV Forge <noreply@appfinningar.se>";
 
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+/**
+ * Outside production, print the link rather than sending it.
+ *
+ * `.env.local` carries live Resend credentials, so without this every test
+ * sign-up delivers a real message from the production sender and spends its
+ * reputation on throwaway accounts. Database and storage are separated per
+ * environment; this is the last dependency that was not.
+ *
+ * Returns true when it handled the link, so callers can bail out early.
+ */
+function printLinkInDevelopment(kind: string, email: string, url: string): boolean {
+  if (IS_PRODUCTION) return false;
+  console.log(`\n[auth] ${kind} for ${email} — development, no email sent:\n       ${url}\n`);
+  return true;
+}
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   secret: process.env.BETTER_AUTH_SECRET!,
@@ -22,6 +40,8 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }: { user: { name: string; email: string }; url: string }) => {
+      if (printLinkInDevelopment("Password reset link", user.email, url)) return;
+
       if (!process.env.RESEND_API_KEY) {
         console.error("[auth] RESEND_API_KEY is not set");
         return;
@@ -87,6 +107,8 @@ export const auth = betterAuth({
   emailVerification: {
     sendOnSignUp: false,
     sendVerificationEmail: async ({ user, url }: { user: { name: string; email: string }; url: string }) => {
+      if (printLinkInDevelopment("Verification link", user.email, url)) return;
+
       if (!process.env.RESEND_API_KEY) {
         console.error("[auth] RESEND_API_KEY is not set");
         throw new Error("Email service is not configured");

@@ -250,7 +250,7 @@ Storage is split per environment: `cv-forge-bucket-eu` in production, `cv-forge-
 
 `src/lib/r2.ts` uses the SDK's default **virtual-hosted** addressing, and must keep doing so. With `forcePathStyle: true` the bucket travels in the path, and R2 does not reject a request naming a bucket the token has no rights to — it writes the object, treating the whole path as the key. A mismatch between `S3_BUCKET` and the token's bucket therefore lands data in the *token's* bucket under a key like `other-bucket-name/avatars/…`, silently and with a success response. This is not hypothetical: it put stray objects in the production bucket on 2026-08-22. Virtual-hosted addressing puts the bucket in the hostname, where the same mistake fails loudly.
 
-The app needs only `PutObject` and `DeleteObject`. It deliberately does not use `ListObjectsV2` — see Account Management — so an `Object Read & Write` token is sufficient and neither token needs bucket-level rights.
+The app uses `PutObject`, `DeleteObject`, and — for account deletion — `ListObjectsV2` and `DeleteObjects`. All four are covered by an **`Object Read & Write`** token. Neither token needs `Admin Read & Write`, which would also grant the right to create and delete buckets; the app has no business with either.
 
 `scripts/verify-r2-config.mts` checks a configuration against all of this; run it after changing a bucket, token, or endpoint.
 
@@ -431,7 +431,7 @@ Two things sit outside it, and both are personal data:
 
 `purgeUserSideEffects` handles both. Ordering matters in two directions: it runs **before** `user.delete()`, because the `avatar` row is what names the files and it cascades away with the user; and it **throws rather than swallowing** a storage failure, so the route can return `502` and leave the account intact for a retry. Best-effort deletion here is what produced an orphaned photo in the first place.
 
-Files are deleted by their stored URL, not by listing the `avatars/<userId>/` prefix. Listing is a bucket-level operation, and avoiding it keeps the R2 tokens at object-level rights — see **Two buckets, and why addressing style matters**. The trade is that only files the database knows about are removed; nothing can orphan one now, since the object and its URL are written in the same request.
+Files are deleted **by prefix** (`avatars/<userId>/`), not by the URLs stored in `avatar.images`. The database is not a complete record of what the bucket holds: `POST /api/avatars` calls `blobPut` before `prisma.avatar.upsert`, so a failing upsert returns 500 with the object already stored and no row naming it. Deleting only what the database knows about would leave precisely that file behind — and for erasure, "narrow but reachable" still counts. `ListObjectsV2` and `DeleteObjects` are both covered by an `Object Read & Write` token, so this costs no extra permission.
 
 The same function is wired to `databaseHooks.user.delete.before` in `src/lib/auth.ts`. The app's own path calls Prisma directly and never reaches Better Auth, but the `admin()` plugin exposes `/api/auth/admin/remove-user`, which would otherwise skip the cleanup entirely. The hook returns `false` on failure, which aborts the delete. The function is idempotent, so both paths running it is harmless.
 
@@ -528,6 +528,7 @@ export const auth = betterAuth({
 ```
 
 - **Why `sendOnSignUp: false`** — Better Auth's built-in auto-send during `signUp.email` runs through `runInBackgroundOrAwait`, which always catches and only logs errors, so a thrown error there never reaches the client. The dedicated `POST /api/auth/send-verification-email` endpoint (exposed as `authClient.sendVerificationEmail`) does *not* swallow errors — it rethrows them to the caller. Calling that endpoint explicitly from `sign-up/page.tsx` after account creation is what lets the frontend show a real failure message instead of a false success screen.
+- **No mail is sent outside production.** When `NODE_ENV !== "production"`, both `sendVerificationEmail` and `sendResetPassword` print the link to the server console and return before touching Resend. `.env.local` carries live Resend credentials, so without this every test sign-up delivered a real message from the production sender. To verify a local account, copy the link from the terminal running `npm run dev`; `RESEND_API_KEY` can be left blank there.
 - `trustedOrigins` — the production `BETTER_AUTH_URL` plus localhost ports, so both deployed sign-in and local dev sign-in pass Better Auth's CSRF origin check
 
 - Client-side helpers live in `src/lib/auth-client.ts` — only import from `"use client"` files

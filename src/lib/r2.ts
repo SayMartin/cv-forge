@@ -1,4 +1,10 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+} from "@aws-sdk/client-s3";
 
 // Virtual-hosted addressing (the SDK default), NOT forcePathStyle: true.
 //
@@ -48,15 +54,70 @@ export async function blobPut(
   return `${publicUrl}/${key}`;
 }
 
-/**
- * Delete a blob by its public URL.
- *
- * This is the only deletion primitive the app has, deliberately. A
- * prefix-delete would need `ListObjectsV2`, which is a bucket-level operation
- * and would force the R2 token up from object-level rights — see
- * `src/lib/user-deletion.ts` for why that trade goes the other way.
- */
+/** Delete a blob by its public URL. */
 export async function blobDelete(url: string): Promise<void> {
   const key = url.startsWith(`${publicUrl}/`) ? url.slice(publicUrl.length + 1) : url;
   await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+/**
+ * Delete every object under a key prefix. Returns how many were removed.
+ *
+ * Account deletion uses this rather than deleting the URLs recorded in the
+ * database, because the database is not a complete record of what is in the
+ * bucket — see `src/lib/user-deletion.ts`.
+ *
+ * ListObjectsV2 returns at most 1000 keys per page and DeleteObjects accepts at
+ * most 1000, so paging the listing batches the deletes for free: one delete call
+ * per page, no manual chunking. Both are covered by an `Object Read & Write`
+ * token; no bucket-level permission is needed.
+ */
+export async function blobDeletePrefix(prefix: string): Promise<number> {
+  // An empty prefix matches the whole bucket. Callers build this from a userId,
+  // so refuse rather than trust that it was non-empty.
+  if (!prefix.trim()) {
+    throw new Error("blobDeletePrefix requires a non-empty prefix");
+  }
+
+  let continuationToken: string | undefined;
+  let deleted = 0;
+
+  do {
+    const listed = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+
+    const keys = (listed.Contents ?? [])
+      .map((o) => o.Key)
+      .filter((k): k is string => Boolean(k));
+
+    if (keys.length) {
+      const result = await client.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
+        }),
+      );
+
+      // DeleteObjects reports per-key failures in the response body rather than
+      // throwing, so a partial failure looks like success unless it is checked.
+      // A file left behind here is precisely the bug this exists to prevent.
+      if (result.Errors?.length) {
+        throw new Error(
+          `Failed to delete ${result.Errors.length} object(s) under "${prefix}": ` +
+            result.Errors.map((e) => `${e.Key} (${e.Code})`).join(", "),
+        );
+      }
+
+      deleted += keys.length;
+    }
+
+    continuationToken = listed.IsTruncated ? listed.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  return deleted;
 }
