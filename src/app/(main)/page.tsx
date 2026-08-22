@@ -132,8 +132,16 @@ export default async function Home() {
               Sign up with email and password or your Google account — no credit card, no obligations.
               All your content belongs to you. If you ever want to leave, delete your account from{" "}
               <strong className="text-(--cl-text) font-medium">Settings</strong> and every piece of data
-              associated with your account — CVs, profiles, experience, education, skills, and all other
-              entries — is permanently and immediately erased.
+              associated with your account — CVs, profiles, experience, education, skills, all other
+              entries, and any photos you uploaded — is permanently and immediately erased.
+            </p>
+            <p className="text-sm text-(--cl-muted) leading-relaxed">
+              No analytics, no tracking, no advertising. What is stored and who else can reach it is
+              spelled out in the{" "}
+              <Link href="/privacy" className="text-(--cl-accent) underline underline-offset-2">
+                privacy policy
+              </Link>
+              .
             </p>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { NavBar } from "./NavBar";
 import { BotanicalBackground } from "@/components/BotanicalBackground";
@@ -38,6 +39,12 @@ export default async function MainLayout({
             <p className="text-sm text-(--cl-nav-muted)">
               &copy; {new Date().getFullYear()} CV Forge by Appfinningar.se. All rights reserved.
             </p>
+            <Link
+              href="/privacy"
+              className="text-sm text-(--cl-nav-muted) hover:text-white transition-colors"
+            >
+              Privacy policy
+            </Link>
             <a
               href="mailto:support@appfinningar.se"
               className="flex items-center gap-1.5 text-sm text-(--cl-nav-muted) hover:text-white transition-colors"

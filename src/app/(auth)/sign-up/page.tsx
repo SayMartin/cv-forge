@@ -159,6 +159,16 @@ export default function SignUpPage() {
             Sign in
           </Link>
         </p>
+
+        {/* Article 13 wants the information given at the point data is collected,
+            which is this form — not only somewhere in the footer. */}
+        <p className="text-xs text-center text-(--cl-muted)">
+          By creating an account you agree to how your data is handled, described in the{" "}
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-(--cl-text)">
+            privacy policy
+          </Link>
+          .
+        </p>
       </form>
     </main>
   );
