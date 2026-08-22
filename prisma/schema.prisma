@@ -63,6 +63,16 @@ model Account {
   id                    String    @id
   accountId             String
   providerId            String
+  // Required by Better Auth from 1.7 on, which matches it during credential
+  // sign-in. Synthetic for providers that declare no issuer of their own:
+  // "local:credential" for email+password, "local:oauth:<id>" for OAuth.
+  //
+  // Nullable on purpose even though Better Auth always writes it. The column is
+  // added before the new image ships, and a rollback to the previous image runs
+  // 1.6 code that does not write the field — NOT NULL would break account
+  // creation in exactly the situation where rolling back is the goal. Tighten it
+  // in a follow-up migration once 1.7 has proven itself.
+  issuer                String?
   userId                String
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?

@@ -89,6 +89,8 @@ The same build/push steps can also be run manually from a dev machine via `npm r
 | `admin` | All of the above + user management       |
 
 - **Better Auth schema** uses lowercase table names (`user`, `session`, `account`, `verification`) with camelCase column names. The admin plugin adds `role`, `banned`, `banReason`, `banExpires` to `user` and `impersonatedBy` to `session`.
+- **`account.issuer`** (Better Auth ≥ 1.7) identifies which authority established the account, and is **matched during sign-in** — both the credential path (`providerId === 'credential' && issuer === 'local:credential' && accountId === user.id`) and the OAuth path (`findAccountByKey({ issuer, accountId })`). A wrong value does not raise an error; it fails login as `INVALID_EMAIL_OR_PASSWORD`, so any change touching this column risks a silent lockout. Providers that declare no issuer of their own get a synthetic one from `@better-auth/core/db`: `local:<providerId>` for local providers and `local:oauth:<providerId>` for OAuth. The built-in Google provider sets no `accountIssuer`, so its rows are `local:oauth:google` — **not** `https://accounts.google.com`.
+- The column is deliberately **nullable** even though Better Auth always writes it. Migrations are applied before the new image ships, so a rollback to the previous image runs 1.6 code that omits the field entirely; under `NOT NULL` that breaks account creation at precisely the moment rolling back is the goal. Tighten it in a follow-up migration once the version has proven itself.
 
 ---
 
@@ -772,14 +774,15 @@ docker exec -i "$PG" pg_restore -U cvforge -d cvforge_restore < restore.dump
 
 ```json
 {
-  "next": "16.2.4",
-  "react": "19.2.4",
-  "prisma": "^7.7.0",
-  "@prisma/client": "^7.7.0",
-  "@prisma/adapter-pg": "^7.7.0",
+  "next": "16.3.2",
+  "react": "19.2.8",
+  "typescript": "~6.0.3",
+  "prisma": "^7.9.1",
+  "@prisma/client": "^7.9.1",
+  "@prisma/adapter-pg": "^7.9.1",
   "pg": "^8.20.0",
   "@aws-sdk/client-s3": "^3.1086.0",
-  "better-auth": "^1.5.6",
+  "better-auth": "~1.7.1",
   "resend": "^6.12.0",
   "ai": "^6.x",
   "@ai-sdk/google": "^3.x",
@@ -792,5 +795,9 @@ docker exec -i "$PG" pg_restore -U cvforge -d cvforge_restore < restore.dump
   "styled-components": "^6.5.3"
 }
 ```
+
+> `typescript` uses `~` rather than `^` deliberately: `typescript-eslint` declares `typescript: ">=4.8.4 <6.1.0"`, so a caret would let `npm update` walk out of the supported range and silently break linting. Keep the tilde until that range moves.
+>
+> **TypeScript 7** is blocked upstream, not by this codebase: `tsc --noEmit` under 7.0.2 is already clean, but no published `typescript-eslint` supports TS 7, and `eslint-config-next` pins `typescript-eslint: ^8.46.0` on top of that. Watch typescript-eslint's peer range, not TypeScript's releases.
 
 > `@react-pdf/renderer` and `styled-components` are installed but not yet integrated — likely staged for a future programmatic PDF export path to replace or supplement `window.print()`. Verified 2026-08-22: neither is imported anywhere outside `next.config.ts` (`serverExternalPackages`), so bumping them cannot cause a regression, and `npm audit` findings against them are not reachable. They are dead weight in the image until that path is built.
