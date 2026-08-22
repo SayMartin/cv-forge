@@ -117,9 +117,13 @@ model CV {
   // that on write so the two fields cannot drift apart.
   skillGroups   Json?
   projectIds    String[]
-  otherIds      String[]
+  // @default([]) mirrors the DB default added by 20260726140000_backfill_null_arrays
+  // after the 2026-07-26 outage. Without it declared here, Prisma reads the default
+  // as drift and emits a DROP DEFAULT into the next unrelated migration.
+  otherIds      String[] @default([])
   // Section order for the CV renderer (e.g. ["experience","education","skills","projects","other"])
-  sectionOrder  String[]
+  // @default([]) as for otherIds above — same migration, same reason.
+  sectionOrder  String[] @default([])
   // When true, experience/education/projects/other are merged into one date-sorted timeline instead of grouped by section
   chronological Boolean  @default(false)
   // Metadata
