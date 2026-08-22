@@ -9,6 +9,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **One step at a time.** Propose and implement one logical step, then stop and wait for confirmation before proceeding to the next.
 - **Explain every decision.** Before writing any code for a step, state: (1) what you are about to do, (2) why this approach was chosen over alternatives, and (3) what tradeoffs or risks it carries. Keep explanations concise but complete enough for a developer to learn from them.
 - **Ask before assuming.** If a step has two or more reasonable approaches, present the options with their tradeoffs and let the user decide.
+- **Never commit or push.** The user does both. Leave finished work in the working tree, run `npx tsc --noEmit` and `npx eslint src`, and say which files changed and why — then stop. Do not ask for permission to commit as a matter of routine either; raise it only when there is a real reason the timing matters, such as work that should not sit half-finished across a deploy. A push to `main` *is* the production deploy, which is exactly why that call belongs to the person who can watch it land.
 
 # Project reference
 

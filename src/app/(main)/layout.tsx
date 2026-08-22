@@ -26,7 +26,7 @@ export default async function MainLayout({
       </div>
       <div className="flex-1">{children}</div>
       <footer className="bg-(--cl-nav) text-(--cl-nav-text) print:hidden">
-        <div className="max-w-5xl mx-auto px-6 py-12 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+        <div className="max-w-5xl mx-auto px-6 py-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p className="text-base font-semibold tracking-widest uppercase text-white">
               CV Forge
