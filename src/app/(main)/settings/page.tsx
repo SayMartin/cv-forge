@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 
 export const metadata: Metadata = { title: "Account Settings" };
 import { redirect } from "next/navigation";
@@ -33,6 +34,17 @@ export default async function SettingsPage() {
           </div>
         </div>
       </section>
+
+      {/* Directly above the delete button on purpose: this is the moment
+          someone wants to know what deleting actually removes. */}
+      <p className="text-sm text-(--cl-muted)">
+        What is stored about you, who else can reach it, and exactly what deleting your account
+        removes is described in the{" "}
+        <Link href="/privacy" className="text-(--cl-accent) underline underline-offset-2">
+          privacy policy
+        </Link>
+        .
+      </p>
 
       <section className="space-y-3">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-red-500">

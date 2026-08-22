@@ -45,16 +45,6 @@ export default async function MainLayout({
             >
               Privacy policy
             </Link>
-            <a
-              href="mailto:support@appfinningar.se"
-              className="flex items-center gap-1.5 text-sm text-(--cl-nav-muted) hover:text-white transition-colors"
-            >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0" aria-hidden="true">
-                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-              </svg>
-              support@appfinningar.se
-            </a>
           </div>
         </div>
       </footer>
