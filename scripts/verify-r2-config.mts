@@ -14,8 +14,11 @@
  * object-level rights. A failing LIST below is therefore informational, not a
  * problem.
  *
- * The axis that does matter is addressing style. src/lib/r2.ts sets
- * forcePathStyle: true, so the "path style" column is the one that has to pass.
+ * The axis that does matter is addressing style. src/lib/r2.ts uses
+ * virtual-hosted addressing, so that is the column which has to pass. Path
+ * style is shown alongside it because it fails in a dangerous way against R2 —
+ * a bucket the token is not scoped to is written as a *key* rather than
+ * refused — which is exactly why the app no longer uses it.
  */
 import { randomBytes } from "node:crypto";
 import {
@@ -72,8 +75,8 @@ async function attempt(label: string, fn: () => Promise<unknown>) {
 const works: Record<string, boolean> = {};
 
 for (const [style, forcePathStyle] of [
-  ["path style      (what src/lib/r2.ts uses)", true],
-  ["virtual-hosted  (forcePathStyle: false)", false],
+  ["virtual-hosted  (what src/lib/r2.ts uses)", false],
+  ["path style      (no longer used — shown for contrast)", true],
 ] as const) {
   console.log(`  ${style}`);
   const client = makeClient(forcePathStyle);
@@ -100,15 +103,16 @@ for (const [style, forcePathStyle] of [
 if (listOnly) process.exit(0);
 
 console.log("Verdict:");
-if (works["true"]) {
-  console.log("  This configuration works as the app is written. Nothing to change.");
-} else if (works["false"]) {
-  console.log("  PUT/DELETE work ONLY with virtual-hosted addressing, but src/lib/r2.ts");
-  console.log("  sets forcePathStyle: true. Remove that option, or avatar upload and");
-  console.log("  account deletion will both fail against this bucket.");
+if (works["false"]) {
+  console.log("  Virtual-hosted PUT and DELETE both work — this configuration is good.");
+  if (works["true"]) {
+    console.log("  (Path style also succeeded. If the token is scoped to a DIFFERENT");
+    console.log("   bucket than S3_BUCKET, that 'success' wrote into the token's bucket");
+    console.log("   under a key beginning with the bucket name. Worth a look.)");
+  }
 } else {
-  console.log("  Neither addressing style can write or delete. The credentials or the");
-  console.log("  bucket scope are wrong — check that the token is scoped to this bucket");
-  console.log("  and issued as 'Object Read & Write'.");
+  console.log("  Virtual-hosted PUT/DELETE failed, which is what the app uses. Check that");
+  console.log("  the token is scoped to this bucket, issued as 'Object Read & Write', and");
+  console.log("  that S3_ENDPOINT carries the right jurisdiction segment.");
 }
-process.exit(works["true"] || works["false"] ? 0 : 1);
+process.exit(works["false"] ? 0 : 1);

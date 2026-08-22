@@ -244,6 +244,16 @@ The CV editor (`/content` → Avatars tab) shows the user's avatar images as cli
 
 > **The R2 bucket must have public access enabled** (via a Custom Domain, `files.appfinningar.se`) and `next.config.ts`'s `images.remotePatterns` must include that hostname — this is derived at **Docker build time** from the `S3_PUBLIC_URL` build argument, not read at runtime, so the build must be given that value (see `.github/workflows/build-and-push.yml`).
 
+### Two buckets, and why addressing style matters
+
+Storage is split per environment: `cv-forge-bucket-eu` in production, `cv-forge-dev-bucket` in development, each with its own API token scoped to that one bucket. Both are created with **EU jurisdiction**, which keeps uploaded photos stored inside the EU and means the S3 endpoint carries a `.eu.` segment (`https://<account-id>.eu.r2.cloudflarestorage.com`). A jurisdictional bucket is invisible to the plain endpoint, which fails as though the bucket did not exist.
+
+`src/lib/r2.ts` uses the SDK's default **virtual-hosted** addressing, and must keep doing so. With `forcePathStyle: true` the bucket travels in the path, and R2 does not reject a request naming a bucket the token has no rights to — it writes the object, treating the whole path as the key. A mismatch between `S3_BUCKET` and the token's bucket therefore lands data in the *token's* bucket under a key like `other-bucket-name/avatars/…`, silently and with a success response. This is not hypothetical: it put stray objects in the production bucket on 2026-08-22. Virtual-hosted addressing puts the bucket in the hostname, where the same mistake fails loudly.
+
+The app needs only `PutObject` and `DeleteObject`. It deliberately does not use `ListObjectsV2` — see Account Management — so an `Object Read & Write` token is sufficient and neither token needs bucket-level rights.
+
+`scripts/verify-r2-config.mts` checks a configuration against all of this; run it after changing a bucket, token, or endpoint.
+
 ---
 
 ## Multi-user & CV Compositions
@@ -408,15 +418,24 @@ Accessible at `/settings`.
 - **Sign out** — `SignOutButton` (variant `"page"`) calls `authClient.signOut()` and redirects to `/`
 - **Delete account** — `DeleteAccountSection` presents a confirmation dialog that requires the user to type their email, then calls `DELETE /api/user`:
   1. **Admin guard** — returns `403` if `session.user.role === "admin"`
-  2. `prisma.user.delete({ where: { id } })` — all content models have `onDelete: Cascade`, so this single delete removes every **database** row: sessions, accounts, CVs, themes, profiles, avatars, experience, education, skills, projects, other
-  3. Client calls `authClient.signOut()` and redirects to `/`
+  2. `purgeUserSideEffects(userId)` (`src/lib/user-deletion.ts`) — everything the cascade cannot reach, **before** the user row goes
+  3. `prisma.user.delete({ where: { id } })` — all content models have `onDelete: Cascade`, so this single delete removes every **database** row: sessions, accounts, CVs, themes, profiles, avatars, experience, education, skills, projects, other
+  4. Client calls `authClient.signOut()` and redirects to `/`
 
-> **Deletion is currently incomplete — GDPR gap.** The cascade covers Postgres only. Two things survive it:
->
-> - **Avatar image files in R2.** `blobDelete` is called only when a single image is removed via `PATCH /api/avatars`; the account-delete path never touches the bucket. Because the bucket is public via a Custom Domain, uploaded face photos stay retrievable at `files.appfinningar.se/avatars/<userId>/<ts>.<ext>` indefinitely after the account is gone.
-> - **`Verification` rows.** The model has no `userId` and no FK (see the schema), so pending verification and password-reset records — keyed by the user's email address — are not cascaded and are never cleaned up.
->
-> Both are scheduled for the GDPR phase. Until then, do not describe account deletion to users as erasing everything.
+### What the cascade cannot reach
+
+Two things sit outside it, and both are personal data:
+
+- **Avatar image files in R2.** The `avatar` row cascades; the files it names do not. The bucket is public via a Custom Domain, so a face photo left behind stays retrievable at `files.appfinningar.se/avatars/<userId>/<ts>.<ext>` indefinitely.
+- **`verification` rows.** The model has no `userId` and no FK, so no cascade reaches it. Note that under Better Auth 1.7 email verification is **stateless** — the token is a signed JWT and no row is written. The only rows carrying a user id are password-reset ones, which store it in `value`; OAuth state rows carry no user reference at all. (An earlier version of this document claimed these rows were keyed by email address. They are not.)
+
+`purgeUserSideEffects` handles both. Ordering matters in two directions: it runs **before** `user.delete()`, because the `avatar` row is what names the files and it cascades away with the user; and it **throws rather than swallowing** a storage failure, so the route can return `502` and leave the account intact for a retry. Best-effort deletion here is what produced an orphaned photo in the first place.
+
+Files are deleted by their stored URL, not by listing the `avatars/<userId>/` prefix. Listing is a bucket-level operation, and avoiding it keeps the R2 tokens at object-level rights — see **Two buckets, and why addressing style matters**. The trade is that only files the database knows about are removed; nothing can orphan one now, since the object and its URL are written in the same request.
+
+The same function is wired to `databaseHooks.user.delete.before` in `src/lib/auth.ts`. The app's own path calls Prisma directly and never reaches Better Auth, but the `admin()` plugin exposes `/api/auth/admin/remove-user`, which would otherwise skip the cleanup entirely. The hook returns `false` on failure, which aborts the delete. The function is idempotent, so both paths running it is harmless.
+
+> **Still outstanding:** expired `verification` and `session` rows are never gathered up — a retention gap rather than a deletion one. Planned as a nightly purge alongside `scripts/backup.sh`.
 
 ---
 

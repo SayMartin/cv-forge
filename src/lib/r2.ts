@@ -1,9 +1,19 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
+// Virtual-hosted addressing (the SDK default), NOT forcePathStyle: true.
+//
+// Path style puts the bucket in the path — `/<bucket>/<key>` — and against R2 a
+// token scoped to one bucket does not reject a request naming a different one.
+// It writes the object instead, taking the whole path as the key, so a mismatch
+// between S3_BUCKET and the token's bucket silently lands data in the wrong
+// bucket under a key like `other-bucket-name/avatars/...`. That happened on
+// 2026-08-22 and left stray objects in the production bucket.
+//
+// Virtual-hosted puts the bucket in the hostname, where a mismatch fails loudly.
+// Do not add forcePathStyle back.
 const client = new S3Client({
   region: "auto",
   endpoint: process.env.S3_ENDPOINT,
-  forcePathStyle: true,
   credentials: {
     accessKeyId: process.env.S3_ACCESS_KEY_ID!,
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
