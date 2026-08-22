@@ -435,7 +435,7 @@ Files are deleted **by prefix** (`avatars/<userId>/`), not by the URLs stored in
 
 The same function is wired to `databaseHooks.user.delete.before` in `src/lib/auth.ts`. The app's own path calls Prisma directly and never reaches Better Auth, but the `admin()` plugin exposes `/api/auth/admin/remove-user`, which would otherwise skip the cleanup entirely. The hook returns `false` on failure, which aborts the delete. The function is idempotent, so both paths running it is harmless.
 
-> **Still outstanding:** expired `verification` and `session` rows are never gathered up — a retention gap rather than a deletion one. Planned as a nightly purge alongside `scripts/backup.sh`.
+Rows that merely **expire** are a separate concern from rows belonging to a deleted user, and are handled by `scripts/purge-expired.sh` — see **Retention** below.
 
 ---
 
@@ -751,6 +751,20 @@ crontab -e
 # 03:15 nightly
 15 3 * * * /home/USER/cv-forge/scripts/backup.sh >> /home/USER/backups/backup.log 2>&1
 ```
+
+### Retention
+
+`scripts/purge-expired.sh` removes `verification` and `session` rows past their `expiresAt`. Neither table is reachable by a cascade and Better Auth never revisits them, so without this they accumulate indefinitely — expired password-reset rows carrying a user id, and dead sessions carrying a token and a user id. Both are personal data with no reason to be kept, which makes this a retention measure rather than housekeeping.
+
+Expiry is the only criterion, and a row past `expiresAt` is already refused by the application, so nothing a user can observe changes. It reads `backup.env` for `PG_CONTAINER` / `PG_USER` / `PG_DB` rather than introducing a second config file, and runs `psql` inside the existing Postgres container — nothing is installed on the host.
+
+```bash
+crontab -e
+# 03:45 nightly, half an hour after the backup so the two never overlap
+45 3 * * * /home/USER/cv-forge/scripts/purge-expired.sh >> /home/USER/backups/purge.log 2>&1
+```
+
+Deletion of a *user* is a different path and does not wait for this job: `purgeUserSideEffects` removes that user's rows immediately — see **Account Management**.
 
 Three properties this arrangement depends on, none of which are cosmetic:
 
