@@ -39,7 +39,7 @@ export default function PrivacyPage() {
 
       <Section title="Who is responsible">
         <p>
-          CV Forge is run by <strong className="font-medium">Martin Black</strong> as a private
+          CV Forge is run by <strong className="font-medium">Martin Persson</strong> as a private
           individual, and is the data controller for everything described here.
         </p>
         <p>
