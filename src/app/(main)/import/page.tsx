@@ -44,13 +44,15 @@ export default function ImportPage() {
   }
 
   return (
-    <main className="flex justify-center py-16 px-8">
-      <div className="w-full max-w-md space-y-6">
+    <main className="py-16 px-4">
+      <div className="w-full max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-(--cl-text)">
             Import CV from PDF
           </h1>
-          <p className="mt-1 text-sm text-(--cl-muted)">
+          {/* Capped below the container: this is the page's only explanation, and
+              at the full 3xl it would run past 100 characters a line. */}
+          <p className="mt-1 text-sm text-(--cl-muted) max-w-xl">
             Upload a PDF CV and the content will be extracted by AI and added
             to your content library. A new profile will be created from your
             personal details. All other entries — experience, education, skills,

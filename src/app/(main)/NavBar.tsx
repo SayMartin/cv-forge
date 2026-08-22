@@ -2,10 +2,53 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { SignOutButton } from "./SignOutButton";
 import { Logo } from "@/components/Logo";
 
 type User = { name: string; email: string; role?: string | null };
+
+// The current section, marked in both the desktop row and the mobile drawer.
+//
+// The marker is `--cl-nav-muted` olive, not `--cl-accent`: the accent (#2d5a1b)
+// is darker than the nav itself (#1b2f0e) and would be invisible there. Colour
+// alone would not carry it either — links are cream and go white on hover, so
+// "active = white" is both too small a step to notice and indistinguishable from
+// a hover. Hence a marker bar plus the weight change.
+//
+// The inactive state keeps a transparent border of the same width so nothing
+// shifts when the marker appears.
+function NavLink({
+  href,
+  onClick,
+  drawer = false,
+  children,
+}: {
+  href: string;
+  onClick?: () => void;
+  drawer?: boolean;
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  // Prefix match so /cvs stays marked while editing or previewing a CV
+  // (/cvs/<id>, /cvs/<id>/view), which are that section, not separate places.
+  const active = pathname === href || pathname.startsWith(`${href}/`);
+
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={`text-sm transition-colors ${drawer ? "border-l-2 pl-3" : "border-b-2 py-0.5"} ${
+        active
+          ? "border-(--cl-nav-muted) text-white font-medium"
+          : "border-transparent text-(--cl-nav-text) hover:text-white"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
 
 export function NavBar({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
@@ -29,34 +72,25 @@ export function NavBar({ user }: { user: User | null }) {
         {/* Desktop links */}
         {user ? (
           <div className="hidden sm:flex items-center gap-5">
-            <Link
-              href="/cvs"
-              className="text-sm text-(--cl-nav-text) hover:text-white transition-colors"
-            >
-              My CVs
-            </Link>
-            <Link
-              href="/content"
-              className="text-sm text-(--cl-nav-text) hover:text-white transition-colors"
-            >
-              My Content
-            </Link>
-            <Link
-              href="/import"
-              className="text-sm text-(--cl-nav-text) hover:text-white transition-colors"
-            >
-              Import PDF
-            </Link>
-            <span className="text-(--cl-nav-divider)">|</span>
+            <NavLink href="/cvs">My CVs</NavLink>
+            <NavLink href="/content">My Content</NavLink>
+            <NavLink href="/import">Import PDF</NavLink>
+            {/* Drawn, not a "|" glyph: the character's thickness belongs to the
+                font and cannot be widened. 2px against the 14px nav text, and
+                h-4 sits between the text's x-height and its line box so it reads
+                as a divider rather than a full-height rule. aria-hidden because
+                a pipe read aloud is noise in the middle of the navigation.
+
+                --cl-nav-text, the nav's own cream, rather than --cl-nav-divider
+                (#3d5a2b): dark green on the nav's darker green is about 1.7:1 and
+                stayed invisible however wide it was drawn. At the same brightness
+                as the link text it still does not compete with it — 2×16px of
+                cream is a fraction of the ink in a word. */}
+            <span aria-hidden="true" className="w-0.5 h-4 bg-(--cl-nav-text) shrink-0" />
             <span className="text-sm text-(--cl-nav-muted) max-w-40 truncate">
               {user.name}
             </span>
-            <Link
-              href="/settings"
-              className="text-sm text-(--cl-nav-text) hover:text-white transition-colors"
-            >
-              Settings
-            </Link>
+            <NavLink href="/settings">Settings</NavLink>
             <SignOutButton />
           </div>
         ) : (
@@ -99,38 +133,19 @@ export function NavBar({ user }: { user: User | null }) {
         <div className="sm:hidden border-t border-(--cl-nav-divider) px-6 py-4 flex flex-col gap-4">
           {user ? (
             <>
-              <span className="text-sm text-(--cl-nav-muted) truncate">
+              {/* pl-3 on the non-link rows too: the links carry a 2px marker
+                  border and its padding, so without this the name and Sign out
+                  would hang 14px to the left of every link in the list. */}
+              <span className="text-sm text-(--cl-nav-muted) truncate pl-3">
                 {user.name}
               </span>
-              <Link
-                href="/cvs"
-                onClick={close}
-                className="text-sm text-(--cl-nav-text) hover:text-white transition-colors"
-              >
-                My CVs
-              </Link>
-              <Link
-                href="/content"
-                onClick={close}
-                className="text-sm text-(--cl-nav-text) hover:text-white transition-colors"
-              >
-                My Content
-              </Link>
-              <Link
-                href="/import"
-                onClick={close}
-                className="text-sm text-(--cl-nav-text) hover:text-white transition-colors"
-              >
-                Import PDF
-              </Link>
-              <Link
-                href="/settings"
-                onClick={close}
-                className="text-sm text-(--cl-nav-text) hover:text-white transition-colors"
-              >
-                Settings
-              </Link>
-              <SignOutButton />
+              <NavLink href="/cvs" onClick={close} drawer>My CVs</NavLink>
+              <NavLink href="/content" onClick={close} drawer>My Content</NavLink>
+              <NavLink href="/import" onClick={close} drawer>Import PDF</NavLink>
+              <NavLink href="/settings" onClick={close} drawer>Settings</NavLink>
+              <div className="pl-3">
+                <SignOutButton />
+              </div>
             </>
           ) : (
             <>

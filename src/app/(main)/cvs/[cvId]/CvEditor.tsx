@@ -339,7 +339,7 @@ export function CvEditor({
 
       {/* Layout picker */}
       <Section title="Layout">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {CV_LAYOUTS.map((layout) => {
             const selected = layoutId === layout.id;
             return (

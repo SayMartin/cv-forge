@@ -14,7 +14,7 @@ export default async function SettingsPage() {
   const { name, email } = session.user;
 
   return (
-    <main className="max-w-lg mx-auto px-6 py-12 space-y-10">
+    <main className="max-w-3xl mx-auto px-4 py-12 space-y-10">
       <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">
         Account settings
       </h1>

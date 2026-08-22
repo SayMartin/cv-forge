@@ -99,7 +99,10 @@ export default async function ContentPage({ searchParams }: { searchParams: Sear
           <BackToCvLink cvId={returnTo.id} cvName={returnTo.name} className="max-w-full" />
         </div>
       )}
-      <div className={`max-w-2xl mx-auto px-4 space-y-8 ${returnTo ? "pt-6" : "pt-12"}`}>
+      {/* Wider than the `max-w-2xl` the marketing page and the list pages use.
+          2xl is a reading measure, right for prose and for a column of cards —
+          but this page is forms and pickers, where it was just a ceiling. */}
+      <div className={`max-w-4xl mx-auto px-4 space-y-8 ${returnTo ? "pt-6" : "pt-12"}`}>
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-(--cl-text)">
             My Content

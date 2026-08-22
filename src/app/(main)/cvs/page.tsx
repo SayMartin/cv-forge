@@ -20,8 +20,8 @@ export default async function CvsPage() {
   });
 
   return (
-    <main className="py-12 px-4">
-      <div className="max-w-2xl mx-auto space-y-8">
+    <main className="py-12">
+      <div className="max-w-4xl mx-auto px-4 space-y-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-(--cl-text)">
             My CVs

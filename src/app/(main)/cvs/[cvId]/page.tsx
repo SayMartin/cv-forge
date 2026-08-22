@@ -121,8 +121,12 @@ export default async function CvEditorPage({ params }: Params) {
   }));
 
   return (
-    <main className="min-h-screen py-12 px-4">
-      <div className="max-w-2xl mx-auto space-y-8">
+    <main className="min-h-screen py-12">
+      {/* max-w-4xl, as on My Content: this is the other editing surface, and
+          the reading measure the list pages use was only ever a ceiling here.
+          Padding sits on the column rather than on `main` so the column keeps
+          its own gutter — the two pages were 32px apart otherwise. */}
+      <div className="max-w-4xl mx-auto px-4 space-y-8">
         <CvEditShell
           cvs={allCvs}
           cvId={cv.id}

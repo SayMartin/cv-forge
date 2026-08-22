@@ -34,7 +34,7 @@ function OtherForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Title *" value={form.title} onChange={(v) => set("title", v)} placeholder='e.g. "AWS Certified Developer"' required />
         <Field label="Subtitle" value={form.subtitle} onChange={(v) => set("subtitle", v)} placeholder="Issuer or organisation" />
         <Field label="Date" value={form.date} onChange={(v) => set("date", v)} placeholder="2023 or 2023-06" />

@@ -36,7 +36,10 @@ export default async function Home() {
     <div>
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="bg-(--cl-nav) text-(--cl-nav-text) py-14 px-6">
-        <div className="max-w-2xl mx-auto text-center space-y-6">
+        {/* 4xl to match the app pages. Harmless here: the h1 breaks manually and
+            the paragraph keeps its own `max-w-lg`, so nothing gets a longer line
+            — the section just stops being narrower than everything after it. */}
+        <div className="max-w-4xl mx-auto text-center space-y-6">
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white leading-tight">
             Craft your story,
             <br />
@@ -78,11 +81,15 @@ export default async function Home() {
 
       {/* ── How it works ─────────────────────────────────────────── */}
       <section className="py-20 px-6 bg-(--cl-bg)">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-(--cl-muted) text-center mb-14">
             How it works
           </h2>
-          <ol className="space-y-10">
+          {/* Two columns rather than a taller single one. Stretching these four
+              paragraphs across the wider section would push them past a
+              comfortable line length; splitting them keeps each body around the
+              measure it had at max-w-2xl and spends the width on the layout. */}
+          <ol className="grid gap-x-10 gap-y-10 sm:grid-cols-2">
             {STEPS.map((step) => (
               <li key={step.n} className="flex gap-6 items-start">
                 <span
@@ -114,9 +121,12 @@ export default async function Home() {
 
       {/* ── Your data ───────────────────────────────────────────── */}
       <section className="py-16 px-6 bg-(--cl-bg) border-t border-(--cl-border)">
-        <div className="max-w-2xl mx-auto flex flex-col sm:flex-row items-start gap-5">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-start gap-5">
           <span className="text-2xl shrink-0" aria-hidden="true">🔒</span>
-          <div className="space-y-2">
+          {/* The container widens with the rest of the page, but this is one long
+              paragraph — it keeps a reading measure of its own rather than running
+              the full width. */}
+          <div className="space-y-2 max-w-2xl">
             <h2 className="text-base font-semibold text-(--cl-text)">Your data, your control</h2>
             <p className="text-sm text-(--cl-muted) leading-relaxed">
               Sign up with email and password or your Google account — no credit card, no obligations.

@@ -53,7 +53,7 @@ function ExperienceForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Company *" value={form.company} onChange={(v) => set("company", v)} placeholder="Acme Corp" required />
         <Field label="Role / Title *" value={form.role} onChange={(v) => set("role", v)} placeholder="Senior Engineer" required />
         <Field label="Start date" value={form.startDate} onChange={(v) => set("startDate", v)} placeholder="2021 or 2021-06" />

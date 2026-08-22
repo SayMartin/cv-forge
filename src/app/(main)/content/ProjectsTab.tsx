@@ -46,7 +46,7 @@ function ProjectForm({
     <form onSubmit={handleSubmit} className="space-y-3">
       <Field label="Title *" value={form.title} onChange={(v) => set("title", v)} placeholder="My Project" required />
       <Field label="Summary" value={form.summary} onChange={(v) => set("summary", v)} multiline placeholder="Short description of the project…" />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Start date" value={form.startDate} onChange={(v) => set("startDate", v)} placeholder="2024 or 2024-06" />
         <Field label="End date" value={form.endDate} onChange={(v) => set("endDate", v)} placeholder="2024 or 2024-09" disabled={form.current} />
       </div>
@@ -54,7 +54,7 @@ function ProjectForm({
         <input type="checkbox" checked={form.current} onChange={(e) => set("current", e.target.checked)} className="rounded accent-(--cl-accent)" />
         Ongoing project
       </label>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Live URL" value={form.url} onChange={(v) => set("url", v)} placeholder="https://myproject.com" />
         <Field label="Source / GitHub URL" value={form.sourceUrl} onChange={(v) => set("sourceUrl", v)} placeholder="https://github.com/…" />
       </div>

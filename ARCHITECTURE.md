@@ -128,9 +128,6 @@ cv-cms/
 │   │   │   │   ├── SkillCategoryManager.tsx         ← create/rename/reorder/delete categories (max 8; the language one is locked)
 │   │   │   │   ├── ProjectsTab.tsx
 │   │   │   │   └── OtherTab.tsx
-│   │   │   ├── profiles/
-│   │   │   │   ├── page.tsx                         ← profile list + create (auth-gated)
-│   │   │   │   └── CreateProfileForm.tsx            ← "New Profile" client form
 │   │   │   ├── settings/
 │   │   │   │   ├── page.tsx                         ← account card (email, sign-out, delete account)
 │   │   │   │   └── DeleteAccountSection.tsx         ← client: email-confirm dialog → DELETE /api/user
@@ -523,6 +520,10 @@ All main app pages live under `src/app/(main)/`. This group has its own `layout.
 
 `NavBar` is a `"use client"` component. On desktop (`≥ sm`) all links are rendered inline. On mobile (`< sm`) a hamburger button opens a full-width drawer with the user name, nav links, and sign-out.
 
+Both rows share one `NavLink`, which marks the current section from `usePathname()` and sets `aria-current="page"`. Matching is a prefix (`pathname === href || pathname.startsWith(href + "/")`) so **My CVs** stays marked while editing or previewing a CV — `/cvs/<id>` and `/cvs/<id>/view` are that section, not separate destinations.
+
+The marker is a bar in `--cl-nav-muted` olive — underneath the link on desktop, to its left in the drawer — plus white text and `font-medium`. Two colours that look like the obvious choice are not: `--cl-accent` (`#2d5a1b`) is *darker* than the nav itself (`#1b2f0e`) and vanishes against it, and colour alone cannot carry the state either, since links are already cream going white on hover. Inactive links keep a transparent border of the same width so nothing shifts, and the drawer's non-link rows carry a matching `pl-3` so the name and Sign out do not hang to the left of the list.
+
 ### CV edit page — CvEditShell
 
 `CvEditShell` is a thin client wrapper around `CvSwitcher` + `CvEditor`. It holds `liveName` state (initialised from the current CV's name) and patches it into the `cvs` array passed to `CvSwitcher` whenever `CvEditor` reports a successful save via `onNameChange`. This keeps the dropdown label in sync without a page reload.
@@ -554,7 +555,26 @@ A CV section picks entries from the library but cannot edit their wording, so ea
 
 `ViewToolbar` carries a `← Back to <CV name>` link to the editor, plus the layout badge and the PDF button. It shares the `max-w-5xl mx-auto px-6` container with the nav bar and the footer so the bands line up.
 
-`max-w-5xl mx-auto px-6` is the **page band** — nav bar, footer, preview toolbar, and the back link on My Content all use it, so the way back starts at the logo's left edge wherever it appears. My Content's reading column is a separate, narrower `max-w-2xl` container and is *not* meant to line up with it: putting the back link inside that column instead is what pushed it far right of every other top-level element.
+`max-w-5xl mx-auto px-6` is the **page band** — nav bar, footer, preview toolbar, and the back link on My Content all use it, so the way back starts at the logo's left edge wherever it appears. A page's content column is a separate, narrower container and is *not* meant to line up with it: putting the back link inside that column instead is what pushed it far right of every other top-level element.
+
+### Content column widths
+
+Two widths, chosen by what the page holds rather than for uniformity:
+
+| Width | Pages | Why |
+| ----- | ----- | --- |
+| `max-w-3xl` (768px) | `/settings`, `/import` | Single-purpose utility pages: one card, or one form. 4xl left them looking like a thin strip in a wide field, but `max-w-lg`/`max-w-md` made them half the width of every other page. |
+| `max-w-4xl` (896px) | `/`, `/cvs`, `/content`, `/cvs/[cvId]` | The working pages plus the marketing page's section frames. |
+
+A `/profiles` route existed until 2026-08-22 and was removed. It was absent from `NavBar`, nothing linked to it, its list items linked to `/content?tab=profiles` ("Edit in Content →"), and its create form still redirected to **Sanity Studio** (`NEXT_PUBLIC_STUDIO_URL`, `data._id`) from before the move to Prisma — so creating a profile there navigated to `/studio/structure/profile;undefined`. Profiles are managed by the Profiles tab in `/content`, which is that page's default tab and does the full create/update/delete against the same `/api/profiles`.
+
+Widening the frame is not the same as widening the text. On `/` the containers are 4xl so the sections line up with the rest of the app, but every run of prose still carries its own measure: the hero paragraph keeps `max-w-lg`, the "Your data" paragraph keeps `max-w-2xl`, and the four "How it works" steps became a `sm:grid-cols-2` grid rather than four longer paragraphs. A body paragraph at 864px runs to roughly 110 characters a line, which is well past comfortable — when a wider container would only stretch text, spend the width on columns instead.
+
+Padding sits on the column (`max-w-* mx-auto px-4`), never on the `<main>` around it, so the gutter travels with the column and two pages using the same width get the same usable pixels.
+
+Not `max-w-5xl` for the editing surfaces even though it would line up with the band: two-column fields at that width are ~480px each, which is a lot of input for `Phone`. Going wider means going to three or four columns at the same time, which is a layout pass rather than a width change.
+
+**Every multi-column grid needs a responsive prefix.** Ten form grids were `grid-cols-2`/`grid-cols-3` unconditionally, which on a 375px phone left 165px and 106px per field — a native date input does not fit in 106px, and the layout picker's fixed 120px thumbnail overflowed its cell outright. The rule is `grid-cols-1 sm:grid-cols-N` for fields, and `grid-cols-2 sm:grid-cols-3` for the layout picker, whose cells have a hard minimum of about 138px (120px thumbnail + `p-2` + border).
 
 That link is the **same `BackToCvLink` component My Content uses**, and deliberately so: both pages are detours out of an edit in progress rather than places in a hierarchy, so both offer one way back rather than a trail. The preview previously carried `My CVs / <CV name> / Preview`; the top-level segment was dropped because the global nav already reaches `/cvs`, and the trailing `Preview` segment only named the page the user was already looking at. Change the wording in one place and both pages follow — which is the point.
 

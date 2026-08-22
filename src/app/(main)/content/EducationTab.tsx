@@ -53,7 +53,7 @@ function EducationForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <Field label="Institution *" value={form.institution} onChange={(v) => set("institution", v)} placeholder="MIT, Uppsala University…" required />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Degree" value={form.degree} onChange={(v) => set("degree", v)} placeholder="B.Sc., M.Sc., PhD…" />
         <Field label="Field of study" value={form.field} onChange={(v) => set("field", v)} placeholder="Computer Science" />
         <Field label="Start date" value={form.startDate} onChange={(v) => set("startDate", v)} placeholder="2018 or 2018-09" />
