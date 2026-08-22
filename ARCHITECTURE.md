@@ -662,9 +662,9 @@ S3_SECRET_ACCESS_KEY=                  # R2 API Token
 | `GOOGLE_CLIENT_SECRET` | Google Cloud Console → OAuth 2.0 credentials                 |
 | `RESEND_API_KEY`       | Resend dashboard → API Keys (must have "Full access" or be scoped to a **verified** domain — a key tied to an unverified domain fails with a 400 at send time) |
 | `EMAIL_FROM`           | Must be on a Resend-verified domain (SPF/DKIM added in Cloudflare DNS) |
-| `S3_ENDPOINT`          | R2 dashboard → bucket → Settings → S3 API                    |
+| `S3_ENDPOINT`          | R2 → API → Manage API tokens; the post-creation screen shows it alongside the keys. **Both buckets use EU jurisdiction**, so the endpoint carries a `.eu.` segment (`https://<account-id>.eu.r2.cloudflarestorage.com`) — a jurisdictional bucket is invisible to the plain endpoint, which fails as though the bucket did not exist |
 | `S3_PUBLIC_URL`        | R2 bucket → Settings → Custom Domain (`files.appfinningar.se`) |
-| `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | R2 API Token (Object Read & Write, scoped to the bucket) |
+| `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | R2 API Token (Object Read & Write, scoped to the bucket). `cv-forge-bucket-eu` in production, `cv-forge-dev-bucket` in development — each with its own token, scoped to that one bucket. The Access Key ID and Secret appear **only** on the screen shown immediately after the token is created; there is no way to view the secret later, so a lost one means issuing a new token |
 
 **Important:** `S3_PUBLIC_URL` is also needed at **Docker build time** (not just runtime) — `next.config.ts` derives `images.remotePatterns` from it during `next build`, and that config is baked into the built image. It's passed as a `--build-arg` in `.github/workflows/build-and-push.yml`, hardcoded to the production value. If this argument is missing, avatar images silently fall back to a placeholder (Next.js Image blocks the unrecognised hostname) even though upload succeeds.
 

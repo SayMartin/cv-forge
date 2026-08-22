@@ -4,6 +4,7 @@ import { admin } from "better-auth/plugins";
 import { prisma } from "@/lib/prisma";
 import { safeError } from "@/lib/log";
 import { seedSkillCategories } from "@/lib/skill-categories";
+import { purgeUserSideEffects } from "@/lib/user-deletion";
 import { Resend } from "resend";
 
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "CV Forge <noreply@appfinningar.se>";
@@ -168,6 +169,26 @@ export const auth = betterAuth({
             // Never fail account creation over this: an empty category list is a
             // recoverable state, a half-created account is not.
             console.error("[auth] skill category seeding failed:", safeError(error));
+          }
+        },
+      },
+      delete: {
+        // The app's own delete path is DELETE /api/user, which calls this
+        // directly and never reaches Better Auth. This hook covers the other
+        // door: the admin() plugin exposes /api/auth/admin/remove-user, which
+        // goes through Better Auth's deleteUser and would otherwise skip the
+        // cleanup entirely. purgeUserSideEffects is idempotent, so a path that
+        // somehow ran both is harmless.
+        //
+        // Returning false aborts the delete — the opposite of the create hook
+        // above, and for the opposite reason: here a half-finished delete is
+        // the unrecoverable state, since losing the id loses the files.
+        before: async (user) => {
+          try {
+            await purgeUserSideEffects(user.id);
+          } catch (error) {
+            console.error("[auth] user side-effect purge failed:", safeError(error));
+            return false;
           }
         },
       },

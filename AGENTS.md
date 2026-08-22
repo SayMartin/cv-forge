@@ -16,6 +16,21 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Keep it current in the same change that makes a claim in it stale. The runbook is the thing people follow at 2am; a wrong one is worse than none.
 
+# Secrets
+
+**Agents must not read or write any `.env` file except `.env.example`.** `.env`, `.env.local`, and every other `.env*` are off limits — `.env.example` is the only one an agent may open, and the only one an agent may edit.
+
+This is a rule about *access*, not about output, so it is not satisfied by reading a file and declining to print what is in it:
+
+- It covers **any** way of getting at the contents, not just `Read` and `cat`. `node --env-file=.env.local`, `dotenv -e .env.local`, `grep` over the file, `source`, a script that opens it — all of these are reading it, and all are forbidden.
+- It also covers **inferring** the values, such as printing a single field, a host name, or a `true/false` for whether a key is set.
+
+What remains allowed: running ordinary project commands that load environment files internally as part of doing their job — `npm run dev`, `npm run build`, `npm run migrate:dev`, `docker compose up`. The distinction is that the agent never receives the values. Never add a step to such a command that echoes, logs, or otherwise surfaces them.
+
+**The practical consequence: anything that needs real credentials is a command for the user to run, not for the agent.** Write the exact command out, explain what it will do, and ask for the output. This is the same arrangement as production access below, and for the same reason.
+
+When a credential must change, say which variable in which file and where its value comes from — then stop. Document the shape in `.env.example`, which exists precisely so the real files never have to be opened.
+
 # Environment
 
 - **Production runs on a home server ("smurfserver") that no agent can reach.** No SSH, no `docker exec`, no `psql` against it. Anything that has to happen there is a command for the user to run.
