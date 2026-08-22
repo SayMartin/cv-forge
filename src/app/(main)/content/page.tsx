@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
-import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { BackToCvLink } from "@/components/BackToCvLink";
 import { ContentTabs } from "./ContentTabs";
 import type { Profile, Experience, Education, Skill, Project, Other } from "./ContentTabs";
 
@@ -84,17 +84,23 @@ export default async function ContentPage({ searchParams }: { searchParams: Sear
   }));
 
   return (
-    <main className="min-h-screen py-12 px-4">
-      <div className="max-w-2xl mx-auto space-y-8">
+    <main className="min-h-screen pt-2 pb-12">
+      {/* `max-w-5xl mx-auto px-6` is the page band — the same container the nav
+          bar, the footer and the preview toolbar use — so the way back starts
+          at the logo's left edge on every page that offers one. The reading
+          column below is deliberately narrower and does NOT line up with it;
+          putting this link in that column instead pushed it far to the right of
+          every other top-level element.
+
+          `py-3` matches the preview row. The heading block keeps the original
+          top spacing when there is no CV to go back to. */}
+      {returnTo && (
+        <div className="max-w-5xl mx-auto px-6 py-3">
+          <BackToCvLink cvId={returnTo.id} cvName={returnTo.name} className="max-w-full" />
+        </div>
+      )}
+      <div className={`max-w-2xl mx-auto px-4 space-y-8 ${returnTo ? "pt-6" : "pt-12"}`}>
         <div>
-          {returnTo && (
-            <Link
-              href={`/cvs/${returnTo.id}`}
-              className="inline-block text-sm text-(--cl-muted) hover:text-(--cl-text) transition-colors mb-3"
-            >
-              ← {returnTo.name}
-            </Link>
-          )}
           <h1 className="text-3xl font-bold tracking-tight text-(--cl-text)">
             My Content
           </h1>

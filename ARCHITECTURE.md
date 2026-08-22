@@ -150,7 +150,7 @@ cv-cms/
 │   │   │           └── view/
 │   │   │               ├── page.tsx                 ← A4 CV preview (server)
 │   │   │               ├── CvScaleWrapper.tsx       ← client wrapper: scales CV to fit viewport (transform: scale)
-│   │   │               ├── ViewToolbar.tsx          ← client toolbar: breadcrumb (CV name links back) | layout badge + PDF
+│   │   │               ├── ViewToolbar.tsx          ← client toolbar: `← Back to <CV name>` | layout badge + PDF
 │   │   │               └── ExportButton.tsx         ← "Save as PDF" client button (calls window.print())
 │   │   └── api/
 │   │       ├── auth/[...all]/route.ts               ← Better Auth catch-all handler
@@ -172,7 +172,8 @@ cv-cms/
 │   │       │   └── other/route.ts + [id]/route.ts
 │   │       └── user/route.ts                        ← DELETE: prisma.user.delete() → cascades all content
 │   ├── components/
-│   │   ├── Breadcrumbs.tsx                          ← Breadcrumbs / CrumbLink / CrumbCurrent; used by the CV editor and preview
+│   │   ├── Breadcrumbs.tsx                          ← Breadcrumbs / CrumbLink / CrumbCurrent; used by the CV editor
+│   │   ├── BackToCvLink.tsx                         ← `← Back to <CV name>`; shared by My Content and the preview toolbar
 │   │   ├── Logo.tsx                                 ← inline SVG logo (page + leaf motif); uses currentColor; matches app icon
 │   │   ├── BotanicalBackground.tsx                  ← fixed full-viewport SVG; two vine clusters; 0.3 opacity; print:hidden
 │   │   └── cv-layouts/
@@ -543,7 +544,7 @@ Listening on `document` rather than wrapping individual links means the global n
 
 ### Editor ↔ My Content
 
-A CV section picks entries from the library but cannot edit their wording, so each of the seven library-backed sections carries a `My Content →` link. It names the tab and carries the CV: `/content?tab=experience&from=<cvId>`. The content page opens that tab and shows a `← <CV name>` link straight back, which survives switching tabs.
+A CV section picks entries from the library but cannot edit their wording, so each of the seven library-backed sections carries a `My Content →` link. It names the tab and carries the CV: `/content?tab=experience&from=<cvId>`. The content page opens that tab and shows a `← Back to <CV name>` link straight back, which survives switching tabs.
 
 `from` is resolved with `findFirst({ where: { id, userId } })` — an id in a URL is whatever the visitor typed, and without the owner filter it would be a way to read other people's CV names.
 
@@ -551,7 +552,11 @@ A CV section picks entries from the library but cannot edit their wording, so ea
 
 `CvScaleWrapper` measures the container width via `ResizeObserver` and applies `transform: scale(s)` + `transformOrigin: top left` so the fixed-width `210mm` CV fits the viewport. On print (`print:transform-none`) scaling is removed and the browser renders at full A4 size.
 
-`ViewToolbar` carries a breadcrumb (`My CVs / <CV name> / Preview`) where the CV name links back to the editor, plus the layout badge and the PDF button. It shares the `max-w-5xl mx-auto px-6` container with the nav bar and the footer so the three bands line up.
+`ViewToolbar` carries a `← Back to <CV name>` link to the editor, plus the layout badge and the PDF button. It shares the `max-w-5xl mx-auto px-6` container with the nav bar and the footer so the bands line up.
+
+`max-w-5xl mx-auto px-6` is the **page band** — nav bar, footer, preview toolbar, and the back link on My Content all use it, so the way back starts at the logo's left edge wherever it appears. My Content's reading column is a separate, narrower `max-w-2xl` container and is *not* meant to line up with it: putting the back link inside that column instead is what pushed it far right of every other top-level element.
+
+That link is the **same `BackToCvLink` component My Content uses**, and deliberately so: both pages are detours out of an edit in progress rather than places in a hierarchy, so both offer one way back rather than a trail. The preview previously carried `My CVs / <CV name> / Preview`; the top-level segment was dropped because the global nav already reaches `/cvs`, and the trailing `Preview` segment only named the page the user was already looking at. Change the wording in one place and both pages follow — which is the point.
 
 ### Migrations
 
