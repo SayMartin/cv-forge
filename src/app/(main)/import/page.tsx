@@ -59,6 +59,11 @@ export default function ImportPage() {
             projects, and certifications — are added as new items ready to use
             in your CVs.
           </p>
+          {/* Stated before the file picker rather than returned as an error
+              afterwards — the upload is the slow part. */}
+          <p className="mt-2 text-sm text-(--cl-muted) max-w-xl">
+            Up to 10 pages and 10 MB.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

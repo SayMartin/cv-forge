@@ -4,7 +4,9 @@ const s3PublicUrl = process.env.S3_PUBLIC_URL ? new URL(process.env.S3_PUBLIC_UR
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  serverExternalPackages: ["@react-pdf/renderer"],
+  // pdf-parse pulls in pdf.js, which loads its worker at runtime by path.
+  // Bundling it breaks that resolution, so it has to stay external.
+  serverExternalPackages: ["@react-pdf/renderer", "pdf-parse"],
   images: {
     remotePatterns: s3PublicUrl
       ? [

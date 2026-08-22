@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { SKILL_CATEGORIES } from "@/lib/cv-content-types";
 import { safeError } from "@/lib/log";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { PDFParse } from "pdf-parse";
 
 const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
 import { generateObject } from "ai";
@@ -12,6 +13,17 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120; // Gemini PDF extraction can take 60–90 s
+
+// The whole PDF is sent to Gemini as a file, and Google bills document pages as
+// tokens (~258 each). A page cap is therefore an upper bound on what one request
+// can cost, not an opinion about how long a CV should be — ten lets senior CVs,
+// Europass printouts and some academic ones through while still stopping the
+// 200-page document that is the only single request able to get expensive.
+//
+// Note this bounds one call, not the bill: cost is driven by volume, so a
+// per-user quota is what actually caps spending. That comes once the usage
+// logging below says what the numbers really are.
+const MAX_PAGES = 10;
 
 // ── Zod schema for AI extraction ───────────────────────────────────────────
 const CvSchema = z.object({
@@ -126,10 +138,36 @@ export async function POST(req: NextRequest) {
 
   const pdfBuffer = await file.arrayBuffer();
 
+  // Count pages locally, before anything reaches Google. A file rejected here
+  // costs nothing at all.
+  let pageCount: number;
+  const parser = new PDFParse({ data: pdfBuffer });
+  try {
+    pageCount = (await parser.getInfo()).total;
+  } catch (err) {
+    console.error("[cv-import] could not read PDF:", safeError(err));
+    return NextResponse.json(
+      { error: "This file could not be read as a PDF. Try exporting it again." },
+      { status: 400 },
+    );
+  } finally {
+    // Holds a pdf.js worker; leaking one per request would pile up.
+    await parser.destroy().catch(() => {});
+  }
+
+  if (pageCount > MAX_PAGES) {
+    return NextResponse.json(
+      {
+        error: `This PDF has ${pageCount} pages. Imports are limited to ${MAX_PAGES} — please upload a shorter CV.`,
+      },
+      { status: 400 },
+    );
+  }
+
   // Extract structured CV data with Gemini
   let cv: z.infer<typeof CvSchema>;
   try {
-    const { object } = await generateObject({
+    const { object, usage } = await generateObject({
       model: google("gemini-2.5-flash"),
       schema: CvSchema,
       prompt: [
@@ -160,6 +198,15 @@ Rules:
       ],
     });
     cv = object;
+
+    // What one import actually costs, per import. Until this exists any figure
+    // for a per-user quota is a guess — the quota's number should come from a
+    // few weeks of these lines, not from a price list.
+    console.log(
+      `[cv-import] usage userId=${userId} pages=${pageCount} ` +
+        `in=${usage?.inputTokens ?? "?"} out=${usage?.outputTokens ?? "?"} ` +
+        `total=${usage?.totalTokens ?? "?"}`,
+    );
   } catch (err) {
     console.error("[cv-import] Gemini extraction error:", safeError(err));
     return NextResponse.json(

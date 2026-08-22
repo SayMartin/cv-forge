@@ -449,13 +449,23 @@ Any authenticated user can import a PDF CV at `/import`.
 
 1. User uploads a PDF
 2. `POST /api/cv-import`:
-   - Parses PDF to plain text via `pdf-parse`
-   - Sends text to Google Gemini 2.5 Flash via Vercel AI SDK with a structured extraction prompt + Zod schema
+   - Checks size (10 MB) and **page count** (10) — see below
+   - Sends the **PDF itself**, as a file, to Google Gemini 2.5 Flash via the Vercel AI SDK with a structured extraction prompt + Zod schema. The document is not converted to text first; Gemini reads the PDF
    - Writes all extracted documents to Postgres via Prisma, tagging each with `userId`
 
-**Prisma models created/updated:** `Profile` (upsert on fixed id `profile-{userId}`), `Experience`, `Education`, `Skill`, `Project`, `Other` (always created as new rows). Uses `other` as fallback category for ambiguous entries (certifications, awards, publications, etc.).
+**Prisma models created:** `Profile` (a new row named `"Imported"`), `Experience`, `Education`, `Skill`, `Project`, `Other` — all created, none updated. Uses `other` as fallback category for ambiguous entries (certifications, awards, publications, etc.).
 
-> Reimporting updates the single profile row and adds new rows for all other types — it does not deduplicate experience/education/etc.
+> Importing twice adds a second `"Imported"` profile and a fresh copy of every other entry. Nothing is deduplicated or updated in place.
+
+### Cost controls
+
+Google bills PDF pages as tokens (~258 each), so an import costs on the order of öre — but the endpoint is reachable by any signed-up user, and registration is open.
+
+- **Page cap of 10.** Counted locally with `pdf-parse` (`new PDFParse({ data }).getInfo().total`) **before** anything is sent to Google, so a rejected file costs nothing. Ten admits senior CVs, Europass printouts and some academic ones while still stopping the 200-page document, which is the only single request able to get expensive. A PDF that cannot be parsed is rejected rather than passed through — a file we cannot inspect must not bypass the cap.
+- **Usage logging.** Every successful import logs `userId`, page count and Gemini's `inputTokens` / `outputTokens`. This exists so the quota below gets a number from measurement rather than from a price list.
+- **No per-user quota yet.** This is the one that actually bounds spending, because cost is driven by volume rather than by any single call. It needs a counter table and therefore a migration, and is deliberately left until the usage log says what the limit should be.
+
+`pdf-parse` must stay in `serverExternalPackages` (`next.config.ts`): it pulls in pdf.js, which resolves its worker by path at runtime and breaks when bundled.
 
 ---
 
@@ -829,6 +839,7 @@ docker exec -i "$PG" pg_restore -U cvforge -d cvforge_restore < restore.dump
 - [x] Phase 30 — File storage moved from a self-hosted MinIO container to Cloudflare R2 (external, S3-compatible), connected via R2's Custom Domain feature (`files.appfinningar.se`). Resend re-verified against the `appfinningar.se` root domain (the previous `mail.appfinningar.se` domain had failed verification) and a new, correctly-scoped API key issued.
 - [x] Phase 31 — Old Vercel project and Neon database decommissioned after end-to-end verification of the self-hosted deployment (login, CV/profile/avatar data, avatar upload, password reset email). A `pg_dump` backup of the migrated database was taken before deletion.
 - [x] Phase 32 — Fixed silently-failing verification emails: `emailVerification.sendOnSignUp: false` + explicit `authClient.sendVerificationEmail(...)` call from `sign-up/page.tsx`, so a Resend failure (bad recipient, misconfigured key) surfaces a real error instead of the sign-up form always claiming success. LinkedIn contact links in `TealSidebarLayout` and `TerminalLayout` changed from `break-all` to `wrap-break-word` so the URL only wraps when unavoidable, never mid-character, keeping it readable and clickable in the exported PDF.
+- [x] Phase 35 — Cost controls on `/api/cv-import`, prompted by registration being open: a 10-page cap counted locally before the request reaches Google, and per-import logging of Gemini token usage. The per-user quota — the part that actually bounds spending — is deliberately deferred until that log has something to say. Corrected two long-stale claims in this document: the importer does not convert the PDF to text with `pdf-parse`, it sends the PDF itself, and it *creates* a profile on every import rather than upserting one.
 - [x] Phase 34 — **GDPR.** Account deletion made complete: avatar objects removed from R2 by prefix and password-reset `verification` rows by `value`, both before the user row and both failing closed (`purgeUserSideEffects`, also wired to `databaseHooks.user.delete.before` so the admin plugin's remove-user endpoint cannot bypass it). `scripts/purge-expired.sh` gathers up expired `verification` and `session` rows nightly. Storage split per environment (`cv-forge-bucket-eu` / `cv-forge-dev-bucket`, both EU jurisdiction, one scoped token each), `forcePathStyle` dropped so a bucket/token mismatch fails loudly instead of writing to the wrong bucket, and verification/reset emails print to the console outside production — completing the per-environment separation of database, storage, and email. Encrypted nightly backups actually scheduled for the first time (the script had existed unscheduled since Phase 30-something) and a restore rehearsed end to end. `/privacy` published, and the landing page's deletion promise — untrue until this phase — corrected to match.
 - [x] Phase 33 — Fixed a 2026-07-26 production outage: the Europass-fields migration had never been applied to the production database even though Watchtower had already deployed the corresponding code (Prisma client querying columns that didn't exist yet → `ColumnNotFound` on every `profile`/`skill` read), plus a latent bug where `cv.otherIds`/`cv.sectionOrder` could be `NULL` on rows predating those columns' migrations (added without `NOT NULL DEFAULT '{}'`), crashing `/cvs/[cvId]` for older CVs. Fixed both immediately (null-guards in `page.tsx` + a backfill migration) and closed the underlying gap permanently: `.github/workflows/build-and-push.yml` now runs `build-migrator` → `migrate` (on a self-hosted runner installed on the server) → `build-app`, so schema migrations are always applied automatically before Watchtower can deploy code that depends on them.
 
