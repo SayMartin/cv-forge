@@ -101,6 +101,7 @@ cv-cms/
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/
+│   │   │   ├── layout.tsx                          ← metadata: robots noindex for the whole group
 │   │   │   ├── PasswordField.tsx                   ← shared eye-toggle password input component
 │   │   │   ├── GoogleSignInButton.tsx              ← shared "Continue with Google" OAuth button
 │   │   │   ├── sign-in/
@@ -485,6 +486,26 @@ No pre-build manifest step (Sanity manifest generation removed).
 
 Every page exports `metadata` (static) or `generateMetadata` (dynamic). The root layout sets `title.template: "%s | CV Forge"` and `default: "CV Forge"`. Dynamic pages (`/cvs/[cvId]`, `/cvs/[cvId]/view`) run a lightweight `prisma.cV.findUnique` in `generateMetadata`; Next.js deduplicates it with the render query.
 
+### Search indexing
+
+The public surface is two pages: `/` and `/privacy`. Everything else either redirects a logged-out visitor to `/sign-in` or is an auth page.
+
+| File | Role |
+| ---- | ---- |
+| `src/lib/site.ts` | `SITE_URL` — the canonical origin |
+| `src/app/robots.ts` | `Disallow` for `/api/` and the session-gated routes; points at the sitemap |
+| `src/app/sitemap.ts` | `/` and `/privacy`, nothing else |
+| `src/app/(auth)/layout.tsx` | `robots: { index: false, follow: true }` for the whole auth group |
+
+Two things here are load-bearing and easy to undo by accident:
+
+- **`SITE_URL` is hardcoded, not read from `BETTER_AUTH_URL`.** `robots.ts` and `sitemap.ts` render at *build* time, and the Docker build is not given the environment file — an env lookup would bake `undefined` into the production sitemap. Same class of trap as `S3_PUBLIC_URL` (see Avatars).
+- **The auth routes are `noindex`, not `Disallow`.** The two mechanisms conflict: a crawler blocked from fetching a page never reads the `noindex` on it. Blocking is for `/api/`, which should never be fetched; `noindex` is for pages that may be fetched but must not be listed.
+
+The root layout also sets `metadataBase` (required for absolute Open Graph URLs) and Open Graph / Twitter tags. There is no OG *image* yet, so shared links render as text only.
+
+> **Discovery is not a code problem.** Google finds a site through links from pages it already knows, or through a Search Console submission. `appfinningar.se` links to neither subdomain, so nothing in this repo can make the app discoverable on its own — an inbound link from the apex domain and a Search Console property (DNS-TXT verification on `appfinningar.se` covers every subdomain at once) are manual steps.
+
 ### Scrollbar gutter
 
 `scrollbar-gutter: stable` on `:root` in `globals.css` prevents a ~15 px horizontal shift when navigating between short and long pages.
@@ -842,6 +863,7 @@ docker exec -i "$PG" pg_restore -U cvforge -d cvforge_restore < restore.dump
 - [x] Phase 35 — Cost controls on `/api/cv-import`, prompted by registration being open: a 10-page cap counted locally before the request reaches Google, and per-import logging of Gemini token usage. The per-user quota — the part that actually bounds spending — is deliberately deferred until that log has something to say. Corrected two long-stale claims in this document: the importer does not convert the PDF to text with `pdf-parse`, it sends the PDF itself, and it *creates* a profile on every import rather than upserting one.
 - [x] Phase 34 — **GDPR.** Account deletion made complete: avatar objects removed from R2 by prefix and password-reset `verification` rows by `value`, both before the user row and both failing closed (`purgeUserSideEffects`, also wired to `databaseHooks.user.delete.before` so the admin plugin's remove-user endpoint cannot bypass it). `scripts/purge-expired.sh` gathers up expired `verification` and `session` rows nightly. Storage split per environment (`cv-forge-bucket-eu` / `cv-forge-dev-bucket`, both EU jurisdiction, one scoped token each), `forcePathStyle` dropped so a bucket/token mismatch fails loudly instead of writing to the wrong bucket, and verification/reset emails print to the console outside production — completing the per-environment separation of database, storage, and email. Encrypted nightly backups actually scheduled for the first time (the script had existed unscheduled since Phase 30-something) and a restore rehearsed end to end. `/privacy` published, and the landing page's deletion promise — untrue until this phase — corrected to match.
 - [x] Phase 33 — Fixed a 2026-07-26 production outage: the Europass-fields migration had never been applied to the production database even though Watchtower had already deployed the corresponding code (Prisma client querying columns that didn't exist yet → `ColumnNotFound` on every `profile`/`skill` read), plus a latent bug where `cv.otherIds`/`cv.sectionOrder` could be `NULL` on rows predating those columns' migrations (added without `NOT NULL DEFAULT '{}'`), crashing `/cvs/[cvId]` for older CVs. Fixed both immediately (null-guards in `page.tsx` + a backfill migration) and closed the underlying gap permanently: `.github/workflows/build-and-push.yml` now runs `build-migrator` → `migrate` (on a self-hosted runner installed on the server) → `build-app`, so schema migrations are always applied automatically before Watchtower can deploy code that depends on them.
+- [x] Phase 36 — SEO groundwork: `robots.ts`, `sitemap.ts`, a hardcoded `SITE_URL` in `src/lib/site.ts`, `metadataBase` + Open Graph on the root layout, and `noindex` on the `(auth)` group. See **Search indexing** — the remaining blockers to actually being found (an inbound link from `appfinningar.se`, a Search Console property) are outside this repo.
 
 ---
 
