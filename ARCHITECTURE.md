@@ -504,6 +504,22 @@ Two things here are load-bearing and easy to undo by accident:
 
 The root layout also sets `metadataBase` (required for absolute Open Graph URLs) and Open Graph / Twitter tags. There is no OG *image* yet, so shared links render as text only.
 
+**The live `robots.txt` is not the file this repo produces.** Cloudflare's **AI Crawl Control** prepends a managed block to it at the edge, so what a crawler actually fetches is:
+
+```
+# BEGIN Cloudflare Managed content
+User-agent: *
+Content-Signal: search=yes,ai-train=no,use=reference
+User-agent: GPTBot / ClaudeBot / Google-Extended / CCBot / …  → Disallow: /
+# END Cloudflare Managed Content
+                        ← everything below is `src/app/robots.ts`
+User-Agent: *
+Allow: /
+…
+```
+
+Harmless for search — `search=yes` permits indexing, and `Google-Extended` is Google's AI-training crawler, not `Googlebot`. Worth knowing for two reasons: the file has two `User-agent: *` groups (the robots standard merges groups with the same agent, so both apply), and toggling AI Crawl Control changes the production `robots.txt` with no commit in this repo.
+
 > **Discovery is not a code problem.** Google finds a site through links from pages it already knows, or through a Search Console submission. `appfinningar.se` links to neither subdomain, so nothing in this repo can make the app discoverable on its own — an inbound link from the apex domain and a Search Console property (DNS-TXT verification on `appfinningar.se` covers every subdomain at once) are manual steps.
 
 ### Scrollbar gutter

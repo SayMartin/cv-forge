@@ -37,7 +37,13 @@ export default async function MainLayout({
           </div>
           <div className="flex flex-col sm:items-end gap-1.5">
             <p className="text-sm text-(--cl-nav-muted)">
-              &copy; {new Date().getFullYear()} CV Forge by Appfinningar.se. All rights reserved.
+              &copy; {new Date().getFullYear()} Martin Persson &middot;{" "}
+              <a
+                href="https://appfinningar.se"
+                className="underline underline-offset-2 hover:text-white transition-colors"
+              >
+                appfinningar.se
+              </a>
             </p>
             <Link
               href="/privacy"
