@@ -51,11 +51,11 @@ function SkillForm({
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-(--cl-text)">Name *</label>
+          <label className="block text-sm font-medium text-(--cl-text)">Name *</label>
           <input type="text" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="TypeScript" required className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)" />
         </div>
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-(--cl-text)">Level (1–5)</label>
+          <label className="block text-sm font-medium text-(--cl-text)">Level (1–5)</label>
           <input type="number" min={1} max={5} value={form.level} onChange={(e) => set("level", e.target.value)} placeholder="e.g. 4" className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)" />
         </div>
         {/* Always offered, never gated on a category: whether a skill is a spoken
@@ -63,7 +63,7 @@ function SkillForm({
             is decided per CV. The level only renders on a CV that places this skill
             in the language category. */}
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-(--cl-text)">CEFR level</label>
+          <label className="block text-sm font-medium text-(--cl-text)">CEFR level</label>
           <select value={form.cefrLevel} onChange={(e) => set("cefrLevel", e.target.value)} className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)">
             <option value="">— none —</option>
             {CEFR_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
@@ -198,10 +198,10 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
             >
               <span className="text-sm text-(--cl-text)">{item.name}</span>
               {item.level != null && (
-                <span className="text-xs text-(--cl-muted)">{item.level}/5</span>
+                <span className="text-sm text-(--cl-muted)">{item.level}/5</span>
               )}
               {item.cefrLevel && (
-                <span className="text-xs text-(--cl-muted)">{item.cefrLevel}</span>
+                <span className="text-sm text-(--cl-muted)">{item.cefrLevel}</span>
               )}
               <ActionChip onClick={() => setEditingId(item.id)}>Edit</ActionChip>
             </span>

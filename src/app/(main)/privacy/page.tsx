@@ -15,7 +15,7 @@ const LAST_UPDATED = "22 August 2026";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-(--cl-muted)">
+      <h2 className="text-sm font-semibold uppercase tracking-widest text-(--cl-muted)">
         {title}
       </h2>
       <div className="space-y-3 text-sm leading-relaxed text-(--cl-text)">{children}</div>
@@ -205,7 +205,7 @@ export default function PrivacyPage() {
 
       <Section title="Cookies">
         <p>
-          One cookie, <code className="text-xs bg-(--cl-bg) px-1 py-0.5 rounded">better-auth.session_token</code>,
+          One cookie, <code className="text-sm bg-(--cl-bg) px-1 py-0.5 rounded">better-auth.session_token</code>,
           which keeps you signed in. It is strictly necessary for the service to work and is removed
           when you sign out.
         </p>

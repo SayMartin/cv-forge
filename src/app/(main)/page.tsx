@@ -82,7 +82,7 @@ export default async function Home() {
       {/* ── How it works ─────────────────────────────────────────── */}
       <section className="py-20 px-6 bg-(--cl-bg)">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-(--cl-muted) text-center mb-14">
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-(--cl-muted) text-center mb-14">
             How it works
           </h2>
           {/* Two columns rather than a taller single one. Stretching these four
@@ -104,7 +104,7 @@ export default async function Home() {
                       {step.title}
                     </h3>
                     {step.tag && (
-                      <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-(--cl-pill) text-(--cl-muted)">
+                      <span className="text-sm tracking-wider px-2 py-0.5 rounded-full bg-(--cl-pill) text-(--cl-muted)">
                         {step.tag}
                       </span>
                     )}

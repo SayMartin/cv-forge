@@ -379,7 +379,7 @@ export function CvEditor({
             maxLength={100}
             className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)"
           />
-          <p className="text-xs text-(--cl-muted)">Only shown in the CV list — not printed.</p>
+          <p className="text-sm text-(--cl-muted)">Only shown in the CV list — not printed.</p>
         </div>
 
         {/* Layout picker */}
@@ -408,7 +408,7 @@ export function CvEditor({
                     selected={selected}
                   />
                   <p
-                    className={`text-xs font-medium ${selected ? "text-(--cl-accent)" : "text-(--cl-text)"}`}
+                    className={`text-sm font-medium ${selected ? "text-(--cl-accent)" : "text-(--cl-text)"}`}
                   >
                     {layout.name}
                   </p>
@@ -430,7 +430,7 @@ export function CvEditor({
                   setThemeId(null);
                   markDirty();
                 }}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                   themeId === null
                     ? "border-(--cl-accent) bg-green-50 text-(--cl-accent) font-medium"
                     : "border-(--cl-border) text-(--cl-muted) hover:border-(--cl-accent) bg-white"
@@ -447,7 +447,7 @@ export function CvEditor({
                     setThemeId(t.id);
                     markDirty();
                   }}
-                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                     themeId === t.id
                       ? "border-(--cl-accent) bg-green-50 font-medium text-(--cl-text)"
                       : "border-(--cl-border) text-(--cl-muted) hover:border-(--cl-accent) bg-white"
@@ -484,7 +484,7 @@ export function CvEditor({
                 type="button"
                 onClick={handleCreateTheme}
                 disabled={creatingTheme}
-                className="flex items-center gap-1 rounded-lg border border-dashed border-(--cl-border) px-3 py-2 text-xs text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 rounded-lg border border-dashed border-(--cl-border) px-3 py-2 text-sm text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors disabled:opacity-50"
               >
                 {creatingTheme ? "Creating…" : "+ New theme"}
               </button>
@@ -518,7 +518,7 @@ export function CvEditor({
                       className="text-sm font-medium bg-transparent border-b border-(--cl-border) focus:outline-none focus:border-(--cl-accent) py-0.5 w-40"
                     />
                     {themeNameSaved && (
-                      <span className="text-xs text-(--cl-muted)">Saved ✓</span>
+                      <span className="text-sm text-(--cl-muted)">Saved ✓</span>
                     )}
                   </div>
                   <ActionChip
@@ -530,7 +530,7 @@ export function CvEditor({
                 </div>
 
                 <div className="flex items-center gap-6">
-                  <label className="flex items-center gap-2 text-xs text-(--cl-muted)">
+                  <label className="flex items-center gap-2 text-sm text-(--cl-muted)">
                     <input
                       type="color"
                       value={currentTheme.sidebarColor}
@@ -541,7 +541,7 @@ export function CvEditor({
                     />
                     Sidebar
                   </label>
-                  <label className="flex items-center gap-2 text-xs text-(--cl-muted)">
+                  <label className="flex items-center gap-2 text-sm text-(--cl-muted)">
                     <input
                       type="color"
                       value={currentTheme.accentColor}
@@ -591,20 +591,15 @@ export function CvEditor({
         {avatarDoc && avatarDoc.images.length > 0 && (
           <Section title="Avatar" headerAction={<ContentLink cvId={cvId} tab="avatars" />}>
             <div className="flex items-center gap-3 flex-wrap">
-              <button
-                type="button"
+              <ActionChip
+                selected={avatarIndex === null}
                 onClick={() => {
                   setAvatarIndex(null);
                   markDirty();
                 }}
-                className={`text-xs px-2 py-1 rounded border transition-colors ${
-                  avatarIndex === null
-                    ? "border-(--cl-accent) bg-(--cl-accent) text-white"
-                    : "border-(--cl-border) text-(--cl-muted) hover:border-(--cl-accent)"
-                }`}
               >
                 None
-              </button>
+              </ActionChip>
               {avatarDoc.images.map((url, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -737,7 +732,7 @@ export function CvEditor({
               />
               <span className="text-sm text-(--cl-text)">
                 Grouped by section
-                <span className="block text-xs text-(--cl-muted)">Experience, Education, Projects, and Other each render as their own block, in the order below.</span>
+                <span className="block text-sm text-(--cl-muted)">Experience, Education, Projects, and Other each render as their own block, in the order below.</span>
               </span>
             </label>
             <label className="flex items-start gap-2 cursor-pointer group">
@@ -750,7 +745,7 @@ export function CvEditor({
               />
               <span className="text-sm text-(--cl-text)">
                 Mixed, chronological order
-                <span className="block text-xs text-(--cl-muted)">Experience, Education, Projects, and Other are merged into one timeline sorted by date (most recent first). Skills stays separate.</span>
+                <span className="block text-sm text-(--cl-muted)">Experience, Education, Projects, and Other are merged into one timeline sorted by date (most recent first). Skills stays separate.</span>
               </span>
             </label>
           </div>
@@ -759,7 +754,7 @@ export function CvEditor({
         {/* Section order */}
         {!chronological && (
           <Section title="Section order">
-            <p className="text-xs text-(--cl-muted) mb-3">Hold and drag to reorder sections in your CV.</p>
+            <p className="text-sm text-(--cl-muted) mb-3">Hold and drag to reorder sections in your CV.</p>
             <SectionOrderEditor
               sectionOrder={sectionOrder}
               onChange={(order) => { setSectionOrder(order); markDirty(); }}
@@ -777,7 +772,7 @@ export function CvEditor({
             maxLength={5000}
             className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent) resize-y"
           />
-          <p className="text-xs text-(--cl-muted)">Printed as a separate page before the CV when not empty.</p>
+          <p className="text-sm text-(--cl-muted)">Printed as a separate page before the CV when not empty.</p>
         </Section>
 
         {/* Actions — save moved to the sticky header, so this row is the one

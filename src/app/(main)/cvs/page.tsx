@@ -50,10 +50,10 @@ export default async function CvsPage() {
                       {cv.name}
                     </span>
                     {cv.targetRole && (
-                      <p className="text-xs text-(--cl-muted) mt-0.5">{cv.targetRole}</p>
+                      <p className="text-sm text-(--cl-muted) mt-0.5">{cv.targetRole}</p>
                     )}
                   </div>
-                  <span className="text-xs text-(--cl-muted) shrink-0">
+                  <span className="text-sm text-(--cl-muted) shrink-0">
                     Updated{" "}
                     {new Date(cv.updatedAt).toLocaleDateString("en-GB", {
                       day: "numeric",

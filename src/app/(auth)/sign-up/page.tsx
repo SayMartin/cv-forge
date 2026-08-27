@@ -84,7 +84,7 @@ export default function SignUpPage() {
 
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-(--cl-border)" />
-          <span className="text-xs text-(--cl-muted)">or</span>
+          <span className="text-sm text-(--cl-muted)">or</span>
           <div className="flex-1 h-px bg-(--cl-border)" />
         </div>
 
@@ -162,7 +162,7 @@ export default function SignUpPage() {
 
         {/* Article 13 wants the information given at the point data is collected,
             which is this form — not only somewhere in the footer. */}
-        <p className="text-xs text-center text-(--cl-muted)">
+        <p className="text-sm text-center text-(--cl-muted)">
           By creating an account you agree to how your data is handled, described in the{" "}
           <Link href="/privacy" className="underline underline-offset-2 hover:text-(--cl-text)">
             privacy policy

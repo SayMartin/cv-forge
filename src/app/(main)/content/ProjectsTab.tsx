@@ -61,7 +61,7 @@ function ProjectForm({
       </div>
       <Field label="Technologies (comma-separated)" value={form.skills} onChange={(v) => set("skills", v)} placeholder="React, Node.js, PostgreSQL" />
       <div className="space-y-1">
-        <label className="block text-xs font-medium text-(--cl-text)">Published date</label>
+        <label className="block text-sm font-medium text-(--cl-text)">Published date</label>
         <input type="date" value={form.publishedAt} onChange={(e) => set("publishedAt", e.target.value)} className="border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)" />
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -170,7 +170,7 @@ export function ProjectsTab({ initialItems }: Props) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-medium text-(--cl-text)">{item.title}</p>
-                <p className="text-xs text-(--cl-muted) mt-0.5">
+                <p className="text-sm text-(--cl-muted) mt-0.5">
                   {[
                     item.startDate || item.endDate || item.current
                       ? `${item.startDate ?? "?"} – ${item.current ? "Present" : (item.endDate ?? "?")}`
@@ -201,7 +201,7 @@ function Field({
   const cls = "w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent) disabled:opacity-50 disabled:bg-(--cl-pill)";
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-medium text-(--cl-text)">{label}</label>
+      <label className="block text-sm font-medium text-(--cl-text)">{label}</label>
       {multiline
         ? <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className={cls} />
         : <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} required={required} disabled={disabled} className={cls} />}

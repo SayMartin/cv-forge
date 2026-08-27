@@ -21,7 +21,7 @@ export default async function SettingsPage() {
       </h1>
 
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-(--cl-muted)">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-(--cl-muted)">
           Your account
         </h2>
         <div className="bg-white rounded-xl border border-(--cl-border) p-5 text-sm space-y-3">
@@ -47,7 +47,7 @@ export default async function SettingsPage() {
       </p>
 
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-red-500">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-red-500">
           Danger zone
         </h2>
         <DeleteAccountSection email={email} />

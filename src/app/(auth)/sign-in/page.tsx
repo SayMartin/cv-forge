@@ -59,7 +59,7 @@ function SignInForm() {
 
       <div className="flex items-center gap-3">
         <div className="flex-1 h-px bg-(--cl-border)" />
-        <span className="text-xs text-(--cl-muted)">or</span>
+        <span className="text-sm text-(--cl-muted)">or</span>
         <div className="flex-1 h-px bg-(--cl-border)" />
       </div>
 
@@ -93,7 +93,7 @@ function SignInForm() {
           autoComplete="current-password"
         />
         <div className="text-right">
-          <Link href="/forgot-password" className="text-xs text-(--cl-muted) hover:text-(--cl-accent)">
+          <Link href="/forgot-password" className="text-sm text-(--cl-muted) hover:text-(--cl-accent)">
             Forgot password?
           </Link>
         </div>

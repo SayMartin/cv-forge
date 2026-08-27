@@ -660,11 +660,23 @@ It renders a `<Link>` when `href` is passed and a `<button>` otherwise. That mat
 
 `onClick` is typed `(e: MouseEvent) => void` rather than `() => void`, because `DuplicateCvButton` reads the event.
 
+**`selected`** turns a chip into a toggle: a filled accent fill plus `aria-pressed`. Its unselected half is the ordinary `accent` tone, *not* a muted one — greying an unchosen option makes it look disabled, which is what the avatar picker's "None" button suffered from before it moved onto this component. Filled rather than outlined for the chosen state because it sits beside 48px avatar photos, where an outline alone did not register as a state.
+
+The theme picker's cards are a **different** control — `px-3 py-2 rounded-lg` with colour swatches — and stay hand-rolled. They share the same muted-when-unselected weakness if that ever needs the same treatment.
+
 **Not** an ActionChip: the sign-in page's "Forgot password?", which is prose inside a form rather than an action on a row, and the primary buttons (Save, Save as PDF, Preview), which have their own weight.
 
 ### Type scale
 
-Nothing in the **UI** is set below `text-sm` (14px) — that is the floor. Above it: `text-base` for section headings, `text-lg`+ for page headings. The secondary/primary distinction is carried by `--cl-muted` and font weight, not by size.
+Nothing in the **UI** is set below `text-sm` (14px) — that is the floor, and it is currently absolute: `src/app` contains no `text-xs` and no arbitrary size under 14px. Above the floor: `text-base` for section headings, `text-lg`+ for page headings. The secondary/primary distinction is carried by `--cl-muted` and font weight, not by size — captions, badges, eyebrow headings and body text are all 14px and differ by colour, weight, letter-spacing and case.
+
+Check it with:
+
+```bash
+grep -rnE 'text-xs|text-\[([0-9]|1[0-3])px\]' src/app src/components --exclude-dir=cv-layouts
+```
+
+(one hit is expected — a prose mention of `text-xs` in `ActionChip.tsx`'s header comment.)
 
 This floor does **not** apply to `src/components/cv-layouts/`. Those are A4 documents, not interface: `text-xs` and smaller there is document typography, and `Paginated.tsx` measures rendered block heights to decide page breaks — changing a font size changes every measurement and moves the page breaks on existing CVs.
 

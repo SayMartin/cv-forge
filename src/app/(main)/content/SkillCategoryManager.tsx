@@ -71,7 +71,7 @@ function CategoryRow({
           hidden. */}
       {category.kind === "language" && !editing && (
         <span
-          className="text-xs text-(--cl-muted) shrink-0"
+          className="text-sm text-(--cl-muted) shrink-0"
           title="Spoken languages — enables CEFR levels and the Europass language table. Fixed: cannot be renamed or deleted."
         >
           CEFR
@@ -158,7 +158,7 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
     <div className="bg-white border border-(--cl-border) rounded-xl px-5 py-4 space-y-3">
       <div>
         <p className="text-sm font-medium text-(--cl-text)">Categories</p>
-        <p className="text-xs text-(--cl-muted) mt-0.5">
+        <p className="text-sm text-(--cl-muted) mt-0.5">
           Your own grouping. Click a name to rename it. Which categories a CV shows,
           in what order, and which skills go in each is decided per CV in the CV
           editor. The language category is fixed — the Europass layout needs it.

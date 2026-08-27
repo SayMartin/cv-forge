@@ -45,7 +45,7 @@ export function GoogleSignInButton({ callbackURL = "/" }: Props) {
         Continue with Google
       </button>
       {error && (
-        <p className="text-xs text-center text-red-600">{error}</p>
+        <p className="text-sm text-center text-red-600">{error}</p>
       )}
     </div>
   );

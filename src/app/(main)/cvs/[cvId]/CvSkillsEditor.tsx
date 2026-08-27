@@ -99,7 +99,7 @@ function SkillChip({
       >
         {skill.name}
       </button>
-      {skill.cefrLevel && <span className="text-xs text-(--cl-muted)">{skill.cefrLevel}</span>}
+      {skill.cefrLevel && <span className="text-sm text-(--cl-muted)">{skill.cefrLevel}</span>}
     </span>
   );
 }
@@ -150,7 +150,7 @@ function GroupRow({
             aria-label={`Show ${category.name} on this CV`}
             className="rounded accent-(--cl-accent)"
           />
-          <span className={`text-xs font-semibold uppercase tracking-wide flex-1 ${
+          <span className={`text-sm font-semibold uppercase tracking-wide flex-1 ${
             group.hidden ? "text-(--cl-muted) line-through" : "text-(--cl-text)"
           }`}>
             {category.name}
@@ -170,7 +170,7 @@ function GroupRow({
         <SortableContext items={group.skillIds} strategy={rectSortingStrategy}>
           <div className="flex flex-wrap gap-1.5 min-h-9">
             {skills.length === 0 ? (
-              <p className="text-xs text-(--cl-muted) self-center">Drag skills here</p>
+              <p className="text-sm text-(--cl-muted) self-center">Drag skills here</p>
             ) : (
               skills.map((skill) => (
                 <SkillChip
@@ -384,13 +384,13 @@ export function CvSkillsEditor({
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-(--cl-accent) bg-white px-2 py-1 shadow-lg cursor-grabbing">
             <span className="text-sm text-(--cl-text)">{draggedSkill.name}</span>
             {draggedSkill.cefrLevel && (
-              <span className="text-xs text-(--cl-muted)">{draggedSkill.cefrLevel}</span>
+              <span className="text-sm text-(--cl-muted)">{draggedSkill.cefrLevel}</span>
             )}
           </span>
         )}
         {draggedCategory && (
           <div className="rounded-xl border border-(--cl-accent) bg-white px-4 py-3 shadow-lg cursor-grabbing">
-            <span className="text-xs font-semibold uppercase tracking-wide text-(--cl-text)">
+            <span className="text-sm font-semibold uppercase tracking-wide text-(--cl-text)">
               {draggedCategory.name}
             </span>
           </div>
@@ -414,13 +414,13 @@ function UnplacedTray({ skills }: { skills: SkillOption[] }) {
         isOver ? "border-(--cl-accent) bg-(--cl-pill)" : "border-(--cl-border)"
       }`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-(--cl-muted) mb-2">
+      <p className="text-sm font-semibold uppercase tracking-wide text-(--cl-muted) mb-2">
         Not on this CV
       </p>
       <SortableContext items={skills.map((s) => s.id)} strategy={rectSortingStrategy}>
         <div className="flex flex-wrap gap-1.5 min-h-9">
           {skills.length === 0 ? (
-            <p className="text-xs text-(--cl-muted) self-center">Every skill is placed.</p>
+            <p className="text-sm text-(--cl-muted) self-center">Every skill is placed.</p>
           ) : (
             skills.map((skill) => (
               <SkillChip key={skill.id} skill={skill} selected={false} disabled onToggle={() => {}} />

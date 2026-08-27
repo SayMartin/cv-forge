@@ -74,7 +74,7 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
             <button
               type="button"
               onClick={() => handleRemove(url)}
-              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white border border-(--cl-border) text-(--cl-muted) hover:text-red-500 hover:border-red-400 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 text-xs leading-none"
+              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white border border-(--cl-border) text-(--cl-muted) hover:text-red-500 hover:border-red-400 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 text-sm leading-none"
               aria-label="Remove photo"
             >
               ×
@@ -94,7 +94,7 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
                 <svg className="w-5 h-5 text-(--cl-muted)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="text-xs text-(--cl-muted) mt-1">Add</span>
+                <span className="text-sm text-(--cl-muted) mt-1">Add</span>
               </>
             )}
             <input
@@ -110,7 +110,7 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
       </div>
 
       {atLimit && (
-        <p className="text-xs text-(--cl-muted)">
+        <p className="text-sm text-(--cl-muted)">
           Limit of {MAX_IMAGES} photos reached. Remove one to add another.
         </p>
       )}

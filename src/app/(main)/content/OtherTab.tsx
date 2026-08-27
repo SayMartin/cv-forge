@@ -129,7 +129,7 @@ export function OtherTab({ initialItems }: Props) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-medium text-(--cl-text)">{item.title}</p>
-                <p className="text-xs text-(--cl-muted) mt-0.5">
+                <p className="text-sm text-(--cl-muted) mt-0.5">
                   {[item.subtitle, item.date].filter(Boolean).join(" · ")}
                 </p>
               </div>
@@ -154,7 +154,7 @@ function Field({
   const cls = "w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)";
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-medium text-(--cl-text)">{label}</label>
+      <label className="block text-sm font-medium text-(--cl-text)">{label}</label>
       {multiline
         ? <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className={cls} />
         : <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} required={required} className={cls} />}

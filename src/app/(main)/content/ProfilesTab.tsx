@@ -69,13 +69,13 @@ function ProfileForm({
         <Field label="Location" value={form.location} onChange={(v) => set("location", v)} placeholder="Stockholm, Sweden" />
       </div>
       <Field label="Bio" value={form.bio} onChange={(v) => set("bio", v)} multiline placeholder="A short summary about yourself…" />
-      <p className="text-xs font-medium text-(--cl-muted) uppercase tracking-wider pt-1">Europass details (optional)</p>
+      <p className="text-sm font-medium text-(--cl-muted) uppercase tracking-wider pt-1">Europass details (optional)</p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Field label="Nationality" value={form.nationality} onChange={(v) => set("nationality", v)} placeholder="Swedish" />
         <Field label="Date of birth" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} type="date" />
         <Field label="Driving license" value={form.drivingLicense} onChange={(v) => set("drivingLicense", v)} placeholder="B" />
       </div>
-      <p className="text-xs font-medium text-(--cl-muted) uppercase tracking-wider pt-1">Social links</p>
+      <p className="text-sm font-medium text-(--cl-muted) uppercase tracking-wider pt-1">Social links</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="LinkedIn" value={form.linkedin} onChange={(v) => set("linkedin", v)} placeholder="https://linkedin.com/in/…" />
         <Field label="GitHub" value={form.github} onChange={(v) => set("github", v)} placeholder="https://github.com/…" />
@@ -234,7 +234,7 @@ export function ProfilesTab({ initialItems }: Props) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-medium text-(--cl-text)">{item.profileName}</p>
-                {item.name && <p className="text-xs text-(--cl-muted) mt-0.5">{item.name}{item.headline ? ` — ${item.headline}` : ""}</p>}
+                {item.name && <p className="text-sm text-(--cl-muted) mt-0.5">{item.name}{item.headline ? ` — ${item.headline}` : ""}</p>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <ActionChip onClick={() => setEditingId(item.id)}>Edit</ActionChip>
@@ -268,7 +268,7 @@ function Field({
   const cls = "w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)";
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-medium text-(--cl-text)">{label}</label>
+      <label className="block text-sm font-medium text-(--cl-text)">{label}</label>
       {multiline ? (
         <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className={cls} />
       ) : (

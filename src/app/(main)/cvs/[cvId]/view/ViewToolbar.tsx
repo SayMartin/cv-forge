@@ -38,7 +38,7 @@ export function ViewToolbar({ cvId, cvName, layoutName }: Props) {
 
         {/* Right: layout badge (desktop) + PDF button */}
         <div className="flex items-center gap-2 shrink-0">
-          <span className="hidden sm:inline-block text-xs text-(--cl-accent) bg-(--cl-pill) rounded px-2 py-0.5 font-medium shrink-0">
+          <span className="hidden sm:inline-block text-sm text-(--cl-accent) bg-(--cl-pill) rounded px-2 py-0.5 font-medium shrink-0">
             {layoutName}
           </span>
           <ExportButton cvName={cvName} />

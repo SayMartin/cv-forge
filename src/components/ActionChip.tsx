@@ -29,6 +29,18 @@ const BASE =
 // `danger-strong` is for the opposite case: a page's single destructive action,
 // where there is no repetition to mute and being found is the whole point. It
 // carries the red in the frame as well as the label. Use it once per page.
+// A chip that is also a choice: the avatar picker's "None". Filled rather than
+// merely outlined, because "chosen" has to survive sitting next to a ring-marked
+// 48px photo — an outline alone was not visible as a state at that size.
+//
+// The unselected half is deliberately the ordinary `accent` tone rather than a
+// muted variant. Greying an unchosen option makes it look disabled, which is the
+// bug this replaced: `text-(--cl-muted)` on the "None" button read as "you may
+// not pick this" instead of "you have not picked this".
+const SELECTED =
+  "border-(--cl-accent) bg-(--cl-accent) text-white " +
+  "hover:border-(--cl-accent-hov) hover:bg-(--cl-accent-hov)";
+
 const TONES: Record<Tone, string> = {
   accent:
     "border-(--cl-border) text-(--cl-accent) hover:border-(--cl-accent) hover:bg-(--cl-pill)",
@@ -48,6 +60,12 @@ type Props = {
   /** Takes the event so handlers that call preventDefault still fit. */
   onClick?: (e: MouseEvent) => void;
   disabled?: boolean;
+  /**
+   * Marks the chip as a toggle and gives it a filled "chosen" state. Passing it
+   * at all (even `false`) makes the button announce itself as pressable state
+   * rather than as a plain action.
+   */
+  selected?: boolean;
 };
 
 export function ActionChip({
@@ -58,8 +76,9 @@ export function ActionChip({
   href,
   onClick,
   disabled,
+  selected,
 }: Props) {
-  const classes = `${BASE} ${TONES[tone]} ${className}`;
+  const classes = `${BASE} ${selected ? SELECTED : TONES[tone]} ${className}`;
 
   if (href) {
     return (
@@ -75,6 +94,7 @@ export function ActionChip({
       onClick={onClick}
       disabled={disabled}
       title={title}
+      aria-pressed={selected}
       className={`${classes} disabled:opacity-40 disabled:pointer-events-none`}
     >
       {children}

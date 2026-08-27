@@ -168,7 +168,7 @@ export function EducationTab({ initialItems }: Props) {
                 <p className="font-medium text-(--cl-text)">
                   {item.degree ? `${item.degree}${item.field ? ` in ${item.field}` : ""}` : item.institution}
                 </p>
-                <p className="text-xs text-(--cl-muted) mt-0.5">
+                <p className="text-sm text-(--cl-muted) mt-0.5">
                   {item.degree ? item.institution : ""}{item.startDate ? ` · ${item.startDate} – ${item.current ? "Present" : (item.endDate ?? "?")}` : ""}
                 </p>
               </div>
@@ -193,7 +193,7 @@ function Field({
   const cls = `w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent) disabled:opacity-50 disabled:bg-(--cl-pill)`;
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-medium text-(--cl-text)">{label}</label>
+      <label className="block text-sm font-medium text-(--cl-text)">{label}</label>
       {multiline
         ? <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className={cls} />
         : <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} required={required} disabled={disabled} className={cls} />}
