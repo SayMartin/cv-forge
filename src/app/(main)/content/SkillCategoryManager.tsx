@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MAX_SKILL_CATEGORIES } from "@/lib/cv-content-types";
 import type { SkillCategoryOption } from "./ContentTabs";
+import { ActionChip } from "@/components/ActionChip";
 
 function CategoryRow({
   category,
@@ -80,13 +81,9 @@ function CategoryRow({
       {/* Deleting this one is refused by the API too; hiding the button keeps the
           UI from offering an action that cannot succeed. */}
       {category.kind !== "language" && (
-        <button
-          type="button"
-          onClick={() => onDelete(category.id)}
-          className="text-xs text-red-500 hover:text-red-700 transition-colors shrink-0"
-        >
+        <ActionChip tone="danger" onClick={() => onDelete(category.id)}>
           Delete
-        </button>
+        </ActionChip>
       )}
 
     </li>

@@ -121,41 +121,39 @@ export default async function CvEditorPage({ params }: Params) {
   }));
 
   return (
-    <main className="min-h-screen py-12">
-      {/* max-w-4xl, as on My Content: this is the other editing surface, and
-          the reading measure the list pages use was only ever a ceiling here.
-          Padding sits on the column rather than on `main` so the column keeps
-          its own gutter — the two pages were 32px apart otherwise. */}
-      <div className="max-w-4xl mx-auto px-4 space-y-8">
-        <CvEditShell
-          cvs={allCvs}
-          cvId={cv.id}
-          initialName={cv.name}
-          initialLayoutId={cv.layoutId}
-          initialThemeId={cv.themeId ?? null}
-          initialProfileId={cv.profileId}
-          initialAvatarIndex={cv.avatarIndex ?? null}
-          initialExperienceIds={cv.experienceIds}
-          initialEducationIds={cv.educationIds}
-          initialSkillIds={cv.skillIds}
-          initialSkillGroups={(cv.skillGroups as CvSkillGroup[] | null) ?? []}
-          initialProjectIds={cv.projectIds}
-          initialOtherIds={cv.otherIds ?? []}
-          initialTargetRole={cv.targetRole ?? null}
-          initialCoverLetter={cv.coverLetter ?? null}
-          initialSectionOrder={cv.sectionOrder?.length ? cv.sectionOrder : undefined}
-          initialChronological={cv.chronological}
-          profiles={profiles}
-          avatarDoc={avatarDoc ? { id: avatarDoc.id, images: avatarDoc.images } : null}
-          experiences={mappedExperiences}
-          educations={mappedEducations}
-          skills={mappedSkills}
-          skillCategories={skillCategories}
-          projects={projects}
-          others={mappedOthers}
-          themes={themes}
-        />
-      </div>
+    <main className="min-h-screen pb-12">
+      {/* No top padding and no column here: CvEditor owns both bands now. Its
+          sticky header is full-bleed, so it has to sit flush under the nav and
+          reach the edges of the viewport, and the `max-w-4xl` form column moved
+          inside it to sit underneath. */}
+      <CvEditShell
+        cvs={allCvs}
+        cvId={cv.id}
+        initialName={cv.name}
+        initialLayoutId={cv.layoutId}
+        initialThemeId={cv.themeId ?? null}
+        initialProfileId={cv.profileId}
+        initialAvatarIndex={cv.avatarIndex ?? null}
+        initialExperienceIds={cv.experienceIds}
+        initialEducationIds={cv.educationIds}
+        initialSkillIds={cv.skillIds}
+        initialSkillGroups={(cv.skillGroups as CvSkillGroup[] | null) ?? []}
+        initialProjectIds={cv.projectIds}
+        initialOtherIds={cv.otherIds ?? []}
+        initialTargetRole={cv.targetRole ?? null}
+        initialCoverLetter={cv.coverLetter ?? null}
+        initialSectionOrder={cv.sectionOrder?.length ? cv.sectionOrder : undefined}
+        initialChronological={cv.chronological}
+        profiles={profiles}
+        avatarDoc={avatarDoc ? { id: avatarDoc.id, images: avatarDoc.images } : null}
+        experiences={mappedExperiences}
+        educations={mappedEducations}
+        skills={mappedSkills}
+        skillCategories={skillCategories}
+        projects={projects}
+        others={mappedOthers}
+        themes={themes}
+      />
     </main>
   );
 }

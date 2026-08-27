@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ActionChip } from "@/components/ActionChip";
 
 export function DuplicateCvButton({ cvId }: { cvId: string }) {
   const router = useRouter();
@@ -19,13 +20,12 @@ export function DuplicateCvButton({ cvId }: { cvId: string }) {
   }
 
   return (
-    <button
+    <ActionChip
       onClick={handleDuplicate}
       disabled={loading}
       title="Duplicate CV"
-      className="shrink-0 text-xs text-(--cl-muted) hover:text-(--cl-accent) transition-colors disabled:opacity-40 px-1"
     >
       {loading ? "…" : "Duplicate"}
-    </button>
+    </ActionChip>
   );
 }

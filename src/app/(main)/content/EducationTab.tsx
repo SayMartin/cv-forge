@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Education } from "./ContentTabs";
+import { ActionChip } from "@/components/ActionChip";
 
 interface Props {
   initialItems: Education[];
@@ -171,9 +172,9 @@ export function EducationTab({ initialItems }: Props) {
                   {item.degree ? item.institution : ""}{item.startDate ? ` · ${item.startDate} – ${item.current ? "Present" : (item.endDate ?? "?")}` : ""}
                 </p>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <button onClick={() => setEditingId(item.id)} className="text-xs text-(--cl-muted) hover:text-(--cl-accent) transition-colors">Edit</button>
-                <button onClick={() => handleDelete(item.id)} className="text-xs text-red-400 hover:text-red-600 transition-colors">Delete</button>
+              <div className="flex items-center gap-2 shrink-0">
+                <ActionChip onClick={() => setEditingId(item.id)}>Edit</ActionChip>
+                <ActionChip tone="danger" onClick={() => handleDelete(item.id)}>Delete</ActionChip>
               </div>
             </div>
           )}

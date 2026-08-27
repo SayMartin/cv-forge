@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useRef } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CV_LAYOUTS, DEFAULT_LAYOUT_ID, DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
 import { LayoutThumb } from "@/components/cv-layouts/thumbnails";
 import { SectionOrderEditor } from "./SectionOrderEditor";
 import { SortableEntryList } from "./SortableEntryList";
 import { CvSkillsEditor, type CategoryOption } from "./CvSkillsEditor";
+import { ActionChip } from "@/components/ActionChip";
 import type { CvSkillGroup } from "@/lib/cv-content-types";
 
 type Entry = { id: string; [key: string]: unknown };
@@ -39,6 +39,10 @@ interface Props {
   initialName: string;
   onNameChange?: (name: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Breadcrumb trail, rendered on the left of the sticky header. */
+  headerTrail?: React.ReactNode;
+  /** Preview link, rendered after the save controls in the sticky header. */
+  headerLink?: React.ReactNode;
   initialLayoutId: string;
   initialThemeId: string | null;
   initialProfileId: string | null;
@@ -70,6 +74,8 @@ export function CvEditor({
   initialName,
   onNameChange,
   onDirtyChange,
+  headerTrail,
+  headerLink,
   initialLayoutId,
   initialThemeId,
   initialProfileId,
@@ -303,458 +309,497 @@ export function CvEditor({
   );
 
   return (
-    <div className="space-y-8">
-      {/* Name */}
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-(--cl-text)">
-          CV name
-        </label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            markDirty();
-          }}
-          maxLength={100}
-          className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)"
-        />
-      </div>
+    <>
+      {/* Save and Revert are what this page is used for, and the form below is
+          long enough that a copy at the bottom was never in reach — hence the
+          pin. The trail rides along because it costs no extra height and keeps
+          the CV switcher reachable too.
 
-      {/* Tailored for */}
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-(--cl-text)">
-          Tailored for
-        </label>
-        <input
-          type="text"
-          value={targetRole}
-          onChange={(e) => { setTargetRole(e.target.value); markDirty(); }}
-          placeholder="e.g. Acme Corp — Senior Designer"
-          maxLength={100}
-          className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)"
-        />
-        <p className="text-xs text-(--cl-muted)">Only shown in the CV list — not printed.</p>
-      </div>
+          Same full-bleed band and same `max-w-5xl px-6` inner container as
+          NavBar and the footer, so it reads as a second row of chrome rather
+          than a card floating in the page: the trail lands under the logo and
+          Preview under Sign out. That is deliberately *wider* than the
+          `max-w-4xl` form below — the bar belongs to the page's chrome, the
+          form to the editing surface.
 
-      {/* Layout picker */}
-      <Section title="Layout">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {CV_LAYOUTS.map((layout) => {
-            const selected = layoutId === layout.id;
-            return (
-              <button
-                key={layout.id}
-                type="button"
-                onClick={() => {
-                  setLayoutId(layout.id);
-                  markDirty();
-                }}
-                className={`flex flex-col items-center gap-2 rounded-lg border p-2 transition-colors ${
-                  selected
-                    ? "border-(--cl-accent) bg-green-50"
-                    : "border-(--cl-border) hover:border-(--cl-accent) bg-white"
-                }`}
-              >
-                <LayoutThumb
-                  layoutId={layout.id}
-                  sidebarColor={currentTheme?.sidebarColor}
-                  accentColor={currentTheme?.accentColor}
-                  selected={selected}
-                />
-                <p
-                  className={`text-xs font-medium ${selected ? "text-(--cl-accent)" : "text-(--cl-text)"}`}
-                >
-                  {layout.name}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-      </Section>
-
-      {/* Theme picker */}
-      <Section title="Colour theme" headerAction={actionButtons}>
-        <div className="space-y-3">
-          {/* Theme cards */}
-          <div className="flex flex-wrap gap-2">
-            {/* "None" option */}
-            <button
-              type="button"
-              onClick={() => {
-                setThemeId(null);
-                markDirty();
-              }}
-              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
-                themeId === null
-                  ? "border-(--cl-accent) bg-green-50 text-(--cl-accent) font-medium"
-                  : "border-(--cl-border) text-(--cl-muted) hover:border-(--cl-accent) bg-white"
-              }`}
-            >
-              Default
-            </button>
-
-            {themes.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => {
-                  setThemeId(t.id);
-                  markDirty();
-                }}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
-                  themeId === t.id
-                    ? "border-(--cl-accent) bg-green-50 font-medium text-(--cl-text)"
-                    : "border-(--cl-border) text-(--cl-muted) hover:border-(--cl-accent) bg-white"
-                }`}
-              >
-                {/* Colour swatches */}
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: t.sidebarColor,
-                    border: "1px solid rgba(0,0,0,0.15)",
-                    flexShrink: 0,
-                  }}
-                />
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: t.accentColor,
-                    border: "1px solid rgba(0,0,0,0.15)",
-                    flexShrink: 0,
-                  }}
-                />
-                {t.name}
-              </button>
-            ))}
-
-            <button
-              type="button"
-              onClick={handleCreateTheme}
-              disabled={creatingTheme}
-              className="flex items-center gap-1 rounded-lg border border-dashed border-(--cl-border) px-3 py-2 text-xs text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors disabled:opacity-50"
-            >
-              {creatingTheme ? "Creating…" : "+ New theme"}
-            </button>
+          z-30 clears the z-index 10 the sortable lists give a dragged row, so a
+          row passes under the bar rather than over it. The background must be
+          opaque, not tinted, because the page content scrolls underneath. */}
+      <div className="sticky top-0 z-30 border-b border-(--cl-border) bg-(--cl-bg)">
+        <div className="max-w-5xl mx-auto px-6 py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="min-w-0">{headerTrail}</div>
+          {/* Wraps to its own line rather than shrinking when the trail and the
+              three controls stop fitting side by side, which on a phone they do. */}
+          <div className="flex items-center gap-2 shrink-0">
+            {actionButtons}
+            {headerLink}
           </div>
-
-          {/* Inline colour editor for selected theme */}
-          {currentTheme && (
-            <div className="rounded-lg border border-(--cl-border) bg-white p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={currentTheme.name}
-                    onChange={async (e) => {
-                      const newName = e.target.value;
-                      setThemes((prev) =>
-                        prev.map((t) =>
-                          t.id === currentTheme.id ? { ...t, name: newName } : t,
-                        ),
-                      );
-                      setThemeNameSaved(false);
-                      await fetch(`/api/themes/${currentTheme.id}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name: newName }),
-                      });
-                      setThemeNameSaved(true);
-                      setTimeout(() => setThemeNameSaved(false), 2000);
-                    }}
-                    maxLength={50}
-                    className="text-sm font-medium bg-transparent border-b border-(--cl-border) focus:outline-none focus:border-(--cl-accent) py-0.5 w-40"
-                  />
-                  {themeNameSaved && (
-                    <span className="text-xs text-(--cl-muted)">Saved ✓</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteTheme(currentTheme.id)}
-                  className="text-xs text-red-400 hover:text-red-600 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-
-              <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 text-xs text-(--cl-muted)">
-                  <input
-                    type="color"
-                    value={currentTheme.sidebarColor}
-                    onChange={(e) =>
-                      handleColorChange("sidebarColor", e.target.value)
-                    }
-                    className="w-8 h-8 rounded cursor-pointer border border-(--cl-border) p-0.5"
-                  />
-                  Sidebar
-                </label>
-                <label className="flex items-center gap-2 text-xs text-(--cl-muted)">
-                  <input
-                    type="color"
-                    value={currentTheme.accentColor}
-                    onChange={(e) =>
-                      handleColorChange("accentColor", e.target.value)
-                    }
-                    className="w-8 h-8 rounded cursor-pointer border border-(--cl-border) p-0.5"
-                  />
-                  Accent
-                </label>
-              </div>
-            </div>
-          )}
         </div>
-      </Section>
+        {/* Under the row, not in it: a save error is as long as the API decides
+            it is, and it must not squeeze the buttons that produced it. */}
+        {error && (
+          <p role="alert" className="max-w-5xl mx-auto px-6 pb-2 text-sm text-red-600">
+            {error}
+          </p>
+        )}
+      </div>
 
-      {/* Profile */}
-      {profiles.length > 0 && (
-        <Section title="Profile" headerAction={<ContentLink cvId={cvId} tab="profiles" />}>
-          <div className="space-y-2">
-            {profiles.map((p) => {
-              const selected = profileId === p.id;
+      {/* max-w-4xl, as on My Content: this is the other editing surface, and
+          the reading measure the list pages use was only ever a ceiling here.
+          The gutter sits on this column rather than on `main` so the sticky
+          bar above can still reach the full width of the viewport. */}
+      <div className="max-w-4xl mx-auto px-4 pt-8 space-y-8">
+        {/* Name */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-(--cl-text)">
+            CV name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              markDirty();
+            }}
+            maxLength={100}
+            className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)"
+          />
+        </div>
+
+        {/* Tailored for */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-(--cl-text)">
+            Tailored for
+          </label>
+          <input
+            type="text"
+            value={targetRole}
+            onChange={(e) => { setTargetRole(e.target.value); markDirty(); }}
+            placeholder="e.g. Acme Corp — Senior Designer"
+            maxLength={100}
+            className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)"
+          />
+          <p className="text-xs text-(--cl-muted)">Only shown in the CV list — not printed.</p>
+        </div>
+
+        {/* Layout picker */}
+        <Section title="Layout">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {CV_LAYOUTS.map((layout) => {
+              const selected = layoutId === layout.id;
               return (
-                <label key={p.id} className="flex items-center gap-3 py-1 cursor-pointer group">
-                  <input
-                    type="radio"
-                    name="profile"
-                    checked={selected}
-                    onChange={() => {
-                      setProfileId(p.id);
-                      markDirty();
-                    }}
-                    className="h-4 w-4 accent-(--cl-accent)"
+                <button
+                  key={layout.id}
+                  type="button"
+                  onClick={() => {
+                    setLayoutId(layout.id);
+                    markDirty();
+                  }}
+                  className={`flex flex-col items-center gap-2 rounded-lg border p-2 transition-colors ${
+                    selected
+                      ? "border-(--cl-accent) bg-green-50"
+                      : "border-(--cl-border) hover:border-(--cl-accent) bg-white"
+                  }`}
+                >
+                  <LayoutThumb
+                    layoutId={layout.id}
+                    sidebarColor={currentTheme?.sidebarColor}
+                    accentColor={currentTheme?.accentColor}
+                    selected={selected}
                   />
-                  <span className="text-sm text-(--cl-muted) group-hover:text-(--cl-text)">
-                    {p.profileName}
-                    {p.name ? ` — ${p.name}` : ""}
-                  </span>
-                </label>
+                  <p
+                    className={`text-xs font-medium ${selected ? "text-(--cl-accent)" : "text-(--cl-text)"}`}
+                  >
+                    {layout.name}
+                  </p>
+                </button>
               );
             })}
           </div>
         </Section>
-      )}
 
-      {/* Avatar */}
-      {avatarDoc && avatarDoc.images.length > 0 && (
-        <Section title="Avatar" headerAction={<ContentLink cvId={cvId} tab="avatars" />}>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              type="button"
-              onClick={() => {
-                setAvatarIndex(null);
-                markDirty();
-              }}
-              className={`text-xs px-2 py-1 rounded border transition-colors ${
-                avatarIndex === null
-                  ? "border-(--cl-accent) bg-(--cl-accent) text-white"
-                  : "border-(--cl-border) text-(--cl-muted) hover:border-(--cl-accent)"
-              }`}
-            >
-              None
-            </button>
-            {avatarDoc.images.map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={url}
-                alt={`Avatar ${i + 1}`}
+        {/* Theme picker */}
+        <Section title="Colour theme">
+          <div className="space-y-3">
+            {/* Theme cards */}
+            <div className="flex flex-wrap gap-2">
+              {/* "None" option */}
+              <button
+                type="button"
                 onClick={() => {
-                  setAvatarIndex(i);
+                  setThemeId(null);
                   markDirty();
                 }}
-                className={`w-12 h-12 rounded-full object-cover cursor-pointer transition-all ${
-                  avatarIndex === i
-                    ? "ring-2 ring-(--cl-accent) ring-offset-2"
-                    : "opacity-60 hover:opacity-100"
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                  themeId === null
+                    ? "border-(--cl-accent) bg-green-50 text-(--cl-accent) font-medium"
+                    : "border-(--cl-border) text-(--cl-muted) hover:border-(--cl-accent) bg-white"
                 }`}
-              />
-            ))}
+              >
+                Default
+              </button>
+
+              {themes.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    setThemeId(t.id);
+                    markDirty();
+                  }}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                    themeId === t.id
+                      ? "border-(--cl-accent) bg-green-50 font-medium text-(--cl-text)"
+                      : "border-(--cl-border) text-(--cl-muted) hover:border-(--cl-accent) bg-white"
+                  }`}
+                >
+                  {/* Colour swatches */}
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: t.sidebarColor,
+                      border: "1px solid rgba(0,0,0,0.15)",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: t.accentColor,
+                      border: "1px solid rgba(0,0,0,0.15)",
+                      flexShrink: 0,
+                    }}
+                  />
+                  {t.name}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                onClick={handleCreateTheme}
+                disabled={creatingTheme}
+                className="flex items-center gap-1 rounded-lg border border-dashed border-(--cl-border) px-3 py-2 text-xs text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors disabled:opacity-50"
+              >
+                {creatingTheme ? "Creating…" : "+ New theme"}
+              </button>
+            </div>
+
+            {/* Inline colour editor for selected theme */}
+            {currentTheme && (
+              <div className="rounded-lg border border-(--cl-border) bg-white p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={currentTheme.name}
+                      onChange={async (e) => {
+                        const newName = e.target.value;
+                        setThemes((prev) =>
+                          prev.map((t) =>
+                            t.id === currentTheme.id ? { ...t, name: newName } : t,
+                          ),
+                        );
+                        setThemeNameSaved(false);
+                        await fetch(`/api/themes/${currentTheme.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ name: newName }),
+                        });
+                        setThemeNameSaved(true);
+                        setTimeout(() => setThemeNameSaved(false), 2000);
+                      }}
+                      maxLength={50}
+                      className="text-sm font-medium bg-transparent border-b border-(--cl-border) focus:outline-none focus:border-(--cl-accent) py-0.5 w-40"
+                    />
+                    {themeNameSaved && (
+                      <span className="text-xs text-(--cl-muted)">Saved ✓</span>
+                    )}
+                  </div>
+                  <ActionChip
+                    tone="danger"
+                    onClick={() => handleDeleteTheme(currentTheme.id)}
+                  >
+                    Delete
+                  </ActionChip>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 text-xs text-(--cl-muted)">
+                    <input
+                      type="color"
+                      value={currentTheme.sidebarColor}
+                      onChange={(e) =>
+                        handleColorChange("sidebarColor", e.target.value)
+                      }
+                      className="w-8 h-8 rounded cursor-pointer border border-(--cl-border) p-0.5"
+                    />
+                    Sidebar
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-(--cl-muted)">
+                    <input
+                      type="color"
+                      value={currentTheme.accentColor}
+                      onChange={(e) =>
+                        handleColorChange("accentColor", e.target.value)
+                      }
+                      className="w-8 h-8 rounded cursor-pointer border border-(--cl-border) p-0.5"
+                    />
+                    Accent
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
         </Section>
-      )}
 
-      {/* Experience */}
-      {experiences.length > 0 && (
-        <Section
-          title="Experience"
-          headerAction={<ContentLink cvId={cvId} tab="experience" />}
-          allIds={experiences.map((e) => e.id)}
-          selectedIds={experienceIds}
-          onToggleAll={() =>
-            toggleAll(experienceIds, setExperienceIds, experiences.map((e) => e.id))
-          }
-        >
-          <SortableEntryList
-            ids={experienceIds}
-            onReorder={(ids) => { setExperienceIds(ids); markDirty(); }}
-            entries={experiences}
-            getLabel={(e) => `${e.role} @ ${e.company}`}
-            onToggle={(id) => toggle(experienceIds, setExperienceIds, id)}
-          />
-        </Section>
-      )}
+        {/* Profile */}
+        {profiles.length > 0 && (
+          <Section title="Profile" headerAction={<ContentLink cvId={cvId} tab="profiles" />}>
+            <div className="space-y-2">
+              {profiles.map((p) => {
+                const selected = profileId === p.id;
+                return (
+                  <label key={p.id} className="flex items-center gap-3 py-1 cursor-pointer group">
+                    <input
+                      type="radio"
+                      name="profile"
+                      checked={selected}
+                      onChange={() => {
+                        setProfileId(p.id);
+                        markDirty();
+                      }}
+                      className="h-4 w-4 accent-(--cl-accent)"
+                    />
+                    <span className="text-sm text-(--cl-muted) group-hover:text-(--cl-text)">
+                      {p.profileName}
+                      {p.name ? ` — ${p.name}` : ""}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </Section>
+        )}
 
-      {/* Education */}
-      {educations.length > 0 && (
-        <Section
-          title="Education"
-          headerAction={<ContentLink cvId={cvId} tab="education" />}
-          allIds={educations.map((e) => e.id)}
-          selectedIds={educationIds}
-          onToggleAll={() =>
-            toggleAll(educationIds, setEducationIds, educations.map((e) => e.id))
-          }
-        >
-          <SortableEntryList
-            ids={educationIds}
-            onReorder={(ids) => { setEducationIds(ids); markDirty(); }}
-            entries={educations}
-            getLabel={(e) => `${e.degree ?? "Degree"} — ${e.institution}`}
-            onToggle={(id) => toggle(educationIds, setEducationIds, id)}
-          />
-        </Section>
-      )}
+        {/* Avatar */}
+        {avatarDoc && avatarDoc.images.length > 0 && (
+          <Section title="Avatar" headerAction={<ContentLink cvId={cvId} tab="avatars" />}>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setAvatarIndex(null);
+                  markDirty();
+                }}
+                className={`text-xs px-2 py-1 rounded border transition-colors ${
+                  avatarIndex === null
+                    ? "border-(--cl-accent) bg-(--cl-accent) text-white"
+                    : "border-(--cl-border) text-(--cl-muted) hover:border-(--cl-accent)"
+                }`}
+              >
+                None
+              </button>
+              {avatarDoc.images.map((url, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={url}
+                  alt={`Avatar ${i + 1}`}
+                  onClick={() => {
+                    setAvatarIndex(i);
+                    markDirty();
+                  }}
+                  className={`w-12 h-12 rounded-full object-cover cursor-pointer transition-all ${
+                    avatarIndex === i
+                      ? "ring-2 ring-(--cl-accent) ring-offset-2"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                />
+              ))}
+            </div>
+          </Section>
+        )}
 
-      {/* Skills — grouped per CV, so the arrangement is not a checkbox list */}
-      {skills.length > 0 && (
-        <Section title="Skills" headerAction={<ContentLink cvId={cvId} tab="skills" />}>
-          <CvSkillsEditor
-            skills={skills}
-            categories={skillCategories}
-            groups={skillGroups}
-            selectedIds={skillIds}
-            onGroupsChange={(g) => { setSkillGroups(g); markDirty(); }}
-            onSelectedChange={(ids) => { setSkillIds(ids); markDirty(); }}
-          />
-        </Section>
-      )}
-
-      {/* Projects */}
-      {projects.length > 0 && (
-        <Section
-          title="Projects"
-          headerAction={<ContentLink cvId={cvId} tab="projects" />}
-          allIds={projects.map((p) => p.id)}
-          selectedIds={projectIds}
-          onToggleAll={() =>
-            toggleAll(projectIds, setProjectIds, projects.map((p) => p.id))
-          }
-        >
-          <SortableEntryList
-            ids={projectIds}
-            onReorder={(ids) => { setProjectIds(ids); markDirty(); }}
-            entries={projects}
-            getLabel={(p) => p.title}
-            onToggle={(id) => toggle(projectIds, setProjectIds, id)}
-          />
-        </Section>
-      )}
-
-      {/* Other */}
-      {others.length > 0 && (
-        <Section
-          title="Other"
-          headerAction={<ContentLink cvId={cvId} tab="other" />}
-          allIds={others.map((o) => o.id)}
-          selectedIds={otherIds}
-          onToggleAll={() =>
-            toggleAll(otherIds, setOtherIds, others.map((o) => o.id))
-          }
-        >
-          <SortableEntryList
-            ids={otherIds}
-            onReorder={(ids) => { setOtherIds(ids); markDirty(); }}
-            entries={others}
-            getLabel={(o) => o.subtitle ? `${o.title} — ${o.subtitle}` : o.title}
-            onToggle={(id) => toggle(otherIds, setOtherIds, id)}
-          />
-        </Section>
-      )}
-
-      {/* Timeline mode */}
-      <Section title="Timeline">
-        <div className="flex flex-col gap-2">
-          <label className="flex items-start gap-2 cursor-pointer group">
-            <input
-              type="radio"
-              name="chronological"
-              checked={!chronological}
-              onChange={() => { setChronological(false); markDirty(); }}
-              className="mt-0.5 h-4 w-4 accent-(--cl-accent)"
+        {/* Experience */}
+        {experiences.length > 0 && (
+          <Section
+            title="Experience"
+            headerAction={<ContentLink cvId={cvId} tab="experience" />}
+            allIds={experiences.map((e) => e.id)}
+            selectedIds={experienceIds}
+            onToggleAll={() =>
+              toggleAll(experienceIds, setExperienceIds, experiences.map((e) => e.id))
+            }
+          >
+            <SortableEntryList
+              ids={experienceIds}
+              onReorder={(ids) => { setExperienceIds(ids); markDirty(); }}
+              entries={experiences}
+              getLabel={(e) => `${e.role} @ ${e.company}`}
+              onToggle={(id) => toggle(experienceIds, setExperienceIds, id)}
             />
-            <span className="text-sm text-(--cl-text)">
-              Grouped by section
-              <span className="block text-xs text-(--cl-muted)">Experience, Education, Projects, and Other each render as their own block, in the order below.</span>
-            </span>
-          </label>
-          <label className="flex items-start gap-2 cursor-pointer group">
-            <input
-              type="radio"
-              name="chronological"
-              checked={chronological}
-              onChange={() => { setChronological(true); markDirty(); }}
-              className="mt-0.5 h-4 w-4 accent-(--cl-accent)"
+          </Section>
+        )}
+
+        {/* Education */}
+        {educations.length > 0 && (
+          <Section
+            title="Education"
+            headerAction={<ContentLink cvId={cvId} tab="education" />}
+            allIds={educations.map((e) => e.id)}
+            selectedIds={educationIds}
+            onToggleAll={() =>
+              toggleAll(educationIds, setEducationIds, educations.map((e) => e.id))
+            }
+          >
+            <SortableEntryList
+              ids={educationIds}
+              onReorder={(ids) => { setEducationIds(ids); markDirty(); }}
+              entries={educations}
+              getLabel={(e) => `${e.degree ?? "Degree"} — ${e.institution}`}
+              onToggle={(id) => toggle(educationIds, setEducationIds, id)}
             />
-            <span className="text-sm text-(--cl-text)">
-              Mixed, chronological order
-              <span className="block text-xs text-(--cl-muted)">Experience, Education, Projects, and Other are merged into one timeline sorted by date (most recent first). Skills stays separate.</span>
-            </span>
-          </label>
+          </Section>
+        )}
+
+        {/* Skills — grouped per CV, so the arrangement is not a checkbox list */}
+        {skills.length > 0 && (
+          <Section title="Skills" headerAction={<ContentLink cvId={cvId} tab="skills" />}>
+            <CvSkillsEditor
+              skills={skills}
+              categories={skillCategories}
+              groups={skillGroups}
+              selectedIds={skillIds}
+              onGroupsChange={(g) => { setSkillGroups(g); markDirty(); }}
+              onSelectedChange={(ids) => { setSkillIds(ids); markDirty(); }}
+            />
+          </Section>
+        )}
+
+        {/* Projects */}
+        {projects.length > 0 && (
+          <Section
+            title="Projects"
+            headerAction={<ContentLink cvId={cvId} tab="projects" />}
+            allIds={projects.map((p) => p.id)}
+            selectedIds={projectIds}
+            onToggleAll={() =>
+              toggleAll(projectIds, setProjectIds, projects.map((p) => p.id))
+            }
+          >
+            <SortableEntryList
+              ids={projectIds}
+              onReorder={(ids) => { setProjectIds(ids); markDirty(); }}
+              entries={projects}
+              getLabel={(p) => p.title}
+              onToggle={(id) => toggle(projectIds, setProjectIds, id)}
+            />
+          </Section>
+        )}
+
+        {/* Other */}
+        {others.length > 0 && (
+          <Section
+            title="Other"
+            headerAction={<ContentLink cvId={cvId} tab="other" />}
+            allIds={others.map((o) => o.id)}
+            selectedIds={otherIds}
+            onToggleAll={() =>
+              toggleAll(otherIds, setOtherIds, others.map((o) => o.id))
+            }
+          >
+            <SortableEntryList
+              ids={otherIds}
+              onReorder={(ids) => { setOtherIds(ids); markDirty(); }}
+              entries={others}
+              getLabel={(o) => o.subtitle ? `${o.title} — ${o.subtitle}` : o.title}
+              onToggle={(id) => toggle(otherIds, setOtherIds, id)}
+            />
+          </Section>
+        )}
+
+        {/* Timeline mode */}
+        <Section title="Timeline">
+          <div className="flex flex-col gap-2">
+            <label className="flex items-start gap-2 cursor-pointer group">
+              <input
+                type="radio"
+                name="chronological"
+                checked={!chronological}
+                onChange={() => { setChronological(false); markDirty(); }}
+                className="mt-0.5 h-4 w-4 accent-(--cl-accent)"
+              />
+              <span className="text-sm text-(--cl-text)">
+                Grouped by section
+                <span className="block text-xs text-(--cl-muted)">Experience, Education, Projects, and Other each render as their own block, in the order below.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 cursor-pointer group">
+              <input
+                type="radio"
+                name="chronological"
+                checked={chronological}
+                onChange={() => { setChronological(true); markDirty(); }}
+                className="mt-0.5 h-4 w-4 accent-(--cl-accent)"
+              />
+              <span className="text-sm text-(--cl-text)">
+                Mixed, chronological order
+                <span className="block text-xs text-(--cl-muted)">Experience, Education, Projects, and Other are merged into one timeline sorted by date (most recent first). Skills stays separate.</span>
+              </span>
+            </label>
+          </div>
+        </Section>
+
+        {/* Section order */}
+        {!chronological && (
+          <Section title="Section order">
+            <p className="text-xs text-(--cl-muted) mb-3">Hold and drag to reorder sections in your CV.</p>
+            <SectionOrderEditor
+              sectionOrder={sectionOrder}
+              onChange={(order) => { setSectionOrder(order); markDirty(); }}
+            />
+          </Section>
+        )}
+
+        {/* Cover letter */}
+        <Section title="Cover letter">
+          <textarea
+            value={coverLetter}
+            onChange={(e) => { setCoverLetter(e.target.value); markDirty(); }}
+            placeholder="Write a cover letter for this application…"
+            rows={8}
+            maxLength={5000}
+            className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent) resize-y"
+          />
+          <p className="text-xs text-(--cl-muted)">Printed as a separate page before the CV when not empty.</p>
+        </Section>
+
+        {/* Actions — save moved to the sticky header, so this row is the one
+            destructive control, kept at the far end of the form where it cannot
+            be hit by accident. */}
+        <div className="flex items-center justify-end pt-2">
+          <ActionChip
+            tone="danger-strong"
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting && (
+              <svg className="animate-spin h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            )}
+            {deleting ? "Deleting…" : "Delete CV"}
+          </ActionChip>
         </div>
-      </Section>
-
-      {/* Section order */}
-      {!chronological && (
-        <Section title="Section order">
-          <p className="text-xs text-(--cl-muted) mb-3">Hold and drag to reorder sections in your CV.</p>
-          <SectionOrderEditor
-            sectionOrder={sectionOrder}
-            onChange={(order) => { setSectionOrder(order); markDirty(); }}
-          />
-        </Section>
-      )}
-
-      {/* Cover letter */}
-      <Section title="Cover letter">
-        <textarea
-          value={coverLetter}
-          onChange={(e) => { setCoverLetter(e.target.value); markDirty(); }}
-          placeholder="Write a cover letter for this application…"
-          rows={8}
-          maxLength={5000}
-          className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent) resize-y"
-        />
-        <p className="text-xs text-(--cl-muted)">Printed as a separate page before the CV when not empty.</p>
-      </Section>
-
-      {/* Actions */}
-      <div className="flex items-center gap-4 pt-2">
-        {actionButtons}
-        {error && <span className="text-sm text-red-600">{error}</span>}
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="ml-auto text-sm text-red-500 hover:text-red-700 disabled:opacity-50 flex items-center gap-1.5"
-        >
-          {deleting && (
-            <svg className="animate-spin h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          )}
-          {deleting ? "Deleting…" : "Delete CV"}
-        </button>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -820,12 +865,7 @@ function SaveButton({
 // the tab so the trip lands on the right one.
 function ContentLink({ cvId, tab }: { cvId: string; tab: string }) {
   return (
-    <Link
-      href={`/content?tab=${tab}&from=${cvId}`}
-      className="text-xs text-(--cl-muted) hover:text-(--cl-accent) transition-colors whitespace-nowrap"
-    >
-      My Content →
-    </Link>
+    <ActionChip href={`/content?tab=${tab}&from=${cvId}`}>My Content →</ActionChip>
   );
 }
 
@@ -847,20 +887,21 @@ function Section({
   const allChecked = allIds && selectedIds && selectedIds.length === allIds.length;
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between border-b border-(--cl-border) pb-1">
-        <h2 className="text-base font-semibold text-(--cl-text)">{title}</h2>
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-4 border-b border-(--cl-border) pb-1.5">
+        {/* The header action belongs to the heading — it names where this
+            section's wording is edited — so it sits beside the title rather than
+            banished to the far edge. gap-4 is the air that keeps it from being
+            read as part of the title itself. The All/None toggle acts on the
+            list below, not on the heading, and stays right-aligned above it. */}
+        <div className="flex min-w-0 items-center gap-4">
+          <h2 className="text-base font-semibold text-(--cl-text)">{title}</h2>
           {headerAction}
-          {onToggleAll && (
-            <button
-              type="button"
-              onClick={onToggleAll}
-              className="text-xs text-(--cl-muted) hover:text-(--cl-accent) transition-colors"
-            >
-              {allChecked ? "None" : "All"}
-            </button>
-          )}
         </div>
+        {onToggleAll && (
+          <ActionChip onClick={onToggleAll}>
+            {allChecked ? "None" : "All"}
+          </ActionChip>
+        )}
       </div>
       {children}
     </div>

@@ -140,9 +140,9 @@ cv-cms/
 │   │   │       ├── DuplicateCvButton.tsx
 │   │   │       └── [cvId]/
 │   │   │           ├── page.tsx                     ← CV editor page (server); renders CvEditShell
-│   │   │           ├── CvEditShell.tsx              ← client wrapper: breadcrumb + Preview link; holds live CV name and the dirty flag
+│   │   │           ├── CvEditShell.tsx              ← client wrapper: builds the breadcrumb + Preview link and passes them to CvEditor as header slots; holds live CV name and the dirty flag
 │   │   │           ├── CvSwitcher.tsx               ← select dropdown to switch between CVs
-│   │   │           ├── CvEditor.tsx                 ← layout picker + theme picker + profile radio + avatar picker + entry checkboxes + section order + cover letter; dirty-state save button; maxLength on all text inputs; calls onNameChange on successful save
+│   │   │           ├── CvEditor.tsx                 ← layout picker + theme picker + profile radio + avatar picker + entry checkboxes + section order + cover letter; sticky header carrying the trail, Revert/Save and Preview; maxLength on all text inputs; calls onNameChange on successful save
 │   │   │           ├── SectionOrderEditor.tsx       ← drag-and-drop section reorder (dnd-kit)
 │   │   │           ├── SortableEntryList.tsx        ← drag-and-drop entry list with checkboxes
 │   │   │           ├── CvSkillsEditor.tsx           ← per-CV skill grouping: reorder categories, drag skills between them, show/hide
@@ -150,7 +150,7 @@ cv-cms/
 │   │   │           └── view/
 │   │   │               ├── page.tsx                 ← A4 CV preview (server)
 │   │   │               ├── CvScaleWrapper.tsx       ← client wrapper: scales CV to fit viewport (transform: scale)
-│   │   │               ├── ViewToolbar.tsx          ← client toolbar: `← Back to <CV name>` | layout badge + PDF
+│   │   │               ├── ViewToolbar.tsx          ← sticky client toolbar: `← Back to <CV name>` | layout badge + PDF
 │   │   │               └── ExportButton.tsx         ← "Save as PDF" client button (calls window.print())
 │   │   └── api/
 │   │       ├── auth/[...all]/route.ts               ← Better Auth catch-all handler
@@ -172,6 +172,7 @@ cv-cms/
 │   │       │   └── other/route.ts + [id]/route.ts
 │   │       └── user/route.ts                        ← DELETE: prisma.user.delete() → cascades all content
 │   ├── components/
+│   │   ├── ActionChip.tsx                           ← shared small secondary action (Edit / Delete / All / My Content →); tone="accent"|"danger"|"danger-strong"; Link when href is given
 │   │   ├── Breadcrumbs.tsx                          ← Breadcrumbs / CrumbLink / CrumbCurrent; used by the CV editor
 │   │   ├── BackToCvLink.tsx                         ← `← Back to <CV name>`; shared by My Content and the preview toolbar
 │   │   ├── Logo.tsx                                 ← inline SVG logo (page + leaf motif); uses currentColor; matches app icon
@@ -599,6 +600,23 @@ The marker is a bar in `--cl-nav-muted` olive — underneath the link on desktop
 
 The page has no heading of its own; the breadcrumb is the heading. `My CVs / [switcher]` — the switcher **is** the CV segment, because a bare `<select>` reads as a control rather than as a title, and having both would mean two elements competing to say where you are.
 
+### Sticky editor header
+
+The trail and Save share one pinned bar at the top of the form. The form is long — layout, theme, profile, avatar, six entry lists, section order, cover letter — and Save used to be reachable only by scrolling to the bottom, which is why the same button was also duplicated into the "Colour theme" section header. The pin removes the reason for both copies; the bottom row now holds only "Delete CV".
+
+The bar is rendered by `CvEditor`, not by `CvEditShell`, even though the trail and the Preview link belong to the shell. Save and Revert read `saving` / `isDirty` / `saved` / `error` and call `handleSave` / `handleRevert`, all of which sit on the fifteen-odd pieces of form state `CvEditor` owns. So the shell passes its two nodes *down* as `headerTrail` and `headerLink` slots rather than the state being lifted *up* to meet them — two props instead of a rewrite, and no portal or ref indirection that would leave the bar empty on first paint.
+
+**The page has two widths, and `CvEditor` owns both.** The bar is chrome and matches `NavBar` and the footer exactly: a full-bleed band with a `max-w-5xl mx-auto px-6` container, so the trail lands under the logo and Preview under Sign out. The form is an editing surface and stays at `max-w-4xl px-4`, as on My Content. `CvEditor` therefore returns a fragment of two siblings — the band, then the column — and `page.tsx` renders `CvEditShell` directly into `main` with no wrapper of its own. Going full-bleed from *inside* the `max-w-4xl` column would have needed `w-screen` or `calc(-50vw + 50%)`, both of which count the scrollbar and produce horizontal overflow; hoisting the column one level down was the way to avoid the hack entirely.
+
+`main` carries `pb-12` but no top padding — the bar has to sit flush under the nav — and the form column carries the `pt-8` that replaces it.
+
+Details that are load-bearing:
+
+- `z-30` clears the `zIndex: 10` that `SortableEntryList` and `SectionOrderEditor` give a row while it is being dragged, so a dragged row passes under the bar. dnd-kit's `DragOverlay` portals to `body` and stays above it, which is correct.
+- The background is opaque `--cl-bg`, not a tint — page content scrolls underneath.
+- The row is `flex-wrap`; on a phone the three controls drop to a second line rather than crushing the switcher.
+- A save error renders *under* the row, in the same `max-w-5xl px-6` container. It is whatever length the API makes it, and beside the buttons it would squeeze them.
+
 ### Unsaved changes
 
 `CvEditor` reports its dirty flag up through `onDirtyChange`, and `CvEditShell` arms `useUnsavedChangesWarning`. Two nets are needed:
@@ -624,7 +642,31 @@ A CV section picks entries from the library but cannot edit their wording, so ea
 
 `ViewToolbar` carries a `← Back to <CV name>` link to the editor, plus the layout badge and the PDF button. It shares the `max-w-5xl mx-auto px-6` container with the nav bar and the footer so the bands line up.
 
+It is `sticky top-0 z-30` with the same full-bleed opaque band as the editor's header — a preview is several A4 pages tall, and both the way out and "Save as PDF" were otherwise reachable only by scrolling back to the top. The band is a consequence of the pin, not decoration: content scrolls underneath, so the background has to be opaque. Sticky survives `CvScaleWrapper`'s `overflow-hidden` because that wrapper is the toolbar's *sibling*, not its ancestor, leaving the document as the scroll container. `print:hidden` sits on the outermost element, so none of it reaches the PDF.
+
 `max-w-5xl mx-auto px-6` is the **page band** — nav bar, footer, preview toolbar, and the back link on My Content all use it, so the way back starts at the logo's left edge wherever it appears. A page's content column is a separate, narrower container and is *not* meant to line up with it: putting the back link inside that column instead is what pushed it far right of every other top-level element.
+
+### Small secondary actions — ActionChip
+
+Every "Edit", "Delete", "All / None", "Duplicate" and "My Content →" in the app is one `ActionChip`. They were previously bare `text-xs` labels in `--cl-muted` (or `text-red-400`), repeated inline at a dozen call sites.
+
+The chip has a border, `text-sm`, and a hover that **fills** rather than only recolouring the label. Colour alone was not carrying "this is a target": in a section header these controls compete with a semibold heading and a rule, and in a list row they sit at the end of a line of content. It is the same finding as NavBar's active marker — a colour step on its own is both too small to notice and indistinguishable from a hover.
+
+Three tones. `accent` and `danger` both start from the same neutral `--cl-border`: a list of twenty entries whose Delete chips were red at rest would read as a list of warnings, so a repeated `danger` earns its red on hover rather than at a glance.
+
+`danger-strong` is the opposite case — a page's **single** destructive action, where there is no repetition to mute and being found is the point. It carries red in the frame as well as the label. One per page; the CV editor's "Delete CV" is the only user today.
+
+It renders a `<Link>` when `href` is passed and a `<button>` otherwise. That matters where one of each sits side by side — the CV editor's section headers pair the `My Content →` link with the `All/None` button, and they must not drift apart.
+
+`onClick` is typed `(e: MouseEvent) => void` rather than `() => void`, because `DuplicateCvButton` reads the event.
+
+**Not** an ActionChip: the sign-in page's "Forgot password?", which is prose inside a form rather than an action on a row, and the primary buttons (Save, Save as PDF, Preview), which have their own weight.
+
+### Type scale
+
+Nothing in the **UI** is set below `text-sm` (14px) — that is the floor. Above it: `text-base` for section headings, `text-lg`+ for page headings. The secondary/primary distinction is carried by `--cl-muted` and font weight, not by size.
+
+This floor does **not** apply to `src/components/cv-layouts/`. Those are A4 documents, not interface: `text-xs` and smaller there is document typography, and `Paginated.tsx` measures rendered block heights to decide page breaks — changing a font size changes every measurement and moves the page breaks on existing CVs.
 
 ### Content column widths
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SkillCategoryManager } from "./SkillCategoryManager";
 import type { Skill, SkillCategoryOption } from "./ContentTabs";
+import { ActionChip } from "@/components/ActionChip";
 
 interface Props {
   initialItems: Skill[];
@@ -202,13 +203,7 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
               {item.cefrLevel && (
                 <span className="text-xs text-(--cl-muted)">{item.cefrLevel}</span>
               )}
-              <button
-                type="button"
-                onClick={() => setEditingId(item.id)}
-                className="text-xs text-(--cl-muted) hover:text-(--cl-accent) transition-colors"
-              >
-                Edit
-              </button>
+              <ActionChip onClick={() => setEditingId(item.id)}>Edit</ActionChip>
             </span>
           ))}
         </div>
