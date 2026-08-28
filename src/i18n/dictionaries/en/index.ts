@@ -1,5 +1,6 @@
 import { auth } from "./auth";
 import { common } from "./common";
+import { content } from "./content";
 import { cvs } from "./cvs";
 import { footer } from "./footer";
 import { importPage } from "./importPage";
@@ -20,6 +21,7 @@ import { settings } from "./settings";
 export const en = {
   auth,
   common,
+  content,
   cvs,
   footer,
   importPage,

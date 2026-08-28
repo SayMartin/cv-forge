@@ -124,7 +124,7 @@ cv-cms/
 │   │       ├── index.ts                             ← dictionaryFor(locale); Record<Locale, Dictionary>
 │   │       ├── en/                                  ← the reference dictionary; its shape IS the contract
 │   │       │   ├── index.ts                         ← composes the slices and exports `type Dictionary`
-│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts, auth.ts, cvs.ts, settings.ts, importPage.ts
+│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts, auth.ts, cvs.ts, content.ts, settings.ts, importPage.ts
 │   │       │                                        ← `importPage`, not `import` — a reserved word cannot be an import name
 │   │       └── sv/                                  ← same file list; each slice annotated Dictionary["<slice>"]
 │   ├── app/
@@ -347,6 +347,21 @@ Categories are user-defined, up to nine, in `skill_category`:
 Every new account is seeded with the eight names in `SKILL_CATEGORIES` (`src/lib/cv-content-types.ts`) by the Better Auth `user.create.after` hook, so the cap sits one above that: a new user can always add a category of their own without deleting a seeded one. The seeded list is also the enum the PDF importer gives Gemini — and the importer resolves the model's answer against **that user's own rows**, so changing a seeded name is only half a change. Existing accounts keep the old row until it is renamed in My Content, and until then any skill the model files under the new name imports uncategorised, silently.
 
 `kind` exists so that the **role** of a category survives a rename. Europass renders a CEFR table, and the layouts find that group with `kind === "language"` rather than by matching a heading, which free-text names would make unreliable. The language category cannot be renamed or deleted; every other one can.
+
+**Sorting skill names is locale-dependent, and the default is wrong.** `SkillsTab` re-sorts client
+side through an `Intl.Collator` built from the UI locale. A bare `localeCompare(b.name)` collates in
+the *runtime's default* locale — the browser's language setting, which has nothing to do with the
+locale the page is rendered in, so two people saw different orders for the same list and neither
+followed the app. Swedish treats å, ä and ö as their own letters after z; English treats them as
+decorated a and o, which put "Ångström" straight after "Analys" instead of after "Zod". One collator
+per sort, not `localeCompare` per comparison — building it is the expensive half of `Intl` and a sort
+calls the comparator O(n log n) times.
+
+> **Known limitation:** the initial `orderBy` on skills and profiles in `content/page.tsx` runs in
+> Postgres under the database collation, which JavaScript cannot influence. `SkillsTab` re-sorts what
+> it receives, so skills are correct; **profiles are not re-sorted and keep the database order.**
+> Fixing it properly means `ORDER BY … COLLATE "sv-SE-x-icu"` and a query that knows the request
+> locale — not worth it for a list that is typically two or three rows.
 
 `cv.skillGroups` holds the arrangement, ordered:
 
@@ -663,6 +678,19 @@ from silently failing. The code list is deliberately **not** cross-checked again
 `APIErrorCode` union: that would mean importing from `@better-auth/core`, a transitive dependency
 this project does not declare. If a code is renamed upstream, that case stops matching and the reader
 sees the fallback — nothing breaks and no English leaks.
+
+**Repeated verbs live once per area, not once per component.** My Content is seven near-identical
+CRUD panels, so `content.form` holds the set they share — `create`, `save`, `saving`, `cancel`,
+`edit`, `delete`, `deleting` and the four failure messages — and each tab slice holds only what is
+its own. Seven copies of "Save changes" is seven chances for one to end up as "Spara" while the rest
+say "Spara ändringar", and nothing would ever flag it; one key cannot drift from itself. This is not
+`common`, which is reserved for strings crossing *areas* — a shared sub-slice inside the area is the
+right scope.
+
+**Field labels and placeholders are paired in one object per field.** A placeholder is an example,
+and an example still reading "Acme Corp" under a Swedish label is the tell that a translation was
+done halfway — so they are translated together, and a field with no placeholder simply has no
+`placeholder` key rather than an optional one that can silently go missing.
 
 **Two ways in, depending on which side of the boundary you are on:**
 

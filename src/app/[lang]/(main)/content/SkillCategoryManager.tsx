@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useDictionary } from "@/i18n/DictionaryProvider";
+import { format } from "@/i18n/format";
 import { MAX_SKILL_CATEGORIES } from "@/lib/cv-content-types";
 import type { SkillCategoryOption } from "./ContentTabs";
 import { ActionChip } from "@/components/ActionChip";
@@ -14,6 +16,8 @@ function CategoryRow({
   onRename: (id: string, name: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
+  const { form: t, skills } = useDictionary().content;
+  const d = skills.categories;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(category.name);
   const [busy, setBusy] = useState(false);
@@ -46,7 +50,7 @@ function CategoryRow({
           value={draft}
           autoFocus
           disabled={busy}
-          aria-label={`Rename ${category.name}`}
+          aria-label={format(d.renameLabel, { name: category.name })}
           maxLength={40}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
@@ -72,9 +76,9 @@ function CategoryRow({
       {category.kind === "language" && !editing && (
         <span
           className="text-sm text-(--cl-muted) shrink-0"
-          title="Spoken languages — enables CEFR levels and the Europass language table. Fixed: cannot be renamed or deleted."
+          title={d.languageTooltip}
         >
-          CEFR
+          {d.languageBadge}
         </span>
       )}
 
@@ -82,7 +86,7 @@ function CategoryRow({
           UI from offering an action that cannot succeed. */}
       {category.kind !== "language" && (
         <ActionChip tone="danger" onClick={() => onDelete(category.id)}>
-          Delete
+          {t.delete}
         </ActionChip>
       )}
 
@@ -96,6 +100,8 @@ interface Props {
 }
 
 export function SkillCategoryManager({ categories, onChange }: Props) {
+  const { form: t, skills } = useDictionary().content;
+  const d = skills.categories;
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
@@ -109,7 +115,7 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Rename failed");
+      setError(data.error ?? d.renameFailed);
       return;
     }
     onChange(categories.map((c) => (c.id === id ? { ...c, name } : c)));
@@ -122,7 +128,7 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
       const data = await res.json().catch(() => ({}));
       // A populated category is refused by the API rather than silently
       // uncategorising its skills — surface that reason verbatim.
-      setError(data.error ?? "Delete failed");
+      setError(data.error ?? t.deleteFailed);
       return;
     }
     onChange(categories.filter((c) => c.id !== id));
@@ -142,7 +148,7 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Could not add category");
+        setError(data.error ?? d.addFailed);
         return;
       }
       onChange([...categories, { id: data.id, name, kind: "normal" }]);
@@ -157,12 +163,8 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
   return (
     <div className="bg-white border border-(--cl-border) rounded-xl px-5 py-4 space-y-3">
       <div>
-        <p className="text-sm font-medium text-(--cl-text)">Categories</p>
-        <p className="text-sm text-(--cl-muted) mt-0.5">
-          Your own grouping. Click a name to rename it. Which categories a CV shows,
-          in what order, and which skills go in each is decided per CV in the CV
-          editor. The language category is fixed — the Europass layout needs it.
-        </p>
+        <p className="text-sm font-medium text-(--cl-text)">{d.title}</p>
+        <p className="text-sm text-(--cl-muted) mt-0.5">{d.description}</p>
       </div>
 
       <ol className="space-y-1.5">
@@ -177,7 +179,7 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
       </ol>
 
       {categories.length === 0 && (
-        <p className="text-sm text-(--cl-muted)">No categories yet — add one below.</p>
+        <p className="text-sm text-(--cl-muted)">{d.empty}</p>
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -187,8 +189,8 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
           type="text"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder={atLimit ? `Limit of ${MAX_SKILL_CATEGORIES} reached` : "New category"}
-          aria-label="New category name"
+          placeholder={atLimit ? format(d.atLimit, { max: MAX_SKILL_CATEGORIES }) : d.newPlaceholder}
+          aria-label={d.newLabel}
           maxLength={40}
           disabled={atLimit}
           className="flex-1 border border-(--cl-border) rounded-lg px-3 py-1.5 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent) disabled:opacity-50 disabled:bg-(--cl-pill)"
@@ -198,7 +200,7 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
           disabled={adding || atLimit || !newName.trim()}
           className="rounded-lg border border-(--cl-border) px-3 py-1.5 text-sm text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors disabled:opacity-50"
         >
-          Add
+          {d.add}
         </button>
       </form>
     </div>

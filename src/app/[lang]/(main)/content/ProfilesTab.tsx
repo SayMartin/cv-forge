@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 import type { Profile } from "./ContentTabs";
 import { ActionChip } from "@/components/ActionChip";
 
@@ -38,6 +39,7 @@ function ProfileForm({
   onSubmit: (data: FormState) => Promise<void>;
   onCancel: () => void;
 }) {
+  const { form: t, profiles: d } = useDictionary().content;
   const [form, setForm] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ function ProfileForm({
     try {
       await onSubmit(form);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      setError(err instanceof Error ? err.message : t.saveFailed);
       setSaving(false);
     }
   }
@@ -61,34 +63,34 @@ function ProfileForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Field label="Profile label *" value={form.profileName} onChange={(v) => set("profileName", v)} placeholder='e.g. "Frontend Developer"' required />
-        <Field label="Full name *" value={form.name} onChange={(v) => set("name", v)} placeholder="Jane Smith" required />
-        <Field label="Headline" value={form.headline} onChange={(v) => set("headline", v)} placeholder="Senior Software Engineer" />
-        <Field label="Email" value={form.email} onChange={(v) => set("email", v)} type="email" placeholder="jane@example.com" />
-        <Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} placeholder="+1 555 000 0000" />
-        <Field label="Location" value={form.location} onChange={(v) => set("location", v)} placeholder="Stockholm, Sweden" />
+        <Field label={d.fields.profileName.label} value={form.profileName} onChange={(v) => set("profileName", v)} placeholder={d.fields.profileName.placeholder} required />
+        <Field label={d.fields.name.label} value={form.name} onChange={(v) => set("name", v)} placeholder={d.fields.name.placeholder} required />
+        <Field label={d.fields.headline.label} value={form.headline} onChange={(v) => set("headline", v)} placeholder={d.fields.headline.placeholder} />
+        <Field label={d.fields.email.label} value={form.email} onChange={(v) => set("email", v)} type="email" placeholder={d.fields.email.placeholder} />
+        <Field label={d.fields.phone.label} value={form.phone} onChange={(v) => set("phone", v)} placeholder={d.fields.phone.placeholder} />
+        <Field label={d.fields.location.label} value={form.location} onChange={(v) => set("location", v)} placeholder={d.fields.location.placeholder} />
       </div>
-      <Field label="Bio" value={form.bio} onChange={(v) => set("bio", v)} multiline placeholder="A short summary about yourself…" />
-      <p className="text-sm font-medium text-(--cl-muted) uppercase tracking-wider pt-1">Europass details (optional)</p>
+      <Field label={d.fields.bio.label} value={form.bio} onChange={(v) => set("bio", v)} multiline placeholder={d.fields.bio.placeholder} />
+      <p className="text-sm font-medium text-(--cl-muted) uppercase tracking-wider pt-1">{d.europass}</p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Field label="Nationality" value={form.nationality} onChange={(v) => set("nationality", v)} placeholder="Swedish" />
-        <Field label="Date of birth" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} type="date" />
-        <Field label="Driving license" value={form.drivingLicense} onChange={(v) => set("drivingLicense", v)} placeholder="B" />
+        <Field label={d.fields.nationality.label} value={form.nationality} onChange={(v) => set("nationality", v)} placeholder={d.fields.nationality.placeholder} />
+        <Field label={d.fields.dateOfBirth.label} value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} type="date" />
+        <Field label={d.fields.drivingLicense.label} value={form.drivingLicense} onChange={(v) => set("drivingLicense", v)} placeholder={d.fields.drivingLicense.placeholder} />
       </div>
-      <p className="text-sm font-medium text-(--cl-muted) uppercase tracking-wider pt-1">Social links</p>
+      <p className="text-sm font-medium text-(--cl-muted) uppercase tracking-wider pt-1">{d.social}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Field label="LinkedIn" value={form.linkedin} onChange={(v) => set("linkedin", v)} placeholder="https://linkedin.com/in/…" />
-        <Field label="GitHub" value={form.github} onChange={(v) => set("github", v)} placeholder="https://github.com/…" />
-        <Field label="Website" value={form.website} onChange={(v) => set("website", v)} placeholder="https://yoursite.com" />
-        <Field label="Portfolio" value={form.portfolio} onChange={(v) => set("portfolio", v)} placeholder="https://portfolio.com" />
+        <Field label={d.fields.linkedin.label} value={form.linkedin} onChange={(v) => set("linkedin", v)} placeholder={d.fields.linkedin.placeholder} />
+        <Field label={d.fields.github.label} value={form.github} onChange={(v) => set("github", v)} placeholder={d.fields.github.placeholder} />
+        <Field label={d.fields.website.label} value={form.website} onChange={(v) => set("website", v)} placeholder={d.fields.website.placeholder} />
+        <Field label={d.fields.portfolio.label} value={form.portfolio} onChange={(v) => set("portfolio", v)} placeholder={d.fields.portfolio.placeholder} />
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex items-center gap-2 pt-1">
         <button type="submit" disabled={saving} className="bg-(--cl-accent) text-white rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-50 hover:bg-(--cl-accent-hov) transition-colors">
-          {saving ? "Saving…" : submitLabel}
+          {saving ? t.saving : submitLabel}
         </button>
         <button type="button" onClick={onCancel} className="rounded-lg border border-(--cl-border) px-4 py-1.5 text-sm text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors">
-          Cancel
+          {t.cancel}
         </button>
       </div>
     </form>
@@ -96,6 +98,7 @@ function ProfileForm({
 }
 
 export function ProfilesTab({ initialItems }: Props) {
+  const { form: t, profiles: d } = useDictionary().content;
   const [items, setItems] = useState<Profile[]>(initialItems);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -120,7 +123,7 @@ export function ProfilesTab({ initialItems }: Props) {
       }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Failed to create");
+    if (!res.ok) throw new Error(data.error ?? t.createFailed);
     const newItem: Profile = {
       id: data.id,
       profileName: form.profileName,
@@ -158,7 +161,7 @@ export function ProfilesTab({ initialItems }: Props) {
       }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Failed to update");
+    if (!res.ok) throw new Error(data.error ?? t.updateFailed);
     setItems((prev) =>
       prev.map((item) =>
         item.id === id
@@ -170,9 +173,9 @@ export function ProfilesTab({ initialItems }: Props) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this profile?")) return;
+    if (!confirm(d.confirmDelete)) return;
     const res = await fetch(`/api/profiles/${id}`, { method: "DELETE" });
-    if (!res.ok) { setError("Delete failed"); return; }
+    if (!res.ok) { setError(t.deleteFailed); return; }
     setItems((prev) => prev.filter((item) => item.id !== id));
   }
 
@@ -203,29 +206,29 @@ export function ProfilesTab({ initialItems }: Props) {
           onClick={() => setCreating(true)}
           className="flex items-center gap-2 rounded-lg border border-dashed border-(--cl-border) px-4 py-2 text-sm text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors"
         >
-          + Add profile
+          {d.add}
         </button>
       ) : (
         <div className="bg-white border border-(--cl-accent) rounded-xl px-5 py-4">
-          <p className="text-sm font-medium text-(--cl-text) mb-4">New profile</p>
-          <ProfileForm initial={EMPTY_FORM} submitLabel="Create profile" onSubmit={handleCreate} onCancel={() => setCreating(false)} />
+          <p className="text-sm font-medium text-(--cl-text) mb-4">{d.new}</p>
+          <ProfileForm initial={EMPTY_FORM} submitLabel={d.create} onSubmit={handleCreate} onCancel={() => setCreating(false)} />
         </div>
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {items.length === 0 && !creating && (
-        <p className="text-sm text-(--cl-muted)">No profiles yet — add one above.</p>
+        <p className="text-sm text-(--cl-muted)">{d.empty}</p>
       )}
 
       {items.map((item) => (
         <div key={item.id} className="bg-white border border-(--cl-border) rounded-xl px-5 py-4 space-y-3">
           {editingId === item.id ? (
             <>
-              <p className="text-sm font-medium text-(--cl-text)">Edit profile</p>
+              <p className="text-sm font-medium text-(--cl-text)">{d.edit}</p>
               <ProfileForm
                 initial={itemToForm(item)}
-                submitLabel="Save changes"
+                submitLabel={t.save}
                 onSubmit={(form) => handleUpdate(item.id, form)}
                 onCancel={() => setEditingId(null)}
               />
@@ -237,8 +240,8 @@ export function ProfilesTab({ initialItems }: Props) {
                 {item.name && <p className="text-sm text-(--cl-muted) mt-0.5">{item.name}{item.headline ? ` — ${item.headline}` : ""}</p>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <ActionChip onClick={() => setEditingId(item.id)}>Edit</ActionChip>
-                <ActionChip tone="danger" onClick={() => handleDelete(item.id)}>Delete</ActionChip>
+                <ActionChip onClick={() => setEditingId(item.id)}>{t.edit}</ActionChip>
+                <ActionChip tone="danger" onClick={() => handleDelete(item.id)}>{t.delete}</ActionChip>
               </div>
             </div>
           )}

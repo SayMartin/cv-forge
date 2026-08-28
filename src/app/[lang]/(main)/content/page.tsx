@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { localePath } from "@/i18n/server";
+import { getDictionary, localePath } from "@/i18n/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { BackToCvLink } from "@/components/BackToCvLink";
@@ -15,9 +15,10 @@ export const metadata: Metadata = { title: "My Content" };
 type SearchParams = Promise<{ tab?: string; from?: string }>;
 
 export default async function ContentPage({ searchParams }: { searchParams: SearchParams }) {
-  const [session, query] = await Promise.all([
+  const [session, query, { content }] = await Promise.all([
     auth.api.getSession({ headers: await headers() }),
     searchParams,
+    getDictionary(),
   ]);
   if (!session) redirect(await localePath("/sign-in?callbackUrl=/content"));
 
@@ -106,11 +107,9 @@ export default async function ContentPage({ searchParams }: { searchParams: Sear
       <div className={`max-w-4xl mx-auto px-4 space-y-8 ${returnTo ? "pt-6" : "pt-12"}`}>
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-(--cl-text)">
-            My Content
+            {content.title}
           </h1>
-          <p className="text-sm text-(--cl-muted) mt-1">
-            Manage your career content. Everything here can be added to a CV.
-          </p>
+          <p className="text-sm text-(--cl-muted) mt-1">{content.subtitle}</p>
         </div>
         <ContentTabs
           initialTab={query.tab}

@@ -9,20 +9,24 @@ import { ProjectsTab } from "./ProjectsTab";
 import { OtherTab } from "./OtherTab";
 import { ProfilesTab } from "./ProfilesTab";
 import { AvatarsTab } from "./AvatarsTab";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 import { localeHref } from "@/i18n/routing";
 import { useLocale } from "@/i18n/useLocale";
 
-const TABS = [
-  { id: "profiles", label: "Profiles" },
-  { id: "experience", label: "Experience" },
-  { id: "education", label: "Education" },
-  { id: "skills", label: "Skills" },
-  { id: "projects", label: "Projects" },
-  { id: "other", label: "Other" },
-  { id: "avatars", label: "Avatars" },
+// Ids only. The labels live in `content.tabs`, keyed by these same ids, and the
+// tab bar looks them up with `tabs[id]` — so a tab added here without a label
+// there is a compile error at the lookup, not a blank button at runtime.
+const TAB_IDS = [
+  "profiles",
+  "experience",
+  "education",
+  "skills",
+  "projects",
+  "other",
+  "avatars",
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"];
+type TabId = (typeof TAB_IDS)[number];
 
 export type Profile = {
   id: string;
@@ -153,8 +157,9 @@ export function ContentTabs({
 }: Props) {
   const router = useRouter();
   const locale = useLocale();
+  const { tabs } = useDictionary().content;
   const [activeTab, setActiveTab] = useState<TabId>(
-    TABS.some((tab) => tab.id === initialTab) ? (initialTab as TabId) : "profiles",
+    TAB_IDS.some((id) => id === initialTab) ? (initialTab as TabId) : "profiles",
   );
 
   // The open tab belongs in the URL: it is what makes a link from the CV editor
@@ -171,13 +176,9 @@ export function ContentTabs({
     <div className="space-y-6">
       {/* Tab bar */}
       <div className="flex gap-1 flex-wrap border-b border-(--cl-border) pb-3">
-        {TABS.map((tab) => (
-          <TabButton
-            key={tab.id}
-            active={activeTab === tab.id}
-            onClick={() => selectTab(tab.id)}
-          >
-            {tab.label}
+        {TAB_IDS.map((id) => (
+          <TabButton key={id} active={activeTab === id} onClick={() => selectTab(id)}>
+            {tabs[id]}
           </TabButton>
         ))}
       </div>

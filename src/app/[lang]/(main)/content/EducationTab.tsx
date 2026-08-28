@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { format } from "@/i18n/format";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 import type { Education } from "./ContentTabs";
 import { ActionChip } from "@/components/ActionChip";
 
@@ -31,6 +33,7 @@ function EducationForm({
   onSubmit: (data: FormState) => Promise<void>;
   onCancel: () => void;
 }) {
+  const { form: t, education: d } = useDictionary().content;
   const [form, setForm] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,32 +49,32 @@ function EducationForm({
     try {
       await onSubmit(form);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      setError(err instanceof Error ? err.message : t.saveFailed);
       setSaving(false);
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <Field label="Institution *" value={form.institution} onChange={(v) => set("institution", v)} placeholder="MIT, Uppsala University…" required />
+      <Field label={d.fields.institution.label} value={form.institution} onChange={(v) => set("institution", v)} placeholder={d.fields.institution.placeholder} required />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Field label="Degree" value={form.degree} onChange={(v) => set("degree", v)} placeholder="B.Sc., M.Sc., PhD…" />
-        <Field label="Field of study" value={form.field} onChange={(v) => set("field", v)} placeholder="Computer Science" />
-        <Field label="Start date" value={form.startDate} onChange={(v) => set("startDate", v)} placeholder="2018 or 2018-09" />
-        <Field label="End date" value={form.endDate} onChange={(v) => set("endDate", v)} placeholder="2022 or 2022-06" disabled={form.current} />
+        <Field label={d.fields.degree.label} value={form.degree} onChange={(v) => set("degree", v)} placeholder={d.fields.degree.placeholder} />
+        <Field label={d.fields.field.label} value={form.field} onChange={(v) => set("field", v)} placeholder={d.fields.field.placeholder} />
+        <Field label={d.fields.startDate.label} value={form.startDate} onChange={(v) => set("startDate", v)} placeholder={d.fields.startDate.placeholder} />
+        <Field label={d.fields.endDate.label} value={form.endDate} onChange={(v) => set("endDate", v)} placeholder={d.fields.endDate.placeholder} disabled={form.current} />
       </div>
       <label className="flex items-center gap-2 text-sm text-(--cl-muted) cursor-pointer">
         <input type="checkbox" checked={form.current} onChange={(e) => set("current", e.target.checked)} className="rounded accent-(--cl-accent)" />
-        Currently studying
+        {d.current}
       </label>
-      <Field label="Description" value={form.description} onChange={(v) => set("description", v)} multiline placeholder="Relevant coursework, thesis, activities…" />
+      <Field label={d.fields.description.label} value={form.description} onChange={(v) => set("description", v)} multiline placeholder={d.fields.description.placeholder} />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex items-center gap-2 pt-1">
         <button type="submit" disabled={saving} className="bg-(--cl-accent) text-white rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-50 hover:bg-(--cl-accent-hov) transition-colors">
-          {saving ? "Saving…" : submitLabel}
+          {saving ? t.saving : submitLabel}
         </button>
         <button type="button" onClick={onCancel} className="rounded-lg border border-(--cl-border) px-4 py-1.5 text-sm text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors">
-          Cancel
+          {t.cancel}
         </button>
       </div>
     </form>
@@ -91,6 +94,7 @@ function itemToForm(item: Education): FormState {
 }
 
 export function EducationTab({ initialItems }: Props) {
+  const { form: t, present, education: d } = useDictionary().content;
   const [items, setItems] = useState<Education[]>(initialItems);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -103,7 +107,7 @@ export function EducationTab({ initialItems }: Props) {
       body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Failed to create");
+    if (!res.ok) throw new Error(data.error ?? t.createFailed);
     setItems((prev) => [{ id: data.id, ...form }, ...prev]);
     setCreating(false);
   }
@@ -115,15 +119,15 @@ export function EducationTab({ initialItems }: Props) {
       body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Failed to update");
+    if (!res.ok) throw new Error(data.error ?? t.updateFailed);
     setItems((prev) => prev.map((item) => item.id === id ? { id: id, ...form } : item));
     setEditingId(null);
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this education entry?")) return;
+    if (!confirm(d.confirmDelete)) return;
     const res = await fetch(`/api/content/education/${id}`, { method: "DELETE" });
-    if (!res.ok) { setError("Delete failed"); return; }
+    if (!res.ok) { setError(t.deleteFailed); return; }
     setItems((prev) => prev.filter((item) => item.id !== id));
   }
 
@@ -135,29 +139,29 @@ export function EducationTab({ initialItems }: Props) {
           onClick={() => setCreating(true)}
           className="flex items-center gap-2 rounded-lg border border-dashed border-(--cl-border) px-4 py-2 text-sm text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors"
         >
-          + Add education
+          {d.add}
         </button>
       ) : (
         <div className="bg-white border border-(--cl-accent) rounded-xl px-5 py-4">
-          <p className="text-sm font-medium text-(--cl-text) mb-4">New education</p>
-          <EducationForm initial={EMPTY_FORM} submitLabel="Create" onSubmit={handleCreate} onCancel={() => setCreating(false)} />
+          <p className="text-sm font-medium text-(--cl-text) mb-4">{d.new}</p>
+          <EducationForm initial={EMPTY_FORM} submitLabel={t.create} onSubmit={handleCreate} onCancel={() => setCreating(false)} />
         </div>
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {items.length === 0 && !creating && (
-        <p className="text-sm text-(--cl-muted)">No education entries yet — add one above.</p>
+        <p className="text-sm text-(--cl-muted)">{d.empty}</p>
       )}
 
       {items.map((item) => (
         <div key={item.id} className="bg-white border border-(--cl-border) rounded-xl px-5 py-4 space-y-3">
           {editingId === item.id ? (
             <>
-              <p className="text-sm font-medium text-(--cl-text)">Edit education</p>
+              <p className="text-sm font-medium text-(--cl-text)">{d.edit}</p>
               <EducationForm
                 initial={itemToForm(item)}
-                submitLabel="Save changes"
+                submitLabel={t.save}
                 onSubmit={(form) => handleUpdate(item.id, form)}
                 onCancel={() => setEditingId(null)}
               />
@@ -166,15 +170,19 @@ export function EducationTab({ initialItems }: Props) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-medium text-(--cl-text)">
-                  {item.degree ? `${item.degree}${item.field ? ` in ${item.field}` : ""}` : item.institution}
+                  {item.degree
+                    ? item.field
+                      ? format(d.degreeIn, { degree: item.degree, field: item.field })
+                      : item.degree
+                    : item.institution}
                 </p>
                 <p className="text-sm text-(--cl-muted) mt-0.5">
-                  {item.degree ? item.institution : ""}{item.startDate ? ` · ${item.startDate} – ${item.current ? "Present" : (item.endDate ?? "?")}` : ""}
+                  {item.degree ? item.institution : ""}{item.startDate ? ` · ${item.startDate} – ${item.current ? present : (item.endDate ?? "?")}` : ""}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <ActionChip onClick={() => setEditingId(item.id)}>Edit</ActionChip>
-                <ActionChip tone="danger" onClick={() => handleDelete(item.id)}>Delete</ActionChip>
+                <ActionChip onClick={() => setEditingId(item.id)}>{t.edit}</ActionChip>
+                <ActionChip tone="danger" onClick={() => handleDelete(item.id)}>{t.delete}</ActionChip>
               </div>
             </div>
           )}

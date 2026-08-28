@@ -1,10 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useDictionary } from "@/i18n/DictionaryProvider";
+import { format } from "@/i18n/format";
 
 const MAX_IMAGES = 5;
 
 export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
+  const { form: t, avatars: d } = useDictionary().content;
   const [images, setImages] = useState<string[]>(initialImages);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +27,7 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
     const data = await res.json();
 
     if (!res.ok) {
-      setError(data.error ?? "Upload failed");
+      setError(data.error ?? d.uploadFailed);
     } else {
       setImages(data.images);
     }
@@ -44,7 +47,7 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
     if (res.ok) {
       setImages(data.images);
     } else {
-      setError(data.error ?? "Delete failed");
+      setError(data.error ?? t.deleteFailed);
     }
   }
 
@@ -52,9 +55,7 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-(--cl-muted)">
-        Upload up to {MAX_IMAGES} photos. Select which one to show in each CV from the CV editor.
-      </p>
+      <p className="text-sm text-(--cl-muted)">{format(d.intro, { max: MAX_IMAGES })}</p>
 
       {error && (
         <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
@@ -68,14 +69,14 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={url}
-              alt="Avatar"
+              alt={d.alt}
               className="w-20 h-20 rounded-full object-cover border border-(--cl-border)"
             />
             <button
               type="button"
               onClick={() => handleRemove(url)}
               className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white border border-(--cl-border) text-(--cl-muted) hover:text-red-500 hover:border-red-400 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 text-sm leading-none"
-              aria-label="Remove photo"
+              aria-label={d.remove}
             >
               ×
             </button>
@@ -94,7 +95,7 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
                 <svg className="w-5 h-5 text-(--cl-muted)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="text-sm text-(--cl-muted) mt-1">Add</span>
+                <span className="text-sm text-(--cl-muted) mt-1">{d.add}</span>
               </>
             )}
             <input
@@ -110,9 +111,7 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
       </div>
 
       {atLimit && (
-        <p className="text-sm text-(--cl-muted)">
-          Limit of {MAX_IMAGES} photos reached. Remove one to add another.
-        </p>
+        <p className="text-sm text-(--cl-muted)">{format(d.atLimit, { max: MAX_IMAGES })}</p>
       )}
     </div>
   );

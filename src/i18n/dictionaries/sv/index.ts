@@ -1,6 +1,7 @@
 import type { Dictionary } from "../en";
 import { auth } from "./auth";
 import { common } from "./common";
+import { content } from "./content";
 import { cvs } from "./cvs";
 import { footer } from "./footer";
 import { importPage } from "./importPage";
@@ -21,6 +22,7 @@ import { settings } from "./settings";
 export const sv = {
   auth,
   common,
+  content,
   cvs,
   footer,
   importPage,
