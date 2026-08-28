@@ -334,7 +334,7 @@ A **CV** is a named, versioned selection of the user's content entries plus a ch
 
 A skill row carries only what is true about the skill everywhere: its name, an optional 1–5 level, and an optional CEFR level. It has **no category and no sort order**. Those are per-CV decisions, so they live on the CV.
 
-Categories are user-defined, up to eight, in `skill_category`:
+Categories are user-defined, up to nine, in `skill_category`:
 
 | Column   | Type          | Notes                                                              |
 | -------- | ------------- | ------------------------------------------------------------------ |
@@ -343,6 +343,8 @@ Categories are user-defined, up to eight, in `skill_category`:
 | `name`   | `TEXT`        | Unique per user                                                    |
 | `kind`   | `TEXT`        | `"normal"`, or `"language"` for the one Europass needs             |
 | `order`  | `INT`         | Order in the management UI — *not* the order on any CV             |
+
+Every new account is seeded with the eight names in `SKILL_CATEGORIES` (`src/lib/cv-content-types.ts`) by the Better Auth `user.create.after` hook, so the cap sits one above that: a new user can always add a category of their own without deleting a seeded one. The seeded list is also the enum the PDF importer gives Gemini — and the importer resolves the model's answer against **that user's own rows**, so changing a seeded name is only half a change. Existing accounts keep the old row until it is renamed in My Content, and until then any skill the model files under the new name imports uncategorised, silently.
 
 `kind` exists so that the **role** of a category survives a rename. Europass renders a CEFR table, and the layouts find that group with `kind === "language"` rather than by matching a heading, which free-text names would make unreliable. The language category cannot be renamed or deleted; every other one can.
 
@@ -425,6 +427,13 @@ Each layout receives a `CvContent` object and an optional `theme?: CvTheme`. Whe
 - Row 1: `height: "297mm"` + `overflow-hidden` — contains page-1 content
 - Page break band: `print:hidden h-7 bg-gray-200` — visual "Page 2" separator on screen only
 - Row 2: `minHeight: "297mm"` + `print:break-before-page` — contains page-2 content
+
+**Chronological mode** (`cv.chronological`) — every layout can merge Experience, Education, Projects and Other into one dated list instead of four sections. `buildTimeline()` in `src/lib/cv-timeline.ts` is the single place that decides the order, and all six layouts call it; Skills has no dates and is never merged.
+
+The order is **start date descending, end date descending as the tie-break**, applied to every entry type — "Other" counts its single `date` as both, and a project with neither start nor end falls back to `publishedAt`. `current` is not a special case ahead of the sort: it is an infinitely late *end*, so it only decides ties. That means an entry ongoing since 2015 sits where 2015 belongs, not pinned to the top.
+
+Sorting on the start is what makes the left-hand date column descend monotonically, which is the whole point of a merged timeline — sorting on the end (what this did before) lets a short recent entry and a long-running old one collide. The tie-break matters more than it looks: without it, entries sharing a key fall back to array order, and `CvContent` is grouped by type, so the list would visibly break its own ordering at every tie. Exact ties on both dates keep content order — `Array.prototype.sort` is stable, and that order is the one the user actually chose in My Content.
+
 
 Currently available layouts:
 

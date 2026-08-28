@@ -11,7 +11,13 @@ export const SKILL_CATEGORIES = [
   "Programming",
   "Backend",
   "Frontend",
-  "DevOps & Cloud",
+  // Split out of a single "DevOps & Cloud": the practice and the platform are
+  // different things to a reader. "DevOps & Infrastructure" is what you *do*
+  // — CI/CD, containers, orchestration, IaC, monitoring, the servers
+  // themselves. "Cloud & Edge" is what you deploy *onto* — the providers and
+  // their managed, serverless and edge products.
+  "DevOps & Infrastructure",
+  "Cloud & Edge",
   "Tools & methods",
   "Language",
   "Other",
@@ -38,7 +44,13 @@ export type CvSkillGroup = {
 // Categories are user-owned rows; more than this many stops fitting a CV page.
 // A layout limit, not a data one — enforced on create, never retroactively, so a
 // migration can never make existing rows invalid.
-export const MAX_SKILL_CATEGORIES = 8;
+//
+// **Keep this strictly above `SKILL_CATEGORIES.length`.** The seeded set is
+// written to every new account at signup, so a cap equal to it puts a brand-new
+// user on the limit before they have done anything — the manager just says
+// "Limit reached" and the first custom category costs a deletion. The headroom
+// is the point, not the number.
+export const MAX_SKILL_CATEGORIES = 9;
 
 export type CvProfile = {
   id: string;
