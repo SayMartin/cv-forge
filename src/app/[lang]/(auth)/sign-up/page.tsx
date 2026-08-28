@@ -5,11 +5,16 @@ import { LocaleLink } from "@/components/LocaleLink";
 import { authClient } from "@/lib/auth-client";
 import { PasswordField } from "@/app/[lang]/(auth)/PasswordField";
 import { GoogleSignInButton } from "@/app/[lang]/(auth)/GoogleSignInButton";
+import { authErrorMessage } from "@/i18n/authErrors";
+import { useDictionary } from "@/i18n/DictionaryProvider";
+import { RichText } from "@/i18n/format";
 import { localeHref } from "@/i18n/routing";
 import { useLocale } from "@/i18n/useLocale";
 
 export default function SignUpPage() {
   const locale = useLocale();
+  const { auth } = useDictionary();
+  const t = auth.signUp;
   // The verification link lands here from an email, so the locale has to be
   // baked into the URL — there is no cookie or referrer to fall back on when the
   // link is opened in a different browser from the one that signed up.
@@ -25,7 +30,7 @@ export default function SignUpPage() {
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setError(auth.passwordMismatch);
       return;
     }
     setPending(true);
@@ -45,7 +50,7 @@ export default function SignUpPage() {
     });
 
     if (error) {
-      setError(error.message ?? "Sign up failed");
+      setError(authErrorMessage(auth.errors, error));
       setPending(false);
       return;
     }
@@ -56,9 +61,10 @@ export default function SignUpPage() {
     });
 
     if (verificationError) {
-      setError(
-        "Your account was created, but we couldn't send the verification email. Please try again from the sign in page."
-      );
+      // Not routed through `authErrorMessage`: the account *was* created, and no
+      // error code carries that. The distinction is the whole point of the
+      // message — "try again" here must not read as "sign up again".
+      setError(t.verificationSendFailed);
       setPending(false);
       return;
     }
@@ -70,13 +76,17 @@ export default function SignUpPage() {
     return (
       <main className="min-h-screen flex items-center justify-center bg-(--cl-bg)">
         <div className="w-full max-w-sm bg-white p-8 rounded-xl shadow-sm border border-(--cl-border) space-y-4 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">Check your email</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">{t.sent.title}</h1>
           <p className="text-sm text-(--cl-muted)">
-            We sent a verification link to <span className="font-medium text-(--cl-text)">{email}</span>.
-            Click the link to activate your account.
+            <RichText
+              template={t.sent.body}
+              values={{
+                email: <span className="font-medium text-(--cl-text)">{email}</span>,
+              }}
+            />
           </p>
           <LocaleLink href="/sign-in" className="text-sm text-(--cl-accent) font-medium hover:underline">
-            Back to sign in
+            {t.sent.backToSignIn}
           </LocaleLink>
         </div>
       </main>
@@ -90,14 +100,14 @@ export default function SignUpPage() {
         className="w-full max-w-sm bg-white p-8 rounded-xl shadow-sm border border-(--cl-border) space-y-5"
       >
         <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">
-          Create account
+          {t.title}
         </h1>
 
         <GoogleSignInButton />
 
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-(--cl-border)" />
-          <span className="text-sm text-(--cl-muted)">or</span>
+          <span className="text-sm text-(--cl-muted)">{auth.or}</span>
           <div className="flex-1 h-px bg-(--cl-border)" />
         </div>
 
@@ -109,7 +119,7 @@ export default function SignUpPage() {
 
         <div className="space-y-1">
           <label className="block text-sm font-medium text-(--cl-text)">
-            Full name
+            {t.name}
           </label>
           <input
             type="text"
@@ -123,7 +133,7 @@ export default function SignUpPage() {
 
         <div className="space-y-1">
           <label className="block text-sm font-medium text-(--cl-text)">
-            Email
+            {t.email}
           </label>
           <input
             type="email"
@@ -136,14 +146,14 @@ export default function SignUpPage() {
         </div>
 
         <PasswordField
-          label="Password"
+          label={t.password}
           value={password}
           onChange={setPassword}
           autoComplete="new-password"
         />
 
         <PasswordField
-          label="Confirm password"
+          label={t.confirmPassword}
           value={confirm}
           onChange={setConfirm}
           autoComplete="new-password"
@@ -160,27 +170,37 @@ export default function SignUpPage() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           )}
-          {pending ? "Creating account…" : "Create account"}
+          {pending ? t.submitting : t.submit}
         </button>
 
         <p className="text-sm text-center text-(--cl-muted)">
-          Already have an account?{" "}
+          {t.haveAccount}{" "}
           <LocaleLink
             href="/sign-in"
             className="text-(--cl-accent) font-medium hover:underline"
           >
-            Sign in
+            {t.signIn}
           </LocaleLink>
         </p>
 
-        {/* Article 13 wants the information given at the point data is collected,
-            which is this form — not only somewhere in the footer. */}
+        {/* The link used to be assembled around a fixed trailing full stop. The
+            translation now owns the whole sentence, punctuation included — in
+            Swedish the link text is the last word before the stop as well, but
+            nothing about `RichText` requires that to stay true. */}
         <p className="text-sm text-center text-(--cl-muted)">
-          By creating an account you agree to how your data is handled, described in the{" "}
-          <LocaleLink href="/privacy" className="underline underline-offset-2 hover:text-(--cl-text)">
-            privacy policy
-          </LocaleLink>
-          .
+          <RichText
+            template={t.privacyNotice}
+            values={{
+              privacyPolicy: (
+                <LocaleLink
+                  href="/privacy"
+                  className="underline underline-offset-2 hover:text-(--cl-text)"
+                >
+                  {t.privacyPolicy}
+                </LocaleLink>
+              ),
+            }}
+          />
         </p>
       </form>
     </main>

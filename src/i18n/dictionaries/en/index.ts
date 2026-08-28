@@ -1,5 +1,8 @@
+import { auth } from "./auth";
 import { common } from "./common";
+import { cvs } from "./cvs";
 import { footer } from "./footer";
+import { importPage } from "./importPage";
 import { landing } from "./landing";
 import { nav } from "./nav";
 import { settings } from "./settings";
@@ -14,6 +17,15 @@ import { settings } from "./settings";
  * inference widens the values to `string`, which is exactly what is wanted:
  * the *keys* are the contract, the words are not.
  */
-export const en = { common, footer, landing, nav, settings };
+export const en = {
+  auth,
+  common,
+  cvs,
+  footer,
+  importPage,
+  landing,
+  nav,
+  settings,
+};
 
 export type Dictionary = typeof en;

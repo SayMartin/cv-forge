@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 
 function EyeIcon({ open }: { open: boolean }) {
   if (open) {
@@ -56,6 +57,10 @@ export function PasswordField({
   autoComplete: string;
 }) {
   const [show, setShow] = useState(false);
+  // The visible `label` stays a prop — the four fields using this component want
+  // four different words ("Password", "Confirm new password"). Only the eye
+  // button's label is the same everywhere, so that one is read here.
+  const { auth } = useDictionary();
   return (
     <div className="space-y-1">
       <label className="block text-sm font-medium text-(--cl-text)">
@@ -74,7 +79,7 @@ export function PasswordField({
           type="button"
           onClick={() => setShow((v) => !v)}
           className="absolute inset-y-0 right-0 flex items-center px-3 text-(--cl-muted) hover:text-(--cl-text) transition-colors"
-          aria-label={show ? "Hide password" : "Show password"}
+          aria-label={show ? auth.hidePassword : auth.showPassword}
         >
           <EyeIcon open={show} />
         </button>

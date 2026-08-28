@@ -3,8 +3,14 @@
 import { useState } from "react";
 import { LocaleLink } from "@/components/LocaleLink";
 import { authClient } from "@/lib/auth-client";
+import { useDictionary } from "@/i18n/DictionaryProvider";
+import { RichText } from "@/i18n/format";
+import { localeHref } from "@/i18n/routing";
+import { useLocale } from "@/i18n/useLocale";
 
 export default function ForgotPasswordPage() {
+  const locale = useLocale();
+  const t = useDictionary().auth.forgotPassword;
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -14,7 +20,14 @@ export default function ForgotPasswordPage() {
     setPending(true);
     await authClient.requestPasswordReset({
       email,
-      redirectTo: "/reset-password",
+      // Prefixed, for the same reason sign-up prefixes its verification
+      // callback: this becomes the link inside an email, and an email is opened
+      // wherever the reader keeps their mail — often a different browser, with
+      // no locale cookie and no referrer. `proxy.ts` would then negotiate from
+      // `Accept-Language` and could land a Swedish-preferring account on the
+      // English page. Baking the locale into the URL is the only thing that
+      // survives the trip.
+      redirectTo: localeHref(locale, "/reset-password"),
     });
     // Always show success — don't reveal whether the email exists.
     setSubmitted(true);
@@ -24,12 +37,17 @@ export default function ForgotPasswordPage() {
     return (
       <main className="min-h-screen flex items-center justify-center bg-(--cl-bg)">
         <div className="w-full max-w-sm bg-white p-8 rounded-xl shadow-sm border border-(--cl-border) space-y-4 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">Check your email</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">{t.sent.title}</h1>
           <p className="text-sm text-(--cl-muted)">
-            If <span className="font-medium text-(--cl-text)">{email}</span> is registered, you will receive a reset link shortly.
+            <RichText
+              template={t.sent.body}
+              values={{
+                email: <span className="font-medium text-(--cl-text)">{email}</span>,
+              }}
+            />
           </p>
           <LocaleLink href="/sign-in" className="text-sm text-(--cl-accent) font-medium hover:underline">
-            Back to sign in
+            {t.backToSignIn}
           </LocaleLink>
         </div>
       </main>
@@ -42,13 +60,11 @@ export default function ForgotPasswordPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm bg-white p-8 rounded-xl shadow-sm border border-(--cl-border) space-y-5"
       >
-        <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">Forgot password</h1>
-        <p className="text-sm text-(--cl-muted)">
-          Enter your email address and we will send you a link to reset your password.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">{t.title}</h1>
+        <p className="text-sm text-(--cl-muted)">{t.intro}</p>
 
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-(--cl-text)">Email</label>
+          <label className="block text-sm font-medium text-(--cl-text)">{t.email}</label>
           <input
             type="email"
             autoComplete="email"
@@ -70,12 +86,12 @@ export default function ForgotPasswordPage() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           )}
-          {pending ? "Sending…" : "Send reset link"}
+          {pending ? t.submitting : t.submit}
         </button>
 
         <p className="text-sm text-center text-(--cl-muted)">
           <LocaleLink href="/sign-in" className="text-(--cl-accent) font-medium hover:underline">
-            Back to sign in
+            {t.backToSignIn}
           </LocaleLink>
         </p>
       </form>

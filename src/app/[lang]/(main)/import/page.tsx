@@ -2,6 +2,9 @@
 
 import { useState, useRef } from "react";
 import { LocaleLink } from "@/components/LocaleLink";
+import { useDictionary } from "@/i18n/DictionaryProvider";
+import { plural, RichText } from "@/i18n/format";
+import { useLocale } from "@/i18n/useLocale";
 
 type ImportResult = {
   ok: boolean;
@@ -15,7 +18,20 @@ type ImportResult = {
   error?: string;
 };
 
+// The order the summary is listed in. Explicit rather than `Object.keys`,
+// because the order is editorial — profile, then the four things the importer
+// exists to find, then the leftovers.
+const COUNTERS = [
+  "experience",
+  "education",
+  "skills",
+  "projects",
+  "other",
+] as const;
+
 export default function ImportPage() {
+  const locale = useLocale();
+  const { importPage, nav } = useDictionary();
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [result, setResult] = useState<ImportResult | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -39,30 +55,29 @@ export default function ImportPage() {
       setResult(data);
     } catch {
       setStatus("error");
-      setResult({ ok: false, error: "Network error — please try again." });
+      setResult({ ok: false, error: importPage.networkError });
     }
   }
+
+  // Pulled out of the JSX so the narrowing survives into the `map` callback
+  // below — TypeScript keeps it across a closure for a `const`, but not for a
+  // `result?.summary` guard written inline.
+  const summary = status === "success" ? result?.summary : undefined;
 
   return (
     <main className="py-16 px-4">
       <div className="w-full max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-(--cl-text)">
-            Import CV from PDF
+            {importPage.title}
           </h1>
           {/* Capped below the container: this is the page's only explanation, and
               at the full 3xl it would run past 100 characters a line. */}
           <p className="mt-1 text-sm text-(--cl-muted) max-w-xl">
-            Upload a PDF CV and the content will be extracted by AI and added
-            to your content library. A new profile will be created from your
-            personal details. All other entries — experience, education, skills,
-            projects, and certifications — are added as new items ready to use
-            in your CVs.
+            {importPage.intro}
           </p>
-          {/* Stated before the file picker rather than returned as an error
-              afterwards — the upload is the slow part. */}
           <p className="mt-2 text-sm text-(--cl-muted) max-w-xl">
-            Up to 10 pages and 10 MB.
+            {importPage.limits}
           </p>
         </div>
 
@@ -82,7 +97,7 @@ export default function ImportPage() {
               />
             </svg>
             <span className="text-sm text-(--cl-muted) truncate">
-              {fileName ?? "Click to select a PDF…"}
+              {fileName ?? importPage.selectFile}
             </span>
             <input
               ref={inputRef}
@@ -118,33 +133,54 @@ export default function ImportPage() {
                 />
               </svg>
             )}
-            {status === "uploading" ? "Importing…" : "Import CV"}
+            {status === "uploading" ? importPage.submitting : importPage.submit}
           </button>
         </form>
 
-        {status === "success" && result?.summary && (
+        {summary && (
           <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-4 text-sm space-y-1">
-            <p className="font-medium text-green-800">Import successful ✓</p>
+            <p className="font-medium text-green-800">{importPage.success.title}</p>
             <ul className="text-green-700 list-disc list-inside">
-              <li>Profile created</li>
-              <li>{result.summary.experience} experience entries</li>
-              <li>{result.summary.education} education entries</li>
-              <li>{result.summary.skills} skills</li>
-              <li>{result.summary.projects} projects</li>
-              {result.summary.other > 0 && (
-                <li>{result.summary.other} other entries</li>
-              )}
+              <li>{importPage.success.profile}</li>
+              {/* Was `{n} experience entries` written inline, which reads
+                  "1 experience entries" at n=1 in English and is worse in
+                  Swedish, where the noun changes shape. `plural` picks the form
+                  and fills `{count}` — see `PluralForms` for why a ternary here
+                  would have been the wrong fix. */}
+              {COUNTERS.map((key) => {
+                const count = summary[key];
+                // "other" is the only one hidden at zero: the four above are the
+                // point of the import and "0 projects" is real information,
+                // while "0 other entries" is noise.
+                if (key === "other" && count === 0) return null;
+                return (
+                  <li key={key}>
+                    {plural(locale, importPage.success.counts[key], count)}
+                  </li>
+                );
+              })}
             </ul>
             <p className="text-green-600 pt-1">
-              Review and edit in{" "}
-              <LocaleLink href="/content" className="underline font-medium">My Content</LocaleLink>.
+              <RichText
+                template={importPage.success.review}
+                values={{
+                  myContent: (
+                    <LocaleLink href="/content" className="underline font-medium">
+                      {/* The navbar's own label, so the sentence names the
+                          destination exactly as the tab the reader will look for. */}
+                      {nav.myContent}
+                    </LocaleLink>
+                  ),
+                }}
+              />
             </p>
           </div>
         )}
 
         {status === "error" && result?.error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <p className="font-medium">Import failed</p>
+            <p className="font-medium">{importPage.failure.title}</p>
+            {/* Still English when it comes from the API — step 5. */}
             <p>{result.error}</p>
           </div>
         )}

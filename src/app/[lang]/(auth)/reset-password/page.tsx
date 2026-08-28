@@ -5,12 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { PasswordField } from "@/app/[lang]/(auth)/PasswordField";
 import { LocaleLink } from "@/components/LocaleLink";
+import { authErrorMessage } from "@/i18n/authErrors";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 import { localeHref } from "@/i18n/routing";
 import { useLocale } from "@/i18n/useLocale";
 
 function ResetPasswordForm() {
   const router = useRouter();
   const locale = useLocale();
+  const { auth } = useDictionary();
+  const t = auth.resetPassword;
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -22,12 +26,10 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="w-full max-w-sm bg-white p-8 rounded-xl shadow-sm border border-(--cl-border) space-y-4 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">Invalid link</h1>
-        <p className="text-sm text-(--cl-muted)">
-          This password reset link is invalid or has expired. Please request a new one.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">{t.invalid.title}</h1>
+        <p className="text-sm text-(--cl-muted)">{t.invalid.body}</p>
         <LocaleLink href="/forgot-password" className="text-sm text-(--cl-accent) font-medium hover:underline">
-          Request a new link
+          {t.invalid.request}
         </LocaleLink>
       </div>
     );
@@ -36,7 +38,7 @@ function ResetPasswordForm() {
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setError(auth.passwordMismatch);
       return;
     }
     setPending(true);
@@ -45,7 +47,9 @@ function ResetPasswordForm() {
     const { error } = await authClient.resetPassword({ newPassword: password, token: token! });
 
     if (error) {
-      setError(error.message ?? "Failed to reset password. The link may have expired.");
+      // `INVALID_TOKEN` and `TOKEN_EXPIRED` are the two codes this can realistically
+      // return, and both are in the table; anything else lands on `fallback`.
+      setError(authErrorMessage(auth.errors, error));
       setPending(false);
     } else {
       router.push(localeHref(locale, "/sign-in?reset=true"));
@@ -57,21 +61,21 @@ function ResetPasswordForm() {
       onSubmit={handleSubmit}
       className="w-full max-w-sm bg-white p-8 rounded-xl shadow-sm border border-(--cl-border) space-y-5"
     >
-      <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">Choose a new password</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">{t.title}</h1>
 
       {error && (
         <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>
       )}
 
       <PasswordField
-        label="New password"
+        label={t.password}
         value={password}
         onChange={setPassword}
         autoComplete="new-password"
       />
 
       <PasswordField
-        label="Confirm new password"
+        label={t.confirmPassword}
         value={confirm}
         onChange={setConfirm}
         autoComplete="new-password"
@@ -88,7 +92,7 @@ function ResetPasswordForm() {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
         )}
-        {pending ? "Saving…" : "Set new password"}
+        {pending ? t.submitting : t.submit}
       </button>
     </form>
   );

@@ -111,26 +111,28 @@ cv-cms/
 ├── src/
 │   ├── proxy.ts                                     ← locale routing (Next 16's renamed middleware); redirects bare paths to /sv or /en
 │   ├── i18n/
-│   │   ├── config.ts                                ← LOCALES, DEFAULT_LOCALE, Locale, isLocale(), LOCALE_COOKIE
+│   │   ├── config.ts                                ← LOCALES, DEFAULT_LOCALE, Locale, isLocale(), LOCALE_COOKIE, INTL_LOCALES
 │   │   ├── routing.ts                               ← localeHref() / stripLocale() / swapLocale(); pure, used on both sides
 │   │   ├── negotiate.ts                             ← pickLocale(Accept-Language); hand-rolled, no deps (proxy runs per request)
 │   │   ├── useLocale.ts                             ← "use client" — active locale, derived from usePathname()
 │   │   ├── server.ts                                ← getLocale() / localePath() / getDictionary() via next/root-params (Server Components only)
-│   │   ├── format.tsx                               ← format() for "{name}" placeholders; <RichText> for the node-valued version
+│   │   ├── format.tsx                               ← format() for "{name}" placeholders; <RichText> for the node-valued version; plural() + PluralForms
+│   │   ├── authErrors.ts                            ← Better Auth codes → translated sentences; the codes are the contract, not the English text
 │   │   ├── persistLocale.ts                         ← "use client" — keepalive POST to /api/locale; fire-and-forget by design
 │   │   ├── DictionaryProvider.tsx                   ← "use client" — context + useDictionary(); mounted in the root layout
 │   │   └── dictionaries/
 │   │       ├── index.ts                             ← dictionaryFor(locale); Record<Locale, Dictionary>
 │   │       ├── en/                                  ← the reference dictionary; its shape IS the contract
 │   │       │   ├── index.ts                         ← composes the slices and exports `type Dictionary`
-│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts
+│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts, auth.ts, cvs.ts, settings.ts, importPage.ts
+│   │       │                                        ← `importPage`, not `import` — a reserved word cannot be an import name
 │   │       └── sv/                                  ← same file list; each slice annotated Dictionary["<slice>"]
 │   ├── app/
 │   │   ├── not-found.tsx                            ← the 404 for notFound(); sits OUTSIDE [lang] because nothing inside it works — see Internationalisation
 │   │   ├── [lang]/                                  ← every page lives under /sv or /en; `lang` is a root param
 │   │   │   ├── layout.tsx                           ← root layout: <html lang>, fonts, metadata, DictionaryProvider
 │   │   │   ├── (auth)/
-│   │   │   │   ├── layout.tsx                      ← metadata: robots noindex for the whole group
+│   │   │   │   ├── layout.tsx                      ← metadata: robots noindex for the whole group; mounts the LanguageToggle (no navbar here)
 │   │   │   │   ├── PasswordField.tsx               ← shared eye-toggle password input component
 │   │   │   │   ├── GoogleSignInButton.tsx          ← shared "Continue with Google" OAuth button
 │   │   │   │   ├── sign-in/
@@ -209,7 +211,7 @@ cv-cms/
 │   │   └── sitemap.ts                                  /sv/robots.txt would be meaningless
 │   ├── components/
 │   │   ├── LocaleLink.tsx                           ← the app's ONLY internal link; wraps next/link with the locale prefix
-│   │   ├── LanguageToggle.tsx                       ← flag + SV/EN in the navbar; plain <a>, so switching is a full page load
+│   │   ├── LanguageToggle.tsx                       ← flag + SV/EN; plain <a>, so switching is a full page load; tone="nav"|"light"
 │   │   ├── ActionChip.tsx                           ← shared small secondary action (Edit / Delete / All / My Content →); tone="accent"|"danger"|"danger-strong"; Link when href is given
 │   │   ├── Breadcrumbs.tsx                          ← Breadcrumbs / CrumbLink / CrumbCurrent; used by the CV editor
 │   │   ├── BackToCvLink.tsx                         ← `← Back to <CV name>`; shared by My Content and the preview toolbar
@@ -631,6 +633,28 @@ in English but "…under Inställningar, så…" in Swedish, and that comma has 
 `After` fragment. `format()` handles string values; `<RichText>` handles node values (a link, a
 `<strong>`), so the translation decides where the markup falls.
 
+**Anything countable goes through `plural()`, never a ternary.** Both languages have exactly two
+cardinal categories, so `n === 1 ? a : b` behaves identically *today* — but a ternary in JSX is
+invisible to the type system, and nothing then forces the Swedish file to think about the singular at
+all. `PluralForms` (`{ one, other }`) puts the contract in the dictionary where `tsc` enforces it;
+`Intl.PluralRules` picks the form. Swedish makes the case for itself: `projekt` is neuter with a zero
+plural ending, so both forms are the same word, while `erfarenhet`/`erfarenheter` and
+`övrig post`/`övriga poster` change shape. Every category that is not `one` maps to `other`, which is
+right for these two languages and a lie in general — a locale with `few`/`many` has to widen
+`PluralForms` first, and `tsc` then walks the caller through every string needing a new form.
+
+**Better Auth's own error messages are translated by code, not by text.** The library returns
+`{ code, message }` where `message` is an English sentence baked into `@better-auth/core`; it never
+passes through this codebase, so it cannot be translated in place. `src/i18n/authErrors.ts` lists the
+codes the forms can actually raise, types the dictionary slice as `Record<AuthErrorCode, string>` so
+adding one is a compile error in both locales, and falls back to a translated generic for everything
+else — a generic Swedish sentence beats a precise English one here. The sign-in page previously
+compared `error === "Email not verified"`, which is both untranslatable and one library reword away
+from silently failing. The code list is deliberately **not** cross-checked against Better Auth's
+`APIErrorCode` union: that would mean importing from `@better-auth/core`, a transitive dependency
+this project does not declare. If a code is renamed upstream, that case stops matching and the reader
+sees the fallback — nothing breaks and no English leaks.
+
 **Two ways in, depending on which side of the boundary you are on:**
 
 | | Server Components | Client Components |
@@ -673,10 +697,16 @@ worth keeping:
 It combines `usePathname()` with `useSearchParams()`, because the query string carries real state —
 `/content?tab=skills&from=<id>` has to survive the switch.
 
-**The auth pages have no navbar, so they have no toggle.** A visitor who follows a shared
-`/en/sign-in` cannot switch there. Deferred deliberately: the auth group renders no chrome at all, so
-placing a control in it is a design decision, and it belongs with the step that translates those
-pages.
+**The auth pages have no navbar**, so the toggle is mounted in `(auth)/layout.tsx` instead —
+`fixed top-4 right-4`, because every page in that group is its own `min-h-screen` centred card and a
+header row above one would push it past the viewport and add a scrollbar to a page that has always
+fitted. Nothing there scrolls, so fixed and absolute look identical.
+
+`tone` carries the palette difference and nothing else. The navbar's cream-and-white on deep forest
+green is invisible on the parchment background of a sign-in card, so `tone="light"` swaps the colours
+— the marker-bar idiom, the flags and the ARIA stay shared, which is what stops the two drifting.
+`persist` stays `false` there: nobody is signed in yet, so `POST /api/locale` would have no account
+row to write, and `/api/locale/resume` picks the account preference back up on the way out anyway.
 
 ### The 404: it must live outside `[lang]`
 
@@ -723,6 +753,11 @@ No pre-build manifest step (Sanity manifest generation removed).
 ### Page titles (metadata)
 
 Every page exports `metadata` (static) or `generateMetadata` (dynamic). The root layout sets `title.template: "%s | CV Forge"` and `default: "CV Forge"`. Dynamic pages (`/cvs/[cvId]`, `/cvs/[cvId]/view`) run a lightweight `prisma.cV.findUnique` in `generateMetadata`; Next.js deduplicates it with the render query.
+
+> **Titles are still English in both locales.** A fully Swedish `/sv/sign-in` currently sits in a tab
+> labelled "Sign In | CV Forge". The 13 sites are static `metadata` exports, and translating them
+> means converting each to `generateMetadata` reading `params.lang` — the same edit the SEO step
+> makes for `alternates.languages`, so it is done once, there, rather than twice.
 
 ### Search indexing
 

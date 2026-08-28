@@ -1,6 +1,9 @@
 import type { Dictionary } from "../en";
+import { auth } from "./auth";
 import { common } from "./common";
+import { cvs } from "./cvs";
 import { footer } from "./footer";
+import { importPage } from "./importPage";
 import { landing } from "./landing";
 import { nav } from "./nav";
 import { settings } from "./settings";
@@ -15,4 +18,13 @@ import { settings } from "./settings";
  * The `satisfies` below is the belt to that pair of braces: it catches a slice
  * that was added to `en/index.ts` but never imported here.
  */
-export const sv = { common, footer, landing, nav, settings } satisfies Dictionary;
+export const sv = {
+  auth,
+  common,
+  cvs,
+  footer,
+  importPage,
+  landing,
+  nav,
+  settings,
+} satisfies Dictionary;

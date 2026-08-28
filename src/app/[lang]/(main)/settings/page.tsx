@@ -4,6 +4,7 @@ import { LocaleLink } from "@/components/LocaleLink";
 
 export const metadata: Metadata = { title: "Account Settings" };
 import { redirect } from "next/navigation";
+import { RichText } from "@/i18n/format";
 import { getDictionary, localePath } from "@/i18n/server";
 import { auth } from "@/lib/auth";
 import { DeleteAccountSection } from "./DeleteAccountSection";
@@ -20,12 +21,12 @@ export default async function SettingsPage() {
   return (
     <main className="max-w-3xl mx-auto px-4 py-12 space-y-10">
       <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">
-        Account settings
+        {settings.title}
       </h1>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-(--cl-muted)">
-          Your account
+          {settings.account.heading}
         </h2>
         <div className="bg-white rounded-xl border border-(--cl-border) p-5 text-sm space-y-3">
           <div className="space-y-1">
@@ -48,17 +49,24 @@ export default async function SettingsPage() {
       {/* Directly above the delete button on purpose: this is the moment
           someone wants to know what deleting actually removes. */}
       <p className="text-sm text-(--cl-muted)">
-        What is stored about you, who else can reach it, and exactly what deleting your account
-        removes is described in the{" "}
-        <LocaleLink href="/privacy" className="text-(--cl-accent) underline underline-offset-2">
-          privacy policy
-        </LocaleLink>
-        .
+        <RichText
+          template={settings.privacyNotice}
+          values={{
+            privacyPolicy: (
+              <LocaleLink
+                href="/privacy"
+                className="text-(--cl-accent) underline underline-offset-2"
+              >
+                {settings.privacyPolicy}
+              </LocaleLink>
+            ),
+          }}
+        />
       </p>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-red-500">
-          Danger zone
+          {settings.dangerZone}
         </h2>
         <DeleteAccountSection email={email} />
       </section>

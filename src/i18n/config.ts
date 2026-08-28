@@ -23,6 +23,23 @@ export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
 
+/**
+ * The BCP 47 tag each locale hands to `Intl` — a different thing from `Locale`,
+ * which is a URL segment and a dictionary key.
+ *
+ * The region matters and the bare language subtag will not do. `Intl` resolves
+ * `"en"` to the American defaults, so `toLocaleDateString("en")` renders
+ * `8/28/2026`; this app has always shown `28 Aug 2026`, and every existing CV
+ * was authored against that. `"en-GB"` is therefore the tag, not a nicety.
+ *
+ * Only for formatters. The CV's *own* language is separate data with its own
+ * table — see `Cv.language`.
+ */
+export const INTL_LOCALES: Record<Locale, string> = {
+  sv: "sv-SE",
+  en: "en-GB",
+};
+
 /** The cookie that carries the locale past `proxy.ts`, which cannot reach Postgres. */
 export const LOCALE_COOKIE = "cvforge_locale";
 

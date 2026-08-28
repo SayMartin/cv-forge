@@ -6,8 +6,12 @@ import { LocaleLink } from "@/components/LocaleLink";
 import { authClient } from "@/lib/auth-client";
 import { PasswordField } from "@/app/[lang]/(auth)/PasswordField";
 import { GoogleSignInButton } from "@/app/[lang]/(auth)/GoogleSignInButton";
+import { authErrorMessage } from "@/i18n/authErrors";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 
 function SignInForm() {
+  const { auth } = useDictionary();
+  const t = auth.signIn;
   const searchParams = useSearchParams();
   // Carried un-prefixed in the query — the prefix is added on the way out, by
   // `/api/locale/resume`, so a `?callbackUrl=/cvs` written by a server redirect
@@ -30,7 +34,11 @@ function SignInForm() {
     const { error } = await authClient.signIn.email({ email, password });
 
     if (error) {
-      setError(error.message ?? "Sign in failed");
+      // Was `error === "Email not verified"` — a comparison against an English
+      // sentence that lives inside `@better-auth/core`. It broke the moment the
+      // page could be Swedish, and it would have broken silently the day the
+      // library reworded the string. The code is the stable identifier.
+      setError(authErrorMessage(auth.errors, error));
       setPending(false);
     } else {
       // Not `router.push`: the account's language has to be read and written to
@@ -52,18 +60,18 @@ function SignInForm() {
       className="w-full max-w-sm bg-white p-8 rounded-xl shadow-sm border border-(--cl-border) space-y-5"
     >
       <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">
-        Sign in
+        {t.title}
       </h1>
 
       {verified && (
         <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
-          Email verified — you can now sign in.
+          {t.verified}
         </p>
       )}
 
       {reset && (
         <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
-          Password updated — you can now sign in with your new password.
+          {t.reset}
         </p>
       )}
 
@@ -71,21 +79,22 @@ function SignInForm() {
 
       <div className="flex items-center gap-3">
         <div className="flex-1 h-px bg-(--cl-border)" />
-        <span className="text-sm text-(--cl-muted)">or</span>
+        <span className="text-sm text-(--cl-muted)">{auth.or}</span>
         <div className="flex-1 h-px bg-(--cl-border)" />
       </div>
 
+      {/* The "not verified" case used to repeat the address back inside the
+          message. It is in the focused field two lines below, so the sentence
+          says the same thing without a placeholder to keep in sync. */}
       {error && (
         <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
-          {error === "Email not verified"
-            ? <>Email not verified. Please check your inbox for <span className="font-medium">{email}</span> and click the verification link.</>
-            : error}
+          {error}
         </p>
       )}
 
       <div className="space-y-1">
         <label className="block text-sm font-medium text-(--cl-text)">
-          Email
+          {t.email}
         </label>
         <input
           type="email"
@@ -99,14 +108,14 @@ function SignInForm() {
 
       <div className="space-y-1">
         <PasswordField
-          label="Password"
+          label={t.password}
           value={password}
           onChange={setPassword}
           autoComplete="current-password"
         />
         <div className="text-right">
           <LocaleLink href="/forgot-password" className="text-sm text-(--cl-muted) hover:text-(--cl-accent)">
-            Forgot password?
+            {t.forgotPassword}
           </LocaleLink>
         </div>
       </div>
@@ -122,16 +131,16 @@ function SignInForm() {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
         )}
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? t.submitting : t.submit}
       </button>
 
       <p className="text-sm text-center text-(--cl-muted)">
-        No account yet?{" "}
+        {t.noAccount}{" "}
         <LocaleLink
           href="/sign-up"
           className="text-(--cl-accent) font-medium hover:underline"
         >
-          Create one
+          {t.createOne}
         </LocaleLink>
       </p>
     </form>

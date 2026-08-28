@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 import { localeHref } from "@/i18n/routing";
 import { useLocale } from "@/i18n/useLocale";
 
 export function CreateCvForm() {
   const router = useRouter();
   const locale = useLocale();
+  const t = useDictionary().cvs.create;
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,8 +26,11 @@ export function CreateCvForm() {
     });
 
     if (!res.ok) {
+      // `data.error` is still an English sentence from the route handler. The
+      // API keeps its own English `error` field until step 5 gives every route a
+      // code; the fallback below is the half that can be translated today.
       const data = await res.json();
-      setError(data.error ?? "Failed to create CV");
+      setError(data.error ?? t.failed);
       setPending(false);
       return;
     }
@@ -38,7 +43,7 @@ export function CreateCvForm() {
     <form onSubmit={handleSubmit} className="flex gap-2 items-start">
       <input
         type="text"
-        placeholder="CV name, e.g. Backend Engineer 2026"
+        placeholder={t.placeholder}
         value={name}
         onChange={(e) => setName(e.target.value)}
         required
@@ -55,7 +60,7 @@ export function CreateCvForm() {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
         )}
-        {pending ? "Creating…" : "New CV"}
+        {pending ? t.submitting : t.submit}
       </button>
       {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
     </form>

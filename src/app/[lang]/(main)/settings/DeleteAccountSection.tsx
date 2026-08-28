@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { useDictionary } from "@/i18n/DictionaryProvider";
+import { RichText } from "@/i18n/format";
 
 export function DeleteAccountSection({ email }: { email: string }) {
+  const t = useDictionary().settings.delete;
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
@@ -23,8 +26,10 @@ export function DeleteAccountSection({ email }: { email: string }) {
     const res = await fetch("/api/user", { method: "DELETE" });
 
     if (!res.ok) {
+      // As in `CreateCvForm`: `body.error` stays English until step 5 gives the
+      // route an error code. The fallback is translatable today.
       const body = await res.json().catch(() => ({}));
-      setError(body.error ?? "Something went wrong. Please try again.");
+      setError(body.error ?? t.failed);
       setPending(false);
       return;
     }
@@ -36,10 +41,9 @@ export function DeleteAccountSection({ email }: { email: string }) {
   return (
     <div className="bg-white rounded-xl border border-red-200 p-5 space-y-4">
       <div>
-        <p className="text-sm font-medium text-(--cl-text)">Delete account</p>
+        <p className="text-sm font-medium text-(--cl-text)">{t.title}</p>
         <p className="text-sm text-(--cl-muted) mt-1 leading-relaxed">
-          Permanently deletes your account, all CVs, and colour themes. This
-          cannot be undone.
+          {t.description}
         </p>
       </div>
 
@@ -48,16 +52,21 @@ export function DeleteAccountSection({ email }: { email: string }) {
           onClick={() => setOpen(true)}
           className="text-sm text-red-600 border border-red-300 rounded-lg px-4 py-2 hover:bg-red-50 transition-colors"
         >
-          Delete my account…
+          {t.open}
         </button>
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-(--cl-muted)">
-            Type{" "}
-            <span className="font-mono font-semibold text-(--cl-text)">
-              {email}
-            </span>{" "}
-            to confirm.
+            <RichText
+              template={t.confirm}
+              values={{
+                email: (
+                  <span className="font-mono font-semibold text-(--cl-text)">
+                    {email}
+                  </span>
+                ),
+              }}
+            />
           </p>
           <input
             type="email"
@@ -80,14 +89,14 @@ export function DeleteAccountSection({ email }: { email: string }) {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               )}
-              {pending ? "Deleting…" : "Permanently delete"}
+              {pending ? t.submitting : t.submit}
             </button>
             <button
               type="button"
               onClick={reset}
               className="text-sm text-(--cl-muted) hover:text-(--cl-text) transition-colors"
             >
-              Cancel
+              {t.cancel}
             </button>
           </div>
         </div>

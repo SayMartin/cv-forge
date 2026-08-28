@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { authErrorMessage } from "@/i18n/authErrors";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 
 interface Props {
   callbackURL?: string;
@@ -10,6 +12,7 @@ interface Props {
 export function GoogleSignInButton({ callbackURL = "/" }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { auth } = useDictionary();
 
   async function handleClick() {
     setPending(true);
@@ -24,7 +27,10 @@ export function GoogleSignInButton({ callbackURL = "/" }: Props) {
       callbackURL: `/api/locale/resume?next=${encodeURIComponent(callbackURL)}`,
     });
     if (error) {
-      setError(error.message ?? "Google sign-in failed");
+      // `error.message` is deliberately dropped rather than used as a fallback:
+      // it is an English sentence from inside the library, and showing it is the
+      // exact leak this replaces.
+      setError(authErrorMessage(auth.errors, error));
       setPending(false);
     }
   }
@@ -50,7 +56,7 @@ export function GoogleSignInButton({ callbackURL = "/" }: Props) {
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
           </svg>
         )}
-        Continue with Google
+        {auth.continueWithGoogle}
       </button>
       {error && (
         <p className="text-sm text-center text-red-600">{error}</p>

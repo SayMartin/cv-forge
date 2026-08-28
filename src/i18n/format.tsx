@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { INTL_LOCALES, type Locale } from "./config";
 
 // Interpolation for dictionary strings.
 //
@@ -38,6 +39,59 @@ export function format(
   return template.replace(REPLACE, (whole, name: string) =>
     name in vars ? String(vars[name]) : whole,
   );
+}
+
+/**
+ * The two cardinal forms a countable string needs. Both keys are required, so a
+ * Swedish translation that supplies only one does not compile.
+ *
+ * The type is the entire reason `plural()` exists. Swedish and English both have
+ * exactly two cardinal categories, so `n === 1 ? a : b` written inline in JSX
+ * behaves identically today — but a ternary is invisible to the type system, and
+ * nothing then forces the Swedish file to think about the singular at all. Here
+ * the dictionary shape carries the contract and `tsc` enforces it.
+ *
+ * Both forms take `{count}`, rather than the number being concatenated on
+ * outside: Swedish puts it in the same place as English here, but nothing
+ * guarantees that for the next string, and a translator cannot move a number
+ * that lives in JSX.
+ */
+export type PluralForms = { one: string; other: string };
+
+// One `Intl.PluralRules` per locale rather than one per call. Constructing them
+// is the expensive part of `Intl`, and the import summary alone calls this five
+// times per render.
+const pluralRules = new Map<Locale, Intl.PluralRules>();
+
+function rulesFor(locale: Locale): Intl.PluralRules {
+  let rules = pluralRules.get(locale);
+  if (!rules) {
+    rules = new Intl.PluralRules(INTL_LOCALES[locale]);
+    pluralRules.set(locale, rules);
+  }
+  return rules;
+}
+
+/**
+ * `plural(locale, d.counts.skills, 3)` → `"3 färdigheter"`.
+ *
+ * `{count}` is filled in automatically; anything else the forms mention comes
+ * from `vars`.
+ *
+ * Every category that is not `one` maps to `other`, which is exactly right for
+ * this app's two languages and a lie in general — Polish has `few` and `many`,
+ * Arabic has six. A third locale with more than two categories has to widen
+ * `PluralForms` first, and `tsc` will then walk the caller through every string
+ * that needs a new form. That is the failure mode worth having.
+ */
+export function plural(
+  locale: Locale,
+  forms: PluralForms,
+  count: number,
+  vars: Record<string, string | number> = {},
+): string {
+  const form = rulesFor(locale).select(count) === "one" ? forms.one : forms.other;
+  return format(form, { count, ...vars });
 }
 
 /**

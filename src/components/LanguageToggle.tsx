@@ -37,8 +37,32 @@ import { useLocale } from "@/i18n/useLocale";
  * anyone is signed in, and for a visitor the POST would have nothing to write.
  * With JavaScript off the link still switches the language — only the account
  * preference goes unrecorded, which is the right half to lose.
+ *
+ * `tone` exists because the auth pages have no navbar to sit in. The nav colours
+ * are cream and white on deep forest green; on the parchment background of a
+ * sign-in card they are all but invisible. Only the palette changes — the
+ * marker-bar idiom, the flags and the ARIA are shared, so the two cannot drift.
  */
-export function LanguageToggle({ persist = false }: { persist?: boolean }) {
+const TONES = {
+  /** On `--cl-nav`: the navbar's own idiom, matching `NavLink`. */
+  nav: {
+    active: "border-(--cl-nav-muted) text-white font-medium",
+    inactive: "border-transparent text-(--cl-nav-text) hover:text-white",
+  },
+  /** On `--cl-bg`: the auth pages, which have no navbar. */
+  light: {
+    active: "border-(--cl-accent) text-(--cl-text) font-medium",
+    inactive: "border-transparent text-(--cl-muted) hover:text-(--cl-text)",
+  },
+} as const;
+
+export function LanguageToggle({
+  persist = false,
+  tone = "nav",
+}: {
+  persist?: boolean;
+  tone?: keyof typeof TONES;
+}) {
   const current = useLocale();
   const pathname = usePathname();
   // usePathname() drops the query string, and it carries real state:
@@ -74,9 +98,7 @@ export function LanguageToggle({ persist = false }: { persist?: boolean }) {
             // inactive one so nothing shifts. Colour alone cannot carry it here
             // — see the note on NavLink.
             className={`flex items-center gap-1 border-b-2 py-0.5 text-sm transition-colors ${
-              active
-                ? "border-(--cl-nav-muted) text-white font-medium"
-                : "border-transparent text-(--cl-nav-text) hover:text-white"
+              TONES[tone][active ? "active" : "inactive"]
             }`}
           >
             <Flag locale={locale} />
