@@ -3,6 +3,7 @@ import { common } from "./common";
 import { footer } from "./footer";
 import { landing } from "./landing";
 import { nav } from "./nav";
+import { settings } from "./settings";
 
 /**
  * Each slice is annotated against its English counterpart in its own file, not
@@ -14,4 +15,4 @@ import { nav } from "./nav";
  * The `satisfies` below is the belt to that pair of braces: it catches a slice
  * that was added to `en/index.ts` but never imported here.
  */
-export const sv = { common, footer, landing, nav } satisfies Dictionary;
+export const sv = { common, footer, landing, nav, settings } satisfies Dictionary;

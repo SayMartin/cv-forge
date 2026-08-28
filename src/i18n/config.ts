@@ -25,3 +25,26 @@ export function isLocale(value: unknown): value is Locale {
 
 /** The cookie that carries the locale past `proxy.ts`, which cannot reach Postgres. */
 export const LOCALE_COOKIE = "cvforge_locale";
+
+/**
+ * Written from three places — `proxy.ts`, `POST /api/locale`, and
+ * `GET /api/locale/resume` — so the attributes live here rather than being
+ * retyped in each. A cookie written with a different `path` or `sameSite` from
+ * one of the three is a second cookie as far as the browser is concerned, and
+ * the resulting "my language keeps reverting" is miserable to track down.
+ *
+ * `secure` is the caller's to supply, because only the caller knows whether the
+ * request arrived over https — it is http in development and https behind
+ * Cloudflare in production.
+ */
+export function localeCookieOptions(secure: boolean) {
+  return {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax" as const,
+    // Not httpOnly: a display preference, not a credential. Keeping it readable
+    // is what lets the client correct it without a round trip.
+    httpOnly: false,
+    secure,
+  };
+}

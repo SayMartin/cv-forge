@@ -1,21 +1,18 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { LocaleLink } from "@/components/LocaleLink";
 import { authClient } from "@/lib/auth-client";
 import { PasswordField } from "@/app/[lang]/(auth)/PasswordField";
 import { GoogleSignInButton } from "@/app/[lang]/(auth)/GoogleSignInButton";
-import { localeHref } from "@/i18n/routing";
-import { useLocale } from "@/i18n/useLocale";
 
 function SignInForm() {
-  const router = useRouter();
-  const locale = useLocale();
   const searchParams = useSearchParams();
-  // Carried un-prefixed in the query — the locale is added on the way out, so a
-  // `?callbackUrl=/cvs` written by a server redirect stays readable. `localeHref`
-  // is idempotent, so an already-prefixed value passes through unharmed.
+  // Carried un-prefixed in the query — the prefix is added on the way out, by
+  // `/api/locale/resume`, so a `?callbackUrl=/cvs` written by a server redirect
+  // stays readable. `localeHref` there is idempotent, so an already-prefixed
+  // value passes through unharmed.
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const verified = searchParams.get("verified") === "true";
   const reset = searchParams.get("reset") === "true";
@@ -36,7 +33,16 @@ function SignInForm() {
       setError(error.message ?? "Sign in failed");
       setPending(false);
     } else {
-      router.push(localeHref(locale, callbackUrl));
+      // Not `router.push`: the account's language has to be read and written to
+      // the cookie *before* the next page renders, and only a real navigation
+      // through the route handler can do that. A client-side push would render
+      // the destination in whatever language this device happened to be in.
+      //
+      // The lint rule below is about navigating to internal *pages* with the
+      // router instead; this destination is a Route Handler, which the router
+      // cannot navigate to at all.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign(`/api/locale/resume?next=${encodeURIComponent(callbackUrl)}`);
     }
   }
 

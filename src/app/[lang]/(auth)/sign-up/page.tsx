@@ -36,6 +36,12 @@ export default function SignUpPage() {
       email,
       password,
       callbackURL: verifiedCallback,
+      // Passed in the same call that creates the row, rather than written
+      // afterwards: the verification email is sent from inside account
+      // creation, so a follow-up update would land too late to affect the one
+      // message that matters most. Typed only because `inferAdditionalFields`
+      // is on the auth client — without it this is a compile error.
+      locale,
     });
 
     if (error) {

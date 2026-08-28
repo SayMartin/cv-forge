@@ -172,6 +172,30 @@ export const auth = betterAuth({
       }
     },
   },
+  /**
+   * **A Prisma column Better Auth has not been told about does not exist.**
+   *
+   * `getFields()` composes the user schema from the core fields, these
+   * `additionalFields`, and the plugin fields; `filterOutputFields` then strips
+   * everything else on the way out. Add the column to `schema.prisma` and stop
+   * here, and `session.user.locale` is `undefined` everywhere — no error, no
+   * warning, and neither `tsc` nor `eslint` notices. Every feature built on it
+   * silently does nothing.
+   *
+   * `input: true` lets the sign-up form pass `locale` in the same call that
+   * creates the row, which is what puts the *first* verification email in the
+   * right language. It also means the value is client-supplied, so it is never
+   * trusted: every read runs through `isLocale()` and falls back rather than
+   * being used as-is.
+   *
+   * No `defaultValue` — see the schema comment. NULL means "never chose", which
+   * is not the same as choosing English.
+   */
+  user: {
+    additionalFields: {
+      locale: { type: "string", required: false, input: true },
+    },
+  },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,

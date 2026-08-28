@@ -4,9 +4,10 @@ import { LocaleLink } from "@/components/LocaleLink";
 
 export const metadata: Metadata = { title: "Account Settings" };
 import { redirect } from "next/navigation";
-import { localePath } from "@/i18n/server";
+import { getDictionary, localePath } from "@/i18n/server";
 import { auth } from "@/lib/auth";
 import { DeleteAccountSection } from "./DeleteAccountSection";
+import { LanguageSection } from "./LanguageSection";
 import { SignOutButton } from "@/app/[lang]/(main)/SignOutButton";
 
 export default async function SettingsPage() {
@@ -14,6 +15,7 @@ export default async function SettingsPage() {
   if (!session) redirect(await localePath("/sign-in"));
 
   const { name, email } = session.user;
+  const { settings } = await getDictionary();
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-12 space-y-10">
@@ -34,6 +36,13 @@ export default async function SettingsPage() {
             <SignOutButton variant="page" />
           </div>
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-(--cl-muted)">
+          {settings.language.title}
+        </h2>
+        <LanguageSection />
       </section>
 
       {/* Directly above the delete button on purpose: this is the moment

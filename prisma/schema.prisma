@@ -27,6 +27,21 @@ model User {
   banned          Boolean?
   banReason       String?
   banExpires      DateTime?
+  /// The account's UI language ("sv" | "en"), or NULL when the user has never
+  /// chosen one.
+  ///
+  /// Nullable rather than `@default("en")`, and the distinction is load-bearing.
+  /// Signing in copies this into the locale cookie, so a default of "en" would
+  /// mean every existing account — none of which has ever expressed a preference
+  /// — flips a Swedish visitor to English the first time they sign in after this
+  /// ships. NULL says "no opinion", and the browser's own negotiation is left to
+  /// stand. It is also the rollback-safe shape, for the reason `Account.issuer`
+  /// documents: old code that omits the column still inserts.
+  ///
+  /// Not a Postgres enum: the value is validated by `isLocale()` on every read
+  /// and write, and an enum would make adding a third language a table-locking
+  /// migration instead of a one-line change to `LOCALES`.
+  locale          String?
   sessions        Session[]
   accounts        Account[]
   cvs             CV[]
@@ -136,6 +151,22 @@ model CV {
   sectionOrder  String[] @default([])
   // When true, experience/education/projects/other are merged into one date-sorted timeline instead of grouped by section
   chronological Boolean  @default(false)
+  /// The language the CV itself is written in — section headings, "Present",
+  /// date formatting. Deliberately **not** the UI locale: a Swedish speaker
+  /// applying abroad keeps a Swedish interface while producing an English CV,
+  /// which is the common case, not the exotic one.
+  ///
+  /// `NOT NULL DEFAULT 'en'` here, unlike `User.locale`, because "en" is real
+  /// data rather than a guess: every CV that exists today was authored with
+  /// English headings and en-GB dates, so this default leaves every stored row
+  /// rendering byte-identically. That matters more than it looks — changing a
+  /// CV's language changes rendered text width, and `Paginated.tsx` measures
+  /// that to decide where the page breaks fall.
+  ///
+  /// Not consumed until the layouts are taught to read it; it ships in this
+  /// migration because pushing to `main` IS the production migration, and two
+  /// pushes would be two production events for one change.
+  language      String   @default("en")
   // Metadata
   targetRole    String?
   coverLetter   String?

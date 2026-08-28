@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { useDictionary } from "@/i18n/DictionaryProvider";
 import { format } from "@/i18n/format";
+import { persistLocale } from "@/i18n/persistLocale";
 import { swapLocale } from "@/i18n/routing";
 import { useLocale } from "@/i18n/useLocale";
 
@@ -31,8 +32,13 @@ import { useLocale } from "@/i18n/useLocale";
  * one. That is invisible on screen and wrong for every screen reader. A document
  * request also guarantees `proxy.ts` sees it and rewrites the locale cookie.
  * The cost is one page load on a rare, deliberate action.
+ *
+ * `persist` is passed rather than discovered: the navbar already knows whether
+ * anyone is signed in, and for a visitor the POST would have nothing to write.
+ * With JavaScript off the link still switches the language — only the account
+ * preference goes unrecorded, which is the right half to lose.
  */
-export function LanguageToggle() {
+export function LanguageToggle({ persist = false }: { persist?: boolean }) {
   const current = useLocale();
   const pathname = usePathname();
   // usePathname() drops the query string, and it carries real state:
@@ -57,6 +63,7 @@ export function LanguageToggle() {
           <a
             key={locale}
             href={swapLocale(pathname, locale) + (query ? `?${query}` : "")}
+            onClick={persist && !active ? () => persistLocale(locale) : undefined}
             hrefLang={locale}
             aria-current={active ? "true" : undefined}
             aria-label={format(active ? language.current : language.switchTo, {

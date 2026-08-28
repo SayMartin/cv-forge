@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { localeHref } from "@/i18n/routing";
-import { useLocale } from "@/i18n/useLocale";
 
 interface Props {
   callbackURL?: string;
@@ -12,17 +10,18 @@ interface Props {
 export function GoogleSignInButton({ callbackURL = "/" }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const locale = useLocale();
 
   async function handleClick() {
     setPending(true);
     setError(null);
-    // Google redirects the browser straight at this path, so it has to carry the
-    // locale — otherwise every OAuth sign-in lands on a bare URL and bounces
-    // through the proxy's negotiation instead of returning where it started.
+    // Google redirects the browser straight at this URL, so it has to resolve
+    // the language on its own — there is no React state left by then, and the
+    // account may prefer a different language from the one this device was
+    // browsing in. `/api/locale/resume` reads the freshly-created session,
+    // writes the cookie and forwards to `next`, all in one hop.
     const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: localeHref(locale, callbackURL),
+      callbackURL: `/api/locale/resume?next=${encodeURIComponent(callbackURL)}`,
     });
     if (error) {
       setError(error.message ?? "Google sign-in failed");

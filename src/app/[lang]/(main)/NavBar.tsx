@@ -84,7 +84,7 @@ export function NavBar({ user }: { user: User | null }) {
               CV Forge
             </span>
           </LocaleLink>
-          <LanguageToggle />
+          <LanguageToggle persist={Boolean(user)} />
         </div>
 
         {/* Desktop links */}

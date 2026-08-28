@@ -92,6 +92,16 @@ The same build/push steps can also be run manually from a dev machine via `npm r
 - **`account.issuer`** (Better Auth ≥ 1.7) identifies which authority established the account, and is **matched during sign-in** — both the credential path (`providerId === 'credential' && issuer === 'local:credential' && accountId === user.id`) and the OAuth path (`findAccountByKey({ issuer, accountId })`). A wrong value does not raise an error; it fails login as `INVALID_EMAIL_OR_PASSWORD`, so any change touching this column risks a silent lockout. Providers that declare no issuer of their own get a synthetic one from `@better-auth/core/db`: `local:<providerId>` for local providers and `local:oauth:<providerId>` for OAuth. The built-in Google provider sets no `accountIssuer`, so its rows are `local:oauth:google` — **not** `https://accounts.google.com`.
 - The column is deliberately **nullable** even though Better Auth always writes it. Migrations are applied before the new image ships, so a rollback to the previous image runs 1.6 code that omits the field entirely; under `NOT NULL` that breaks account creation at precisely the moment rolling back is the goal. Tighten it in a follow-up migration once the version has proven itself.
 
+### `user.locale`, and the declaration that makes it exist
+
+The account's UI language lives on `user.locale` (`TEXT`, nullable — see the schema comment for why NULL is not "English"). Two things about it are worth knowing before touching it.
+
+**A Prisma column Better Auth has not been told about does not exist.** `getFields()` composes the user schema from the core fields, `user.additionalFields` in `auth.ts`, and the plugin fields; `filterOutputFields` strips everything else on the way out. Add the column to `schema.prisma` and stop there, and `session.user.locale` is `undefined` everywhere with no error and no warning.
+
+The good news, verified by deleting the block and re-running the gate: **`tsc` does catch this here.** `session.user.locale` becomes `TS2339: Property 'locale' does not exist`, and `signUp.email({ …, locale })` becomes `TS2353`. That second one only holds because `auth-client.ts` carries `inferAdditionalFields<Auth>()` — without that plugin the client is typed from the core fields alone and the sign-up call silently drops the field.
+
+**`input: true` means the value is client-supplied.** It is what lets the sign-up form pass `locale` in the same call that creates the row, which is what puts the first verification email in the right language — but it also means a client can write any string there. Nothing trusts it: every read goes through `isLocale()` and falls back.
+
 ---
 
 ## Project Structure
@@ -107,6 +117,7 @@ cv-cms/
 │   │   ├── useLocale.ts                             ← "use client" — active locale, derived from usePathname()
 │   │   ├── server.ts                                ← getLocale() / localePath() / getDictionary() via next/root-params (Server Components only)
 │   │   ├── format.tsx                               ← format() for "{name}" placeholders; <RichText> for the node-valued version
+│   │   ├── persistLocale.ts                         ← "use client" — keepalive POST to /api/locale; fire-and-forget by design
 │   │   ├── DictionaryProvider.tsx                   ← "use client" — context + useDictionary(); mounted in the root layout
 │   │   └── dictionaries/
 │   │       ├── index.ts                             ← dictionaryFor(locale); Record<Locale, Dictionary>
@@ -151,6 +162,7 @@ cv-cms/
 │   │   │   │   │   └── page.tsx                     ← privacy policy; not auth-gated, linked from footer + sign-up
 │   │   │   │   ├── settings/
 │   │   │   │   │   ├── page.tsx                     ← account card (email, sign-out, delete account)
+│   │   │   │   │   ├── LanguageSection.tsx          ← client: account language buttons → POST /api/locale, then reload
 │   │   │   │   │   └── DeleteAccountSection.tsx     ← client: email-confirm dialog → DELETE /api/user
 │   │   │   │   └── cvs/
 │   │   │   │       ├── page.tsx                     ← CV list + create (auth-gated)
@@ -188,6 +200,8 @@ cv-cms/
 │   │       │   ├── skill-categories/route.ts + [id]/route.ts
 │   │       │   ├── projects/route.ts + [id]/route.ts
 │   │       │   └── other/route.ts + [id]/route.ts
+│   │       ├── locale/route.ts                      ← POST: record a deliberate language choice — cookie + user.locale
+│   │       ├── locale/resume/route.ts               ← GET: after sign-in, adopt the account's language and redirect to ?next
 │   │       └── user/route.ts                        ← DELETE: prisma.user.delete() → cascades all content
 │   │   ├── globals.css                              ← these four stay at the app root, NOT under [lang]:
 │   │   ├── icon.svg                                    they are metadata/asset file conventions, need no
@@ -310,6 +324,7 @@ A **CV** is a named, versioned selection of the user's content entries plus a ch
 | `projectIds`    | `TEXT[]`      | Prisma `id` values of selected Project rows          |
 | `otherIds`      | `TEXT[]`      | Prisma `id` values of selected Other rows            |
 | `sectionOrder`  | `TEXT[]`      | Section display order in the CV renderer             |
+| `language`      | `TEXT`        | `NOT NULL DEFAULT 'en'` — the language the CV is *written in*, not the UI locale |
 | `targetRole`    | `TEXT?`       | "Tailored for" label — shown in CV list only; max 100 chars |
 | `coverLetter`   | `TEXT?`       | Printed as a separate page before the CV; max 5000 chars |
 
@@ -564,6 +579,28 @@ variants; ours is `["sv", "en"]` with none, so the whole decision is a q-value s
 primary-subtag compare. The two cases the parser must get right — and which naive versions miss — are
 `sv-SE,sv;q=0.9,en;q=0.8 → sv` (match the primary subtag) and `* → null` (the wildcard is not a
 preference and must fall through to the default).
+
+### Where the preference is stored
+
+Three places hold a language, and they answer different questions. Confusing them is how "my language keeps reverting" bugs are born.
+
+| | Question it answers | Written by | Read by |
+|---|---|---|---|
+| URL segment | what this page renders in, **right now** | the link that was followed; `proxy.ts` | `next/root-params`, `useLocale()` |
+| `cvforge_locale` cookie | what *this device* was last using | `proxy.ts`, both `/api/locale` routes | `proxy.ts`, `app/not-found.tsx` |
+| `user.locale` | what *this account* prefers | the navbar toggle, the settings control, sign-up | sign-in, and later the emails |
+
+**Only a deliberate act writes `user.locale`.** Merely viewing a page in a locale does not: `proxy.ts` keeps the cookie in step with the URL, so opening a link a colleague sent you in the other language changes what you see and nothing else. The account preference is written by the toggle, the settings control, and sign-up — and by nothing else.
+
+**`POST /api/locale`** takes `{ locale }`, writes the cookie, and writes `user.locale` when there is a session. The DB write is wrapped in a `try` that logs and continues: the cookie is what the visitor actually sees, and failing the request would leave them staring at the wrong language because a write they never asked for did not land.
+
+**`GET /api/locale/resume?next=/cvs`** is the sign-in hop. It is the only place that can read the session, write the cookie and redirect in one go, which is exactly what the moment after sign-in needs — the session did not exist when the page was rendered, so nothing earlier could have known the account's language. Both doors go through it: the email/password form navigates there with `window.location.assign`, and Google's OAuth `callbackURL` points at it.
+
+A NULL `user.locale` does **not** overrule the device. The cookie the browser negotiated on its first visit stands, and only an explicit account preference wins. That is the whole reason the column is nullable: with `DEFAULT 'en'`, every account that predates this feature would flip a Swedish visitor to English on their next sign-in.
+
+> **`next` is attacker-controlled and the response is a redirect.** Prefix checks alone are not enough — `/..//evil.com` passes every one of them and then the URL parser resolves the `..` away, leaving the path `//evil.com`. `safeNext()` therefore rejects the obvious forms *and* normalises through `new URL()` before re-checking. Keep both halves.
+
+**There is no `LocaleSync`.** An earlier design had a client component that compared the account locale to the cookie on mount and corrected the cookie on mismatch. It was dropped: "cookie disagrees with account" is the state after a toggle click *and* the state on a device with a stale preference, and those two want opposite resolutions — so the component would race the toggle and undo it. The cost is that changing language on one device does not reach an already-signed-in session on another until it signs in again. That is one visible click to fix, in the navbar.
 
 ### The dictionaries
 
@@ -936,6 +973,16 @@ npm run migrate:dev
 > `-v ON_ERROR_STOP=1 -1` runs the whole file in one transaction that rolls back on the first error, so a half-applied migration cannot be mistaken for a passing one. Inspect the result, then push. `_prisma_migrations` is not updated by this — deliberately, since the copy is a throwaway.
 >
 > Two things that cost time the first time round: `docker cp` and shell redirection both fail on files in `~/Downloads`, because macOS withholds that folder from the calling process — keep the dump somewhere else. And the dump carries password hashes and OAuth tokens, so delete it once restored.
+
+**Generate with `--create-only` and read the SQL before applying it.** Prisma has emitted surprise drift statements against this schema before — the `otherIds` and `sectionOrder` comments exist because of it — and an `ADD COLUMN` migration that also quietly drops a default is not something to discover in production:
+
+```bash
+npm run migrate:dev -- --create-only --name <name>
+cat prisma/migrations/<timestamp>_<name>/migration.sql   # read it
+npm run migrate:dev                                       # then apply
+```
+
+`20260828065613_add_user_locale_and_cv_language` is the model of what that should look like: two `ALTER TABLE … ADD COLUMN` lines and nothing else. Both are additive with a default or nullable, so Postgres records them as metadata only — no table rewrite, no lock on `user` or `cv`, safe with the app up.
 
 ### Local development database
 

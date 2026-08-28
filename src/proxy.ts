@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, type Locale } from "@/i18n/config";
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  isLocale,
+  localeCookieOptions,
+  type Locale,
+} from "@/i18n/config";
 import { pickLocale } from "@/i18n/negotiate";
 
 /**
@@ -77,15 +83,11 @@ function setLocaleCookie(
   locale: Locale,
   request: NextRequest,
 ) {
-  response.cookies.set(LOCALE_COOKIE, locale, {
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-    sameSite: "lax",
-    // Not httpOnly: this is a display preference, not a credential, and keeping
-    // it readable lets the client correct it without a round trip.
-    httpOnly: false,
-    secure: request.nextUrl.protocol === "https:",
-  });
+  response.cookies.set(
+    LOCALE_COOKIE,
+    locale,
+    localeCookieOptions(request.nextUrl.protocol === "https:"),
+  );
 }
 
 export const config = {

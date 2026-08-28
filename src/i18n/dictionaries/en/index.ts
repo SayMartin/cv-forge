@@ -2,6 +2,7 @@ import { common } from "./common";
 import { footer } from "./footer";
 import { landing } from "./landing";
 import { nav } from "./nav";
+import { settings } from "./settings";
 
 /**
  * English is the reference dictionary: its shape *is* the contract, and every
@@ -13,6 +14,6 @@ import { nav } from "./nav";
  * inference widens the values to `string`, which is exactly what is wanted:
  * the *keys* are the contract, the words are not.
  */
-export const en = { common, footer, landing, nav };
+export const en = { common, footer, landing, nav, settings };
 
 export type Dictionary = typeof en;
