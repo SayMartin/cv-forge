@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import { RichText } from "@/i18n/format";
 
 export function DeleteAccountSection({ email }: { email: string }) {
   const t = useDictionary().settings.delete;
+  const apiError = useApiError();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
@@ -26,10 +28,11 @@ export function DeleteAccountSection({ email }: { email: string }) {
     const res = await fetch("/api/user", { method: "DELETE" });
 
     if (!res.ok) {
-      // As in `CreateCvForm`: `body.error` stays English until step 5 gives the
-      // route an error code. The fallback is translatable today.
+      // `.catch(() => ({}))` because a 502 from a proxy is not JSON;
+      // `translateApiError` treats an empty object as an unknown code and falls
+      // through to the caller's own line.
       const body = await res.json().catch(() => ({}));
-      setError(body.error ?? t.failed);
+      setError(apiError(body, t.failed));
       setPending(false);
       return;
     }

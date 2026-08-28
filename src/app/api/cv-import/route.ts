@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError } from "@/lib/api-errors";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +25,7 @@ export const maxDuration = 120; // Gemini PDF extraction can take 60–90 s
 // per-user quota is what actually caps spending. That comes once the usage
 // logging below says what the numbers really are.
 const MAX_PAGES = 10;
+const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
 // ── Zod schema for AI extraction ───────────────────────────────────────────
 const CvSchema = z.object({
@@ -109,7 +111,7 @@ function toSlug(title: string) {
 export async function POST(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError("unauthorized", 401);
   }
   const userId = session.user.id;
 
@@ -118,22 +120,16 @@ export async function POST(req: NextRequest) {
   try {
     formData = await req.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+    return apiError("invalid_form_data", 400);
   }
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.type !== "application/pdf") {
-    return NextResponse.json(
-      { error: "A PDF file is required" },
-      { status: 400 },
-    );
+    return apiError("pdf_required", 400);
   }
 
-  if (file.size > 10 * 1024 * 1024) {
-    return NextResponse.json(
-      { error: "File too large (max 10 MB)" },
-      { status: 400 },
-    );
+  if (file.size > MAX_PDF_SIZE) {
+    return apiError("pdf_too_large", 400, { maxMb: MAX_PDF_SIZE / 1024 / 1024 });
   }
 
   const pdfBuffer = await file.arrayBuffer();
@@ -146,22 +142,14 @@ export async function POST(req: NextRequest) {
     pageCount = (await parser.getInfo()).total;
   } catch (err) {
     console.error("[cv-import] could not read PDF:", safeError(err));
-    return NextResponse.json(
-      { error: "This file could not be read as a PDF. Try exporting it again." },
-      { status: 400 },
-    );
+    return apiError("pdf_unreadable", 400);
   } finally {
     // Holds a pdf.js worker; leaking one per request would pile up.
     await parser.destroy().catch(() => {});
   }
 
   if (pageCount > MAX_PAGES) {
-    return NextResponse.json(
-      {
-        error: `This PDF has ${pageCount} pages. Imports are limited to ${MAX_PAGES} — please upload a shorter CV.`,
-      },
-      { status: 400 },
-    );
+    return apiError("pdf_too_many_pages", 400, { count: pageCount, max: MAX_PAGES });
   }
 
   // Extract structured CV data with Gemini
@@ -209,10 +197,7 @@ Rules:
     );
   } catch (err) {
     console.error("[cv-import] Gemini extraction error:", safeError(err));
-    return NextResponse.json(
-      { error: "AI extraction failed" },
-      { status: 502 },
-    );
+    return apiError("extraction_failed", 502);
   }
 
   // Write to Neon in a single transaction
@@ -335,10 +320,7 @@ Rules:
     });
   } catch (err) {
     console.error("[cv-import] Database write error:", safeError(err));
-    return NextResponse.json(
-      { error: "Failed to save imported content" },
-      { status: 502 },
-    );
+    return apiError("import_save_failed", 502);
   }
 
   return NextResponse.json({

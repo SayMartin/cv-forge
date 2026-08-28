@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import { format } from "@/i18n/format";
 import { MAX_SKILL_CATEGORIES } from "@/lib/cv-content-types";
 import type { SkillCategoryOption } from "./ContentTabs";
@@ -101,6 +102,7 @@ interface Props {
 
 export function SkillCategoryManager({ categories, onChange }: Props) {
   const { form: t, skills } = useDictionary().content;
+  const apiError = useApiError();
   const d = skills.categories;
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
@@ -115,7 +117,7 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? d.renameFailed);
+      setError(apiError(data, d.renameFailed));
       return;
     }
     onChange(categories.map((c) => (c.id === id ? { ...c, name } : c)));
@@ -128,7 +130,7 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
       const data = await res.json().catch(() => ({}));
       // A populated category is refused by the API rather than silently
       // uncategorising its skills — surface that reason verbatim.
-      setError(data.error ?? t.deleteFailed);
+      setError(apiError(data, t.deleteFailed));
       return;
     }
     onChange(categories.filter((c) => c.id !== id));
@@ -148,7 +150,7 @@ export function SkillCategoryManager({ categories, onChange }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? d.addFailed);
+        setError(apiError(data, d.addFailed));
         return;
       }
       onChange([...categories, { id: data.id, name, kind: "normal" }]);

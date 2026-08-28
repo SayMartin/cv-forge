@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError } from "@/lib/api-errors";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -18,7 +19,7 @@ async function getSession() {
 // GET /api/avatars → { images: string[] }
 export async function GET() {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return apiError("unauthorized", 401);
 
   const doc = await prisma.avatar.findUnique({ where: { userId: session.user.id } });
   return NextResponse.json({ images: doc?.images ?? [] });
@@ -27,37 +28,34 @@ export async function GET() {
 // POST /api/avatars — multipart upload; adds one image
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return apiError("unauthorized", 401);
   const userId = session.user.id;
 
   let formData: FormData;
   try {
     formData = await req.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+    return apiError("invalid_form_data", 400);
   }
 
   const file = formData.get("file");
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "A file is required" }, { status: 400 });
+    return apiError("file_required", 400);
   }
 
   const mimeType = file.type.split(";")[0].trim();
   if (!ALLOWED_TYPES.has(mimeType)) {
-    return NextResponse.json({ error: "Only JPEG, PNG, and WebP images are supported" }, { status: 415 });
+    return apiError("unsupported_image_type", 415);
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json({ error: "File too large (max 5 MB)" }, { status: 400 });
+    return apiError("image_too_large", 400, { maxMb: MAX_FILE_SIZE / 1024 / 1024 });
   }
 
   // Check current count
   const existing = await prisma.avatar.findUnique({ where: { userId } });
   if (existing && existing.images.length >= MAX_IMAGES) {
-    return NextResponse.json(
-      { error: `Maximum of ${MAX_IMAGES} photos allowed` },
-      { status: 400 },
-    );
+    return apiError("avatar_limit", 400, { count: MAX_IMAGES });
   }
 
   const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
@@ -69,7 +67,7 @@ export async function POST(req: NextRequest) {
     url = await blobPut(key, buffer, { contentType: mimeType });
   } catch (err) {
     console.error("[avatars] blobPut failed:", safeError(err));
-    return NextResponse.json({ error: "Failed to upload image" }, { status: 500 });
+    return apiError("image_upload_failed", 500);
   }
 
   let updated: Awaited<ReturnType<typeof prisma.avatar.upsert>>;
@@ -81,7 +79,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[avatars] prisma upsert failed:", safeError(err));
-    return NextResponse.json({ error: "Failed to save image record" }, { status: 500 });
+    return apiError("image_save_failed", 500);
   }
 
   return NextResponse.json({ images: updated.images }, { status: 201 });
@@ -90,18 +88,18 @@ export async function POST(req: NextRequest) {
 // PATCH /api/avatars { remove: url } — removes one image
 export async function PATCH(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return apiError("unauthorized", 401);
   const userId = session.user.id;
 
   const body = await req.json().catch(() => null);
   const url = body?.remove;
   if (typeof url !== "string" || !url) {
-    return NextResponse.json({ error: "Missing 'remove' URL" }, { status: 400 });
+    return apiError("missing_remove_url", 400);
   }
 
   const doc = await prisma.avatar.findUnique({ where: { userId } });
   if (!doc || !doc.images.includes(url)) {
-    return NextResponse.json({ error: "Image not found" }, { status: 404 });
+    return apiError("image_not_found", 404);
   }
 
   const newImages = doc.images.filter((u) => u !== url);

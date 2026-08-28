@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-errors";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError("unauthorized", 401);
 
   const themes = await prisma.cvTheme.findMany({
     where: { userId: session.user.id },
@@ -23,12 +24,12 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError("unauthorized", 401);
 
   const body = await request.json();
   const name = typeof body.name === "string" ? body.name.trim() : "";
   if (!name)
-    return NextResponse.json({ error: "name is required" }, { status: 400 });
+    return apiError("name_required", 400);
 
   const sidebarColor =
     typeof body.sidebarColor === "string" &&

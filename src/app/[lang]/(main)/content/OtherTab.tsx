@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import type { Other } from "./ContentTabs";
 import { ActionChip } from "@/components/ActionChip";
 
@@ -66,6 +67,7 @@ function itemToForm(item: Other): FormState {
 
 export function OtherTab({ initialItems }: Props) {
   const { form: t, other: d } = useDictionary().content;
+  const apiError = useApiError();
   const [items, setItems] = useState<Other[]>(initialItems);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export function OtherTab({ initialItems }: Props) {
       body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.createFailed);
+    if (!res.ok) throw new Error(apiError(data, t.createFailed));
     setItems((prev) => [...prev, { id: data.id, title: form.title, subtitle: form.subtitle || undefined, date: form.date || undefined, description: form.description || undefined, url: form.url || undefined, order: form.order ? Number(form.order) : undefined }]);
     setCreating(false);
   }
@@ -90,7 +92,7 @@ export function OtherTab({ initialItems }: Props) {
       body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.updateFailed);
+    if (!res.ok) throw new Error(apiError(data, t.updateFailed));
     setItems((prev) => prev.map((item) => item.id === id ? { id: id, title: form.title, subtitle: form.subtitle || undefined, date: form.date || undefined, description: form.description || undefined, url: form.url || undefined, order: form.order ? Number(form.order) : undefined } : item));
     setEditingId(null);
   }

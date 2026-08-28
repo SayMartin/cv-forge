@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { INTL_LOCALES } from "@/i18n/config";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import { format } from "@/i18n/format";
 import { useLocale } from "@/i18n/useLocale";
 import { SkillCategoryManager } from "./SkillCategoryManager";
@@ -100,6 +101,7 @@ function itemToForm(item: Skill): FormState {
 export function SkillsTab({ initialItems, categories: initialCategories }: Props) {
   const locale = useLocale();
   const { form: t, skills: d } = useDictionary().content;
+  const apiError = useApiError();
 
   /**
    * Was a bare `a.name.localeCompare(b.name)`, which collates in the *runtime's
@@ -157,7 +159,7 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
       body: JSON.stringify(toPayload(form)),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.createFailed);
+    if (!res.ok) throw new Error(apiError(data, t.createFailed));
     setItems((prev) => [...prev, toItem(data.id, form)].sort(byName));
     setCreating(false);
   }
@@ -169,7 +171,7 @@ export function SkillsTab({ initialItems, categories: initialCategories }: Props
       body: JSON.stringify(toPayload(form)),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.updateFailed);
+    if (!res.ok) throw new Error(apiError(data, t.updateFailed));
     setItems((prev) =>
       prev.map((item) => (item.id === id ? toItem(id, form) : item)).sort(byName),
     );

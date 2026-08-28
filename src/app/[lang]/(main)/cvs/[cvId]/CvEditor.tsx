@@ -12,6 +12,7 @@ import type { CvSkillGroup } from "@/lib/cv-content-types";
 import { localeHref } from "@/i18n/routing";
 import { useLocale } from "@/i18n/useLocale";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import { format } from "@/i18n/format";
 
 type Entry = { id: string; [key: string]: unknown };
@@ -107,6 +108,7 @@ export function CvEditor({
   const router = useRouter();
   const locale = useLocale();
   const { editor: t, layouts } = useDictionary();
+  const apiError = useApiError();
 
   const [name, setName] = useState(initialName);
   const [layoutId, setLayoutId] = useState(
@@ -243,7 +245,7 @@ export function CvEditor({
 
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error ?? t.save.failed);
+      setError(apiError(data, t.save.failed));
     } else {
       setSaved(true);
       setIsDirty(false);

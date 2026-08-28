@@ -4,6 +4,7 @@ import { common } from "./common";
 import { content } from "./content";
 import { cvs } from "./cvs";
 import { editor } from "./editor";
+import { errors } from "./errors";
 import { footer } from "./footer";
 import { importPage } from "./importPage";
 import { landing } from "./landing";
@@ -27,6 +28,7 @@ export const sv = {
   content,
   cvs,
   editor,
+  errors,
   footer,
   importPage,
   landing,

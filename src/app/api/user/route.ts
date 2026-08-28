@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-errors";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { purgeUserSideEffects } from "@/lib/user-deletion";
@@ -11,15 +12,12 @@ export const dynamic = "force-dynamic";
 export async function DELETE() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError("unauthorized", 401);
   }
 
   // Admins cannot delete their own account via the app
   if (session.user.role === "admin") {
-    return NextResponse.json(
-      { error: "Admin accounts cannot be deleted from the application." },
-      { status: 403 },
-    );
+    return apiError("admin_undeletable", 403);
   }
 
   // Avatar files in R2 and verification rows sit outside the cascade, and the
@@ -30,10 +28,7 @@ export async function DELETE() {
     await purgeUserSideEffects(session.user.id);
   } catch (err) {
     console.error("[user] side-effect purge failed:", safeError(err));
-    return NextResponse.json(
-      { error: "Could not delete your data right now. Please try again." },
-      { status: 502 },
-    );
+    return apiError("account_delete_failed", 502);
   }
 
   // All content models have onDelete: Cascade — deleting the user row is sufficient

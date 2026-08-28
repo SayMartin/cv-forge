@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import type { Profile } from "./ContentTabs";
 import { ActionChip } from "@/components/ActionChip";
 
@@ -99,6 +100,7 @@ function ProfileForm({
 
 export function ProfilesTab({ initialItems }: Props) {
   const { form: t, profiles: d } = useDictionary().content;
+  const apiError = useApiError();
   const [items, setItems] = useState<Profile[]>(initialItems);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -123,7 +125,7 @@ export function ProfilesTab({ initialItems }: Props) {
       }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.createFailed);
+    if (!res.ok) throw new Error(apiError(data, t.createFailed));
     const newItem: Profile = {
       id: data.id,
       profileName: form.profileName,
@@ -161,7 +163,7 @@ export function ProfilesTab({ initialItems }: Props) {
       }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.updateFailed);
+    if (!res.ok) throw new Error(apiError(data, t.updateFailed));
     setItems((prev) =>
       prev.map((item) =>
         item.id === id

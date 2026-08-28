@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import type { Experience } from "./ContentTabs";
 import { ActionChip } from "@/components/ActionChip";
 
@@ -110,6 +111,7 @@ function itemToForm(item: Experience): FormState {
 
 export function ExperienceTab({ initialItems }: Props) {
   const { form: t, present, experience: d } = useDictionary().content;
+  const apiError = useApiError();
   const [items, setItems] = useState<Experience[]>(initialItems);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -122,7 +124,7 @@ export function ExperienceTab({ initialItems }: Props) {
       body: JSON.stringify(formToPayload(form)),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.createFailed);
+    if (!res.ok) throw new Error(apiError(data, t.createFailed));
     const payload = formToPayload(form);
     setItems((prev) => [{ id: data.id, ...payload }, ...prev]);
     setCreating(false);
@@ -135,7 +137,7 @@ export function ExperienceTab({ initialItems }: Props) {
       body: JSON.stringify(formToPayload(form)),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.updateFailed);
+    if (!res.ok) throw new Error(apiError(data, t.updateFailed));
     const payload = formToPayload(form);
     setItems((prev) => prev.map((item) => item.id === id ? { id: id, ...payload } : item));
     setEditingId(null);

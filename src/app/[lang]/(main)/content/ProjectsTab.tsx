@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import type { Project } from "./ContentTabs";
 import { ActionChip } from "@/components/ActionChip";
 
@@ -105,6 +106,7 @@ function itemToForm(item: Project): FormState {
 
 export function ProjectsTab({ initialItems }: Props) {
   const { form: t, present, projects: d } = useDictionary().content;
+  const apiError = useApiError();
   const [items, setItems] = useState<Project[]>(initialItems);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -118,7 +120,7 @@ export function ProjectsTab({ initialItems }: Props) {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.createFailed);
+    if (!res.ok) throw new Error(apiError(data, t.createFailed));
     setItems((prev) => [{ id: data.id, ...payload }, ...prev]);
     setCreating(false);
   }
@@ -131,7 +133,7 @@ export function ProjectsTab({ initialItems }: Props) {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.updateFailed);
+    if (!res.ok) throw new Error(apiError(data, t.updateFailed));
     setItems((prev) => prev.map((item) => item.id === id ? { id: id, ...payload } : item));
     setEditingId(null);
   }

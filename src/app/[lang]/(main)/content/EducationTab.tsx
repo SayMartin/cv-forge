@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { format } from "@/i18n/format";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import type { Education } from "./ContentTabs";
 import { ActionChip } from "@/components/ActionChip";
 
@@ -95,6 +96,7 @@ function itemToForm(item: Education): FormState {
 
 export function EducationTab({ initialItems }: Props) {
   const { form: t, present, education: d } = useDictionary().content;
+  const apiError = useApiError();
   const [items, setItems] = useState<Education[]>(initialItems);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -107,7 +109,7 @@ export function EducationTab({ initialItems }: Props) {
       body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.createFailed);
+    if (!res.ok) throw new Error(apiError(data, t.createFailed));
     setItems((prev) => [{ id: data.id, ...form }, ...prev]);
     setCreating(false);
   }
@@ -119,7 +121,7 @@ export function EducationTab({ initialItems }: Props) {
       body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t.updateFailed);
+    if (!res.ok) throw new Error(apiError(data, t.updateFailed));
     setItems((prev) => prev.map((item) => item.id === id ? { id: id, ...form } : item));
     setEditingId(null);
   }

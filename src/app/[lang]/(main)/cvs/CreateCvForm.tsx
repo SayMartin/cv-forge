@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import { localeHref } from "@/i18n/routing";
 import { useLocale } from "@/i18n/useLocale";
 
@@ -10,6 +11,7 @@ export function CreateCvForm() {
   const router = useRouter();
   const locale = useLocale();
   const t = useDictionary().cvs.create;
+  const apiError = useApiError();
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,11 +28,8 @@ export function CreateCvForm() {
     });
 
     if (!res.ok) {
-      // `data.error` is still an English sentence from the route handler. The
-      // API keeps its own English `error` field until step 5 gives every route a
-      // code; the fallback below is the half that can be translated today.
       const data = await res.json();
-      setError(data.error ?? t.failed);
+      setError(apiError(data, t.failed));
       setPending(false);
       return;
     }

@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-errors";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { CvSkillGroup } from "@/lib/cv-content-types";
@@ -11,13 +12,13 @@ type Params = { params: Promise<{ cvId: string }> };
 // GET /api/cvs/[cvId] — fetch one CV (owner only)
 export async function GET(_req: Request, { params }: Params) {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return apiError("unauthorized", 401);
 
   const { cvId } = await params;
   const cv = await prisma.cV.findUnique({ where: { id: cvId } });
 
   if (!cv || cv.userId !== session.user.id) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return apiError("not_found", 404);
   }
 
   return NextResponse.json(cv);
@@ -26,13 +27,13 @@ export async function GET(_req: Request, { params }: Params) {
 // PATCH /api/cvs/[cvId] — update name and/or selected entry IDs
 export async function PATCH(request: Request, { params }: Params) {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return apiError("unauthorized", 401);
 
   const { cvId } = await params;
   const existing = await prisma.cV.findUnique({ where: { id: cvId } });
 
   if (!existing || existing.userId !== session.user.id) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return apiError("not_found", 404);
   }
 
   const body = await request.json();
@@ -133,7 +134,7 @@ export async function PATCH(request: Request, { params }: Params) {
       where: { id: data.profileId, userId: session.user.id },
       select: { id: true },
     });
-    if (!profile) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!profile) return apiError("not_found", 404);
   }
 
   if (data.themeId) {
@@ -141,7 +142,7 @@ export async function PATCH(request: Request, { params }: Params) {
       where: { id: data.themeId, userId: session.user.id },
       select: { id: true },
     });
-    if (!theme) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!theme) return apiError("not_found", 404);
   }
 
   const updated = await prisma.cV.update({ where: { id: cvId }, data });
@@ -151,13 +152,13 @@ export async function PATCH(request: Request, { params }: Params) {
 // DELETE /api/cvs/[cvId] — delete a CV (owner only)
 export async function DELETE(_req: Request, { params }: Params) {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return apiError("unauthorized", 401);
 
   const { cvId } = await params;
   const existing = await prisma.cV.findUnique({ where: { id: cvId } });
 
   if (!existing || existing.userId !== session.user.id) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return apiError("not_found", 404);
   }
 
   await prisma.cV.delete({ where: { id: cvId } });

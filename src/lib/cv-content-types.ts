@@ -52,6 +52,10 @@ export type CvSkillGroup = {
 // is the point, not the number.
 export const MAX_SKILL_CATEGORIES = 9;
 
+// Quoted back to the user by the `name_too_long` error, so it has to be a
+// value the route can pass rather than a literal repeated in two handlers.
+export const MAX_CATEGORY_NAME = 40;
+
 export type CvProfile = {
   id: string;
   profileName: string;

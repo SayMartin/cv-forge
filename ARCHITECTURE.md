@@ -118,13 +118,15 @@ cv-cms/
 │   │   ├── server.ts                                ← getLocale() / localePath() / getDictionary() via next/root-params (Server Components only)
 │   │   ├── format.tsx                               ← format() for "{name}" placeholders; <RichText> for the node-valued version; plural() + PluralForms
 │   │   ├── authErrors.ts                            ← Better Auth codes → translated sentences; the codes are the contract, not the English text
+│   │   ├── apiErrors.ts                             ← translateApiError(dict, locale, body, fallback); isomorphic, no next/server
+│   │   ├── useApiError.ts                           ← "use client" — the hook form, used at all ~20 render sites
 │   │   ├── persistLocale.ts                         ← "use client" — keepalive POST to /api/locale; fire-and-forget by design
 │   │   ├── DictionaryProvider.tsx                   ← "use client" — context + useDictionary(); mounted in the root layout
 │   │   └── dictionaries/
 │   │       ├── index.ts                             ← dictionaryFor(locale); Record<Locale, Dictionary>
 │   │       ├── en/                                  ← the reference dictionary; its shape IS the contract
 │   │       │   ├── index.ts                         ← composes the slices and exports `type Dictionary`
-│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts, auth.ts, cvs.ts, content.ts, editor.ts, layouts.ts, settings.ts, importPage.ts
+│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts, auth.ts, cvs.ts, content.ts, editor.ts, errors.ts, layouts.ts, settings.ts, importPage.ts
 │   │       │                                        ← `importPage`, not `import` — a reserved word cannot be an import name
 │   │       └── sv/                                  ← same file list; each slice annotated Dictionary["<slice>"]
 │   ├── app/
@@ -240,6 +242,7 @@ cv-cms/
 │   └── lib/
 │       ├── auth.ts                                  ← exported `auth` singleton (Better Auth)
 │       ├── auth-client.ts                           ← createAuthClient ("use client" only)
+│       ├── api-errors.ts                            ← API_ERROR_CODES + ApiErrorCode + apiError(); the only way a route reports a failure
 │       ├── color-utils.ts                           ← HSL color math: darkenColor, lightenColor, getContrastColor, hexToRgba, mixColors, sidebarGradient
 │       ├── cv-content-types.ts                      ← shared CvContent / section types
 │       ├── cv-layouts.ts                            ← LAYOUT_IDS + LayoutId + resolveLayoutId(); SECTION_KEYS. Names and labels live in the dictionary
@@ -752,6 +755,54 @@ hand each one only its slices — the `useDictionary()` call sites do not change
 
 Never import `@/i18n/dictionaries` from a Client Component: it would pull **both** languages into
 the browser bundle. Importing the `Dictionary` *type* is fine — type imports are erased.
+
+### API errors travel as codes, not sentences
+
+**A Route Handler cannot translate.** `next/root-params` is Server-Component-only, so a handler has
+no way to know which language the page that called it is rendering in — and a `fetch` from a client
+component carries no locale either. Writing the sentence in the route is therefore not a style
+choice that could be revisited; it is unimplementable. So the route sends a code and the *client*,
+which does know the locale, turns it into words.
+
+```
+route         return apiError("category_in_use", 409, { count: 2, names: "A, B" })
+wire          { code: "category_in_use", error: "category still used by a CV", params: {…} }
+client        const apiError = useApiError();  →  "Används fortfarande av 2 CV:n: A, B"
+```
+
+`API_ERROR_CODES` in `src/lib/api-errors.ts` is the vocabulary — 33 codes, `as const`. Both
+dictionaries type their `errors` slice `Record<ApiErrorCode, string | PluralForms>`, so **adding a
+code is three compile errors** until it is translated in both languages and given a diagnostic
+string. Verified by adding one.
+
+> **`error` on the wire is diagnostic and is never rendered.** It exists so a failed request reads
+> sensibly in the network tab and in `curl` without a code lookup, and it is permanently English.
+> Rendering it — the obvious fallback, and what an earlier draft of this design called for — would
+> put an English sentence into a Swedish page at exactly the moment something has already gone
+> wrong, which is the leak this whole area exists to close. `translateApiError` therefore ignores it
+> and falls back to the **caller's** own translated line (`t.createFailed`, `t.uploadFailed`), which
+> is both localised and more specific about what the user was attempting.
+
+The terse English is kept in `lib/api-errors.ts` rather than read from `dictionaries/en/errors.ts`,
+which would look like it removes a duplicate. It does not: `i18n/` already imports `ApiErrorCode`
+from `lib/`, so reading back the other way is a cycle that survives only because that import is
+type-only — and a cycle held together by an `import type` is a trap for whoever next needs a value
+across it. Two English strings that may drift is the cheaper problem, because one of them is shown
+to nobody.
+
+**Counting is `PluralForms`, never a ternary.** The case that forces it: deleting a skill category
+still used by CVs answered `` `Still used by ${n === 1 ? "CV" : "CVs"}` ``. Swedish pluralises CV as
+**CV:n** — singular and plural differ by a colon, not by a suffix — so no amount of appending an "s"
+in a template literal could ever have produced it. Where a code's translation is a `{ one, other }`
+pair, **the route must send `count` in `params`**; that is the number the rule selects on
+(`pdf_too_many_pages` counts pages and carries `max` alongside; `category_limit` counts the limit
+itself). A body missing `count` renders the plural form with a literal `{count}` still in it — the
+same loud-failure convention `format()` uses for an unknown placeholder, and better than inventing a
+number.
+
+Parsing is deliberately defensive: `res.json()` is `any`, a proxy can answer with an HTML 502, and a
+tab open across a deploy can meet a code this build has never heard of. All three end at the
+fallback rather than at a thrown error inside a `catch`.
 
 ### The language toggle
 

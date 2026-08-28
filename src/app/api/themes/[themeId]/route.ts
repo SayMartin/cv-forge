@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-errors";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -11,13 +12,13 @@ type Params = { params: Promise<{ themeId: string }> };
 export async function PATCH(request: Request, { params }: Params) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError("unauthorized", 401);
 
   const { themeId } = await params;
   const existing = await prisma.cvTheme.findUnique({ where: { id: themeId } });
 
   if (!existing || existing.userId !== session.user.id) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return apiError("not_found", 404);
   }
 
   const body = await request.json();
@@ -48,13 +49,13 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(_req: Request, { params }: Params) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError("unauthorized", 401);
 
   const { themeId } = await params;
   const existing = await prisma.cvTheme.findUnique({ where: { id: themeId } });
 
   if (!existing || existing.userId !== session.user.id) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return apiError("not_found", 404);
   }
 
   await prisma.cvTheme.delete({ where: { id: themeId } });

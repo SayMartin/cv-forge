@@ -5,6 +5,7 @@ import { LocaleLink } from "@/components/LocaleLink";
 import { useDictionary } from "@/i18n/DictionaryProvider";
 import { plural, RichText } from "@/i18n/format";
 import { useLocale } from "@/i18n/useLocale";
+import { useApiError } from "@/i18n/useApiError";
 
 type ImportResult = {
   ok: boolean;
@@ -15,6 +16,7 @@ type ImportResult = {
     projects: number;
     other: number;
   };
+  /** Already translated by the time it lands here — see `handleSubmit`. */
   error?: string;
 };
 
@@ -32,6 +34,7 @@ const COUNTERS = [
 export default function ImportPage() {
   const locale = useLocale();
   const { importPage, nav } = useDictionary();
+  const apiError = useApiError();
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [result, setResult] = useState<ImportResult | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -50,9 +53,18 @@ export default function ImportPage() {
 
     try {
       const res = await fetch("/api/cv-import", { method: "POST", body });
-      const data: ImportResult = await res.json();
-      setStatus(!res.ok || !data.ok ? "error" : "success");
-      setResult(data);
+      const data: unknown = await res.json();
+
+      // A failure body is `{ code, error, params }`, not an ImportResult — so it
+      // is translated here and only the sentence is kept.
+      if (!res.ok || !(data as ImportResult)?.ok) {
+        setStatus("error");
+        setResult({ ok: false, error: apiError(data) });
+        return;
+      }
+
+      setStatus("success");
+      setResult(data as ImportResult);
     } catch {
       setStatus("error");
       setResult({ ok: false, error: importPage.networkError });
@@ -180,7 +192,6 @@ export default function ImportPage() {
         {status === "error" && result?.error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <p className="font-medium">{importPage.failure.title}</p>
-            {/* Still English when it comes from the API — step 5. */}
             <p>{result.error}</p>
           </div>
         )}

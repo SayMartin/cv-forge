@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
+import { apiError } from "@/lib/api-errors";
 import { LOCALE_COOKIE, isLocale, localeCookieOptions } from "@/i18n/config";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -28,10 +29,7 @@ export async function POST(request: NextRequest) {
     body && typeof body === "object" ? (body as { locale?: unknown }).locale : null;
 
   if (!isLocale(locale)) {
-    return NextResponse.json(
-      { error: "locale must be one of: sv, en" },
-      { status: 400 },
-    );
+    return apiError("invalid_locale", 400);
   }
 
   const session = await auth.api.getSession({ headers: await headers() });

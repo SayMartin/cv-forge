@@ -2,12 +2,14 @@
 
 import { useRef, useState } from "react";
 import { useDictionary } from "@/i18n/DictionaryProvider";
+import { useApiError } from "@/i18n/useApiError";
 import { format } from "@/i18n/format";
 
 const MAX_IMAGES = 5;
 
 export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
   const { form: t, avatars: d } = useDictionary().content;
+  const apiError = useApiError();
   const [images, setImages] = useState<string[]>(initialImages);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +29,7 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
     const data = await res.json();
 
     if (!res.ok) {
-      setError(data.error ?? d.uploadFailed);
+      setError(apiError(data, d.uploadFailed));
     } else {
       setImages(data.images);
     }
@@ -47,7 +49,7 @@ export function AvatarsTab({ initialImages }: { initialImages: string[] }) {
     if (res.ok) {
       setImages(data.images);
     } else {
-      setError(data.error ?? t.deleteFailed);
+      setError(apiError(data, t.deleteFailed));
     }
   }
 

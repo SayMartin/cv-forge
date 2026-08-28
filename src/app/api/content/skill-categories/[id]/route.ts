@@ -1,7 +1,9 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-errors";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { MAX_CATEGORY_NAME } from "@/lib/cv-content-types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,31 +14,28 @@ export const dynamic = "force-dynamic";
 // from a screen that looks like it only changes a label.
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return apiError("unauthorized", 401);
 
   const { id } = await params;
   const existing = await prisma.skillCategory.findUnique({ where: { id } });
   if (!existing || existing.userId !== session.user.id) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return apiError("not_found", 404);
   }
 
   // The spoken-language category is fixed in both name and role: Europass depends
   // on it always being present and identifiable, and it cannot be recreated from
   // the UI once changed, since `kind` is not settable when creating a category.
   if (existing.kind === "language") {
-    return NextResponse.json(
-      { error: "The language category cannot be renamed" },
-      { status: 409 },
-    );
+    return apiError("language_category_rename", 409);
   }
 
   const body = await req.json();
   const name = String(body.name ?? "").trim();
   if (!name) {
-    return NextResponse.json({ error: "name is required" }, { status: 400 });
+    return apiError("name_required", 400);
   }
-  if (name.length > 40) {
-    return NextResponse.json({ error: "name is too long" }, { status: 400 });
+  if (name.length > MAX_CATEGORY_NAME) {
+    return apiError("name_too_long", 400, { max: MAX_CATEGORY_NAME });
   }
 
   const clash = await prisma.skillCategory.findFirst({
@@ -48,7 +47,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     select: { id: true },
   });
   if (clash) {
-    return NextResponse.json({ error: "That category already exists" }, { status: 409 });
+    return apiError("category_exists", 409);
   }
 
   const updated = await prisma.skillCategory.update({ where: { id }, data: { name } });
@@ -58,12 +57,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 // DELETE /api/content/skill-categories/[id]
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return apiError("unauthorized", 401);
 
   const { id } = await params;
   const existing = await prisma.skillCategory.findUnique({ where: { id } });
   if (!existing || existing.userId !== session.user.id) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return apiError("not_found", 404);
   }
 
   // The spoken-language category is structural, not user content. Deleting it
@@ -72,10 +71,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   // remove the CEFR field and the Europass language table, which that format
   // requires. It can still be renamed; only the role is fixed.
   if (existing.kind === "language") {
-    return NextResponse.json(
-      { error: "The language category cannot be deleted — rename it instead" },
-      { status: 409 },
-    );
+    return apiError("language_category_delete", 409);
   }
 
   // "In use" now means "some CV lays skills out under it" — skills themselves no
@@ -98,10 +94,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     .map((cv) => cv.name);
 
   if (usedBy.length > 0) {
-    return NextResponse.json(
-      { error: `Still used by ${usedBy.length === 1 ? "CV" : "CVs"}: ${usedBy.join(", ")}` },
-      { status: 409 },
-    );
+    return apiError("category_in_use", 409, { count: usedBy.length, names: usedBy.join(", ") });
   }
 
   await prisma.skillCategory.delete({ where: { id } });
