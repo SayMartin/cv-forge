@@ -1,4 +1,7 @@
+"use client";
+
 import { LocaleLink } from "@/components/LocaleLink";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 
 // The way back to a CV the user stepped away from — from My Content, or from
 // the preview. Both are detours out of an edit in progress rather than places
@@ -22,6 +25,8 @@ export function BackToCvLink({
   cvName: string;
   className?: string;
 }) {
+  const { backTo } = useDictionary().editor.view;
+
   return (
     <LocaleLink
       href={`/cvs/${cvId}`}
@@ -31,7 +36,7 @@ export function BackToCvLink({
       <span aria-hidden="true" className="shrink-0">
         ←
       </span>
-      <span className="shrink-0">Back to</span>
+      <span className="shrink-0">{backTo}</span>
       {/* Only the name truncates — losing "Back to" to a long CV name would
           leave a dangling arrow, which is the state this link moved away from. */}
       <span className="truncate font-medium">{cvName}</span>

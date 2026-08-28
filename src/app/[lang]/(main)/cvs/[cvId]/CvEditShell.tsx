@@ -6,6 +6,7 @@ import { Breadcrumbs, CrumbLink } from "@/components/Breadcrumbs";
 import { CvSwitcher } from "./CvSwitcher";
 import { CvEditor } from "./CvEditor";
 import { useUnsavedChangesWarning, confirmLeave } from "./UnsavedChangesGuard";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 import type { ComponentProps } from "react";
 
 type CvEditorProps = ComponentProps<typeof CvEditor>;
@@ -15,13 +16,14 @@ interface Props extends Omit<CvEditorProps, "headerTrail" | "headerLink"> {
 }
 
 export function CvEditShell({ cvs, cvId, initialName, ...editorProps }: Props) {
+  const { editor: t, nav } = useDictionary();
   const [liveName, setLiveName] = useState(initialName);
 
   // The guard lives here rather than in CvEditor because it has to cover the
   // links this shell renders — and, through the document-level listener, the
   // global nav as well.
   const [dirty, setDirty] = useState(false);
-  useUnsavedChangesWarning(dirty);
+  useUnsavedChangesWarning(dirty, t.unsavedChanges);
 
   const liveCvs = cvs.map((cv) => (cv.id === cvId ? { ...cv, name: liveName } : cv));
 
@@ -39,13 +41,15 @@ export function CvEditShell({ cvs, cvId, initialName, ...editorProps }: Props) {
         // The switcher doubles as the CV segment: this page had no heading at
         // all, and a select on its own reads as a control rather than a title.
         <Breadcrumbs>
-          <CrumbLink href="/cvs">My CVs</CrumbLink>
+          {/* Named from `nav`, not from a key of its own: this crumb points at the
+              nav item of the same name, and the two must not be able to disagree. */}
+          <CrumbLink href="/cvs">{nav.myCvs}</CrumbLink>
           {/* A select navigates through the router, not through an anchor, so
               the click listener never sees it — it needs asking directly. */}
           <CvSwitcher
             cvs={liveCvs}
             currentId={cvId}
-            onBeforeSwitch={() => !dirty || confirmLeave()}
+            onBeforeSwitch={() => !dirty || confirmLeave(t.unsavedChanges)}
           />
         </Breadcrumbs>
       }
@@ -54,7 +58,7 @@ export function CvEditShell({ cvs, cvId, initialName, ...editorProps }: Props) {
           href={`/cvs/${cvId}/view`}
           className="text-sm bg-(--cl-accent) text-white rounded-lg px-4 py-1.5 hover:bg-(--cl-accent-hov) transition-colors shrink-0"
         >
-          Preview →
+          {t.preview} →
         </LocaleLink>
       }
       {...editorProps}

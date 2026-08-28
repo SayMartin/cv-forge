@@ -19,6 +19,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 
 // ── Grip icon ─────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ function EntryGripIcon() {
 // ── Sortable entry row (checked entries) ──────────────────────────────────────
 
 function SortableEntryRow({ id, label, onToggle }: { id: string; label: string; onToggle: () => void }) {
+  const { dragToReorder } = useDictionary().editor;
   const {
     attributes,
     listeners,
@@ -74,7 +76,7 @@ function SortableEntryRow({ id, label, onToggle }: { id: string; label: string; 
         {...attributes}
         {...listeners}
         type="button"
-        aria-label="Drag to reorder"
+        aria-label={dragToReorder}
         className="text-(--cl-muted) hover:text-(--cl-text) cursor-grab active:cursor-grabbing touch-none shrink-0"
       >
         <EntryGripIcon />

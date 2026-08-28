@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { localeHref } from "@/i18n/routing";
 import { useLocale } from "@/i18n/useLocale";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 
 type CvEntry = { id: string; name: string };
 
@@ -18,6 +19,7 @@ export function CvSwitcher({
 }) {
   const router = useRouter();
   const locale = useLocale();
+  const { editor: t } = useDictionary();
 
   return (
     <select
@@ -32,7 +34,7 @@ export function CvSwitcher({
         }
         router.push(localeHref(locale, `/cvs/${e.target.value}`));
       }}
-      aria-label="Switch CV"
+      aria-label={t.switchCv}
       // Sits as the last segment of the breadcrumb, so it carries the weight of a
       // page title while keeping enough border to still read as a control.
       className="text-sm font-medium border border-(--cl-border) rounded-lg px-2.5 py-1 bg-white text-(--cl-text) hover:border-(--cl-accent) focus:outline-none focus:ring-2 focus:ring-(--cl-accent) max-w-[16rem] truncate transition-colors"

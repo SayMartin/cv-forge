@@ -124,7 +124,7 @@ cv-cms/
 │   │       ├── index.ts                             ← dictionaryFor(locale); Record<Locale, Dictionary>
 │   │       ├── en/                                  ← the reference dictionary; its shape IS the contract
 │   │       │   ├── index.ts                         ← composes the slices and exports `type Dictionary`
-│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts, auth.ts, cvs.ts, content.ts, settings.ts, importPage.ts
+│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts, auth.ts, cvs.ts, content.ts, editor.ts, layouts.ts, settings.ts, importPage.ts
 │   │       │                                        ← `importPage`, not `import` — a reserved word cannot be an import name
 │   │       └── sv/                                  ← same file list; each slice annotated Dictionary["<slice>"]
 │   ├── app/
@@ -242,7 +242,7 @@ cv-cms/
 │       ├── auth-client.ts                           ← createAuthClient ("use client" only)
 │       ├── color-utils.ts                           ← HSL color math: darkenColor, lightenColor, getContrastColor, hexToRgba, mixColors, sidebarGradient
 │       ├── cv-content-types.ts                      ← shared CvContent / section types
-│       ├── cv-layouts.ts                            ← CV_LAYOUTS registry + getLayoutMeta()
+│       ├── cv-layouts.ts                            ← LAYOUT_IDS + LayoutId + resolveLayoutId(); SECTION_KEYS. Names and labels live in the dictionary
 │       ├── cv-theme.ts                              ← CvTheme type { id, name, sidebarColor, accentColor }
 │       ├── prisma.ts                                ← global Prisma singleton (PrismaPg adapter)
 │       └── r2.ts                                   ← S3-compatible client (Cloudflare R2, via @aws-sdk/client-s3): blobPut, blobDelete
@@ -315,7 +315,7 @@ A **CV** is a named, versioned selection of the user's content entries plus a ch
 | `id`            | `TEXT` (cuid) | Primary key                                          |
 | `name`          | `TEXT`        | User-chosen, e.g. "Backend Engineer 2026"; max 100 chars |
 | `userId`        | `TEXT`        | FK → `user.id`, CASCADE delete                       |
-| `layoutId`      | `TEXT`        | Default `"default"` — key into `CV_LAYOUTS` registry |
+| `layoutId`      | `TEXT`        | Default `"default"` — a `LayoutId` from `LAYOUT_IDS`; read back through `resolveLayoutId()` |
 | `themeId`       | `TEXT?`       | FK → `cv_theme.id`, SET NULL on theme delete         |
 | `profileId`     | `TEXT?`       | Prisma `id` of selected Profile row                  |
 | `avatarIndex`   | `INT?`        | Index into `avatar.images[]`; `null` = no avatar     |
@@ -427,9 +427,23 @@ All six helpers live in `src/lib/color-utils.ts`.
 Layouts are defined in code, not the database. Adding a new layout:
 
 1. Create `src/components/cv-layouts/YourLayout.tsx` (web, Tailwind)
-2. Add an entry to `CV_LAYOUTS` in `src/lib/cv-layouts.ts`
+2. Add its id to `LAYOUT_IDS` in `src/lib/cv-layouts.ts`
 3. Register the component in `src/components/cv-layouts/index.ts`
-4. Create `src/components/cv-layouts/thumbnails/YourThumb.tsx` and add a `case` for it in `thumbnails/LayoutThumb.tsx`
+4. Add its name and description to **both** `src/i18n/dictionaries/{en,sv}/layouts.ts`
+5. Create `src/components/cv-layouts/thumbnails/YourThumb.tsx` and add a `case` for it in `thumbnails/LayoutThumb.tsx`
+
+Steps 3 and 4 are not reminders. `LAYOUT_IDS` is `as const`, so `LayoutId` is a
+union of the six ids, and the component map and both dictionary slices are typed
+`Record<LayoutId, …>` — adding an id and stopping there is three compile errors,
+one per map. Only step 5 can still be forgotten silently, because `LayoutThumb`
+switches on a string and falls through to a default.
+
+> The layout's **name and description are not in the registry**. They are labels
+> on a picker, so they follow the *UI* locale and live in `dict.layouts[id]`;
+> the `id` stays in code because it is written to `cv.layoutId`. `SECTION_LABELS`
+> left the same file for the same reason and is now `dict.editor.sections`. None
+> of this is the CV's *own* language — that is `Cv.language`, and it drives the
+> headings printed on the document rather than the words around it.
 
 > `thumbnails/index.tsx` is **not** a registration point — it only re-exports `LayoutThumb` (plus three unused named thumbs). `LayoutThumb.tsx` imports each thumb directly, so nothing needs adding to the barrel.
 
@@ -687,6 +701,20 @@ say "Spara ändringar", and nothing would ever flag it; one key cannot drift fro
 `common`, which is reserved for strings crossing *areas* — a shared sub-slice inside the area is the
 right scope.
 
+**A string keyed by a union is checked at the lookup, not just at the definition.** Three slices
+are typed `Record<K, string>` against a union that already exists in the code — `editor.sections`
+against `SectionKey`, `layouts` against `LayoutId`, `auth.errors` against `AuthErrorCode`. That buys
+two things a flat object does not: the dictionary cannot ship missing an entry (`TS2741`, in both
+locales), and the *consumer* indexing it with a key the dictionary lacks fails at the lookup
+(`TS7053`) rather than rendering `undefined`. `ContentTabs` does the same with its own `TabId` union
+over `content.tabs`. Where a union exists, use it — the alternative is a blank label nobody notices
+until a user reports it.
+
+> Do not write these with `satisfies`. It enforces the keys but keeps the values as string *literal*
+> types, which re-creates exactly the problem `as const` causes in `en/index.ts`. Declare the object
+> above the slice with a plain annotation, as `en/nav.ts` does for `names` and `en/editor.ts` for
+> `sections`.
+
 **Field labels and placeholders are paired in one object per field.** A placeholder is an example,
 and an example still reading "Acme Corp" under a Swedish label is the tell that a translation was
 done halfway — so they are translated together, and a field with no placeholder simply has no
@@ -705,6 +733,18 @@ only the dictionary itself is serialised. A context rather than props because 32
 `"use client"` and the string-heavy ones are the worst candidates for drilling: `CvEditor` already
 takes 27 props. `useDictionary()` **throws** when no provider is above it; a silent English fallback
 renders a plausible-looking page and is the bug nobody reports.
+
+That throw is also why a shared component reads the dictionary itself rather than taking its text as
+a prop. `BackToCvLink` is rendered from My Content *and* from the CV preview; as a `label` prop it
+would be two call sites to keep in step and a forgotten one renders an empty span, whereas
+`useDictionary()` inside it cannot be forgotten. The cost is that the component becomes
+`"use client"` — worth paying for a link, not worth paying for a large server-rendered subtree.
+
+The exception is a string a hook or a plain function needs. `useUnsavedChangesWarning(dirty, message)`
+and `confirmLeave(message)` in `UnsavedChangesGuard.tsx` take the leave-warning as an argument,
+because the caller holding the unsaved CV is also the one holding the dictionary. Note that `message`
+reaches only the capture-phase `confirm()`: browsers have not let a page word the `beforeunload`
+dialog for years and show their own text, already localised.
 
 The whole dictionary lands in every page's Flight payload. That is cheap now and grows with each
 translated area. If it stops being cheap, move the provider down into the route-group layouts and

@@ -2,68 +2,45 @@
 //
 // To add a new layout:
 //   1. Create src/components/cv-layouts/YourLayout.tsx
-//   2. Add an entry to CV_LAYOUTS below
+//   2. Add its id to LAYOUT_IDS below
+//   3. Add the component to LAYOUT_COMPONENTS (src/components/cv-layouts/index.ts)
+//   4. Add its name and description to BOTH dictionaries (src/i18n/dictionaries/*/layouts.ts)
 //
-// The `id` is stored in the `cv.layoutId` column in Neon.
-// The component is imported lazily in the view page and PDF export route.
+// Steps 3 and 4 are not reminders — they are compile errors. All three maps are
+// keyed by `LayoutId`, so a new id that is missing anywhere fails to build.
+//
+// The `id` is stored in the `cv.layoutId` column in Neon, so these strings are
+// data and must not be renamed. The *names* users read are not here: they moved
+// to the dictionary, because a layout picker is UI and follows the UI locale.
 
-export type CvLayoutMeta = {
-  id: string;
-  name: string;
-  description: string;
-};
-
-export const CV_LAYOUTS: CvLayoutMeta[] = [
-  {
-    id: "default",
-    name: "Classic",
-    description: "Clean typography on a light grey background.",
-  },
-  {
-    id: "modern",
-    name: "Modern",
-    description: "Two-column layout with dark sidebar and gold accents.",
-  },
-  {
-    id: "teal",
-    name: "Teal",
-    description: "Teal sidebar with progress bars and bold section headers.",
-  },
-  {
-    id: "slate",
-    name: "Slate",
-    description: "Dark slate sidebar with indigo accents, grouped skills with dot ratings, and clean pill-style tech tags.",
-  },
-  {
-    id: "terminal",
-    name: "Terminal",
-    description: "Dark GitHub-style layout with monospace type and code-tag skills. Built for developers.",
-  },
-  {
-    id: "europass",
-    name: "Europass",
-    description: "EU-standardised CV structure with personal details, CEFR language table, and dated timeline sections.",
-  },
+export const LAYOUT_IDS = [
+  "default",
+  "modern",
+  "teal",
+  "slate",
+  "terminal",
+  "europass",
   // Placeholder slots — components to be built in future steps:
-  // { id: "minimal",  name: "Minimal",  description: "Pure white, generous whitespace, no decorations." },
-  // { id: "compact",  name: "Compact",  description: "Dense layout optimised for one page." },
-];
+  // "minimal", "compact",
+] as const;
 
-export const DEFAULT_LAYOUT_ID = "default";
+export type LayoutId = (typeof LAYOUT_IDS)[number];
+
+export const DEFAULT_LAYOUT_ID: LayoutId = "default";
 
 export const SECTION_KEYS = ["experience", "education", "skills", "projects", "other"] as const;
 export type SectionKey = typeof SECTION_KEYS[number];
 
-export const SECTION_LABELS: Record<SectionKey, string> = {
-  experience: "Experience",
-  education: "Education",
-  skills: "Skills",
-  projects: "Projects",
-  other: "Other",
-};
-
 export const DEFAULT_SECTION_ORDER: SectionKey[] = [...SECTION_KEYS];
 
-export function getLayoutMeta(id: string): CvLayoutMeta {
-  return CV_LAYOUTS.find((l) => l.id === id) ?? CV_LAYOUTS[0];
+/**
+ * Narrows a `cv.layoutId` read from the database to a known layout.
+ *
+ * The column is a plain `String`, so it can hold the id of a layout that was
+ * removed from this file — falling back to the default is what keeps such a CV
+ * rendering instead of throwing. Callers get a `LayoutId`, which is what makes
+ * `dict.layouts[…]` type-check without a cast at every site.
+ */
+export function resolveLayoutId(id: string): LayoutId {
+  return (LAYOUT_IDS as readonly string[]).includes(id) ? (id as LayoutId) : DEFAULT_LAYOUT_ID;
 }

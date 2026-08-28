@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { CV_LAYOUTS, DEFAULT_LAYOUT_ID, DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
+import { LAYOUT_IDS, DEFAULT_LAYOUT_ID, DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
 import { LayoutThumb } from "@/components/cv-layouts/thumbnails";
 import { SectionOrderEditor } from "./SectionOrderEditor";
 import { SortableEntryList } from "./SortableEntryList";
@@ -11,6 +11,8 @@ import { ActionChip } from "@/components/ActionChip";
 import type { CvSkillGroup } from "@/lib/cv-content-types";
 import { localeHref } from "@/i18n/routing";
 import { useLocale } from "@/i18n/useLocale";
+import { useDictionary } from "@/i18n/DictionaryProvider";
+import { format } from "@/i18n/format";
 
 type Entry = { id: string; [key: string]: unknown };
 type Experience = Entry & { company: string; role: string };
@@ -104,6 +106,7 @@ export function CvEditor({
 }: Props) {
   const router = useRouter();
   const locale = useLocale();
+  const { editor: t, layouts } = useDictionary();
 
   const [name, setName] = useState(initialName);
   const [layoutId, setLayoutId] = useState(
@@ -189,7 +192,7 @@ export function CvEditor({
     const res = await fetch("/api/themes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "My theme" }),
+      body: JSON.stringify({ name: t.theme.newName }),
     });
     if (res.ok) {
       const theme: ThemeEntry = await res.json();
@@ -201,12 +204,7 @@ export function CvEditor({
   }
 
   async function handleDeleteTheme(id: string) {
-    if (
-      !confirm(
-        "Delete this theme? CVs using it will lose their colour settings.",
-      )
-    )
-      return;
+    if (!confirm(t.theme.confirmDelete)) return;
     const res = await fetch(`/api/themes/${id}`, { method: "DELETE" });
     if (res.ok) {
       setThemes((prev) => prev.filter((t) => t.id !== id));
@@ -245,7 +243,7 @@ export function CvEditor({
 
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error ?? "Save failed");
+      setError(data.error ?? t.save.failed);
     } else {
       setSaved(true);
       setIsDirty(false);
@@ -256,7 +254,7 @@ export function CvEditor({
   }
 
   function handleRevert() {
-    if (!confirm("Discard all unsaved changes?")) return;
+    if (!confirm(t.revert.confirm)) return;
     setName(initialName);
     setLayoutId(initialLayoutId ?? DEFAULT_LAYOUT_ID);
     setThemeId(initialThemeId);
@@ -279,14 +277,14 @@ export function CvEditor({
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    if (!confirm(format(t.deleteCv.confirm, { name }))) return;
     setDeleting(true);
 
     const res = await fetch(`/api/cvs/${cvId}`, { method: "DELETE" });
     if (res.ok) {
       router.push(localeHref(locale, "/cvs"));
     } else {
-      setError("Delete failed");
+      setError(t.deleteCv.failed);
       setDeleting(false);
     }
   }
@@ -299,7 +297,7 @@ export function CvEditor({
           onClick={handleRevert}
           className="rounded-lg border border-(--cl-border) px-3 py-1.5 text-sm text-(--cl-muted) hover:border-red-400 hover:text-red-500 transition-colors bg-white"
         >
-          Revert
+          {t.revert.label}
         </button>
       )}
       <SaveButton
@@ -355,7 +353,7 @@ export function CvEditor({
         {/* Name */}
         <div className="space-y-1">
           <label className="block text-sm font-medium text-(--cl-text)">
-            CV name
+            {t.name.label}
           </label>
           <input
             type="text"
@@ -372,30 +370,30 @@ export function CvEditor({
         {/* Tailored for */}
         <div className="space-y-1">
           <label className="block text-sm font-medium text-(--cl-text)">
-            Tailored for
+            {t.targetRole.label}
           </label>
           <input
             type="text"
             value={targetRole}
             onChange={(e) => { setTargetRole(e.target.value); markDirty(); }}
-            placeholder="e.g. Acme Corp — Senior Designer"
+            placeholder={t.targetRole.placeholder}
             maxLength={100}
             className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent)"
           />
-          <p className="text-sm text-(--cl-muted)">Only shown in the CV list — not printed.</p>
+          <p className="text-sm text-(--cl-muted)">{t.targetRole.help}</p>
         </div>
 
         {/* Layout picker */}
-        <Section title="Layout">
+        <Section title={t.layout.title}>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {CV_LAYOUTS.map((layout) => {
-              const selected = layoutId === layout.id;
+            {LAYOUT_IDS.map((id) => {
+              const selected = layoutId === id;
               return (
                 <button
-                  key={layout.id}
+                  key={id}
                   type="button"
                   onClick={() => {
-                    setLayoutId(layout.id);
+                    setLayoutId(id);
                     markDirty();
                   }}
                   className={`flex flex-col items-center gap-2 rounded-lg border p-2 transition-colors ${
@@ -405,7 +403,7 @@ export function CvEditor({
                   }`}
                 >
                   <LayoutThumb
-                    layoutId={layout.id}
+                    layoutId={id}
                     sidebarColor={currentTheme?.sidebarColor}
                     accentColor={currentTheme?.accentColor}
                     selected={selected}
@@ -413,7 +411,7 @@ export function CvEditor({
                   <p
                     className={`text-sm font-medium ${selected ? "text-(--cl-accent)" : "text-(--cl-text)"}`}
                   >
-                    {layout.name}
+                    {layouts[id].name}
                   </p>
                 </button>
               );
@@ -422,7 +420,7 @@ export function CvEditor({
         </Section>
 
         {/* Theme picker */}
-        <Section title="Colour theme">
+        <Section title={t.theme.title}>
           <div className="space-y-3">
             {/* Theme cards */}
             <div className="flex flex-wrap gap-2">
@@ -439,7 +437,7 @@ export function CvEditor({
                     : "border-(--cl-border) text-(--cl-muted) hover:border-(--cl-accent) bg-white"
                 }`}
               >
-                Default
+                {t.theme.none}
               </button>
 
               {themes.map((t) => (
@@ -489,7 +487,7 @@ export function CvEditor({
                 disabled={creatingTheme}
                 className="flex items-center gap-1 rounded-lg border border-dashed border-(--cl-border) px-3 py-2 text-sm text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors disabled:opacity-50"
               >
-                {creatingTheme ? "Creating…" : "+ New theme"}
+                {creatingTheme ? t.theme.creating : t.theme.create}
               </button>
             </div>
 
@@ -521,14 +519,14 @@ export function CvEditor({
                       className="text-sm font-medium bg-transparent border-b border-(--cl-border) focus:outline-none focus:border-(--cl-accent) py-0.5 w-40"
                     />
                     {themeNameSaved && (
-                      <span className="text-sm text-(--cl-muted)">Saved ✓</span>
+                      <span className="text-sm text-(--cl-muted)">{t.theme.saved}</span>
                     )}
                   </div>
                   <ActionChip
                     tone="danger"
                     onClick={() => handleDeleteTheme(currentTheme.id)}
                   >
-                    Delete
+                    {t.theme.delete}
                   </ActionChip>
                 </div>
 
@@ -542,7 +540,7 @@ export function CvEditor({
                       }
                       className="w-8 h-8 rounded cursor-pointer border border-(--cl-border) p-0.5"
                     />
-                    Sidebar
+                    {t.theme.sidebar}
                   </label>
                   <label className="flex items-center gap-2 text-sm text-(--cl-muted)">
                     <input
@@ -553,7 +551,7 @@ export function CvEditor({
                       }
                       className="w-8 h-8 rounded cursor-pointer border border-(--cl-border) p-0.5"
                     />
-                    Accent
+                    {t.theme.accent}
                   </label>
                 </div>
               </div>
@@ -563,7 +561,7 @@ export function CvEditor({
 
         {/* Profile */}
         {profiles.length > 0 && (
-          <Section title="Profile" headerAction={<ContentLink cvId={cvId} tab="profiles" />}>
+          <Section title={t.profile.title} headerAction={<ContentLink cvId={cvId} tab="profiles" />}>
             <div className="space-y-2">
               {profiles.map((p) => {
                 const selected = profileId === p.id;
@@ -592,7 +590,7 @@ export function CvEditor({
 
         {/* Avatar */}
         {avatarDoc && avatarDoc.images.length > 0 && (
-          <Section title="Avatar" headerAction={<ContentLink cvId={cvId} tab="avatars" />}>
+          <Section title={t.avatar.title} headerAction={<ContentLink cvId={cvId} tab="avatars" />}>
             <div className="flex items-center gap-3 flex-wrap">
               <ActionChip
                 selected={avatarIndex === null}
@@ -601,14 +599,14 @@ export function CvEditor({
                   markDirty();
                 }}
               >
-                None
+                {t.avatar.none}
               </ActionChip>
               {avatarDoc.images.map((url, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={i}
                   src={url}
-                  alt={`Avatar ${i + 1}`}
+                  alt={format(t.avatar.alt, { number: i + 1 })}
                   onClick={() => {
                     setAvatarIndex(i);
                     markDirty();
@@ -627,7 +625,7 @@ export function CvEditor({
         {/* Experience */}
         {experiences.length > 0 && (
           <Section
-            title="Experience"
+            title={t.sections.experience}
             headerAction={<ContentLink cvId={cvId} tab="experience" />}
             allIds={experiences.map((e) => e.id)}
             selectedIds={experienceIds}
@@ -639,7 +637,7 @@ export function CvEditor({
               ids={experienceIds}
               onReorder={(ids) => { setExperienceIds(ids); markDirty(); }}
               entries={experiences}
-              getLabel={(e) => `${e.role} @ ${e.company}`}
+              getLabel={(e) => format(t.entries.experience, { role: e.role, company: e.company })}
               onToggle={(id) => toggle(experienceIds, setExperienceIds, id)}
             />
           </Section>
@@ -648,7 +646,7 @@ export function CvEditor({
         {/* Education */}
         {educations.length > 0 && (
           <Section
-            title="Education"
+            title={t.sections.education}
             headerAction={<ContentLink cvId={cvId} tab="education" />}
             allIds={educations.map((e) => e.id)}
             selectedIds={educationIds}
@@ -660,7 +658,12 @@ export function CvEditor({
               ids={educationIds}
               onReorder={(ids) => { setEducationIds(ids); markDirty(); }}
               entries={educations}
-              getLabel={(e) => `${e.degree ?? "Degree"} — ${e.institution}`}
+              getLabel={(e) =>
+                format(t.entries.education, {
+                  degree: e.degree ?? t.entries.degreeFallback,
+                  institution: e.institution,
+                })
+              }
               onToggle={(id) => toggle(educationIds, setEducationIds, id)}
             />
           </Section>
@@ -668,7 +671,7 @@ export function CvEditor({
 
         {/* Skills — grouped per CV, so the arrangement is not a checkbox list */}
         {skills.length > 0 && (
-          <Section title="Skills" headerAction={<ContentLink cvId={cvId} tab="skills" />}>
+          <Section title={t.sections.skills} headerAction={<ContentLink cvId={cvId} tab="skills" />}>
             <CvSkillsEditor
               skills={skills}
               categories={skillCategories}
@@ -683,7 +686,7 @@ export function CvEditor({
         {/* Projects */}
         {projects.length > 0 && (
           <Section
-            title="Projects"
+            title={t.sections.projects}
             headerAction={<ContentLink cvId={cvId} tab="projects" />}
             allIds={projects.map((p) => p.id)}
             selectedIds={projectIds}
@@ -704,7 +707,7 @@ export function CvEditor({
         {/* Other */}
         {others.length > 0 && (
           <Section
-            title="Other"
+            title={t.sections.other}
             headerAction={<ContentLink cvId={cvId} tab="other" />}
             allIds={others.map((o) => o.id)}
             selectedIds={otherIds}
@@ -716,14 +719,16 @@ export function CvEditor({
               ids={otherIds}
               onReorder={(ids) => { setOtherIds(ids); markDirty(); }}
               entries={others}
-              getLabel={(o) => o.subtitle ? `${o.title} — ${o.subtitle}` : o.title}
+              getLabel={(o) =>
+                o.subtitle ? format(t.entries.other, { title: o.title, subtitle: o.subtitle }) : o.title
+              }
               onToggle={(id) => toggle(otherIds, setOtherIds, id)}
             />
           </Section>
         )}
 
         {/* Timeline mode */}
-        <Section title="Timeline">
+        <Section title={t.timeline.title}>
           <div className="flex flex-col gap-2">
             <label className="flex items-start gap-2 cursor-pointer group">
               <input
@@ -734,8 +739,8 @@ export function CvEditor({
                 className="mt-0.5 h-4 w-4 accent-(--cl-accent)"
               />
               <span className="text-sm text-(--cl-text)">
-                Grouped by section
-                <span className="block text-sm text-(--cl-muted)">Experience, Education, Projects, and Other each render as their own block, in the order below.</span>
+                {t.timeline.grouped.label}
+                <span className="block text-sm text-(--cl-muted)">{t.timeline.grouped.description}</span>
               </span>
             </label>
             <label className="flex items-start gap-2 cursor-pointer group">
@@ -747,8 +752,8 @@ export function CvEditor({
                 className="mt-0.5 h-4 w-4 accent-(--cl-accent)"
               />
               <span className="text-sm text-(--cl-text)">
-                Mixed, chronological order
-                <span className="block text-sm text-(--cl-muted)">Experience, Education, Projects, and Other are merged into one timeline sorted by date (most recent first). Skills stays separate.</span>
+                {t.timeline.chronological.label}
+                <span className="block text-sm text-(--cl-muted)">{t.timeline.chronological.description}</span>
               </span>
             </label>
           </div>
@@ -756,8 +761,8 @@ export function CvEditor({
 
         {/* Section order */}
         {!chronological && (
-          <Section title="Section order">
-            <p className="text-sm text-(--cl-muted) mb-3">Hold and drag to reorder sections in your CV.</p>
+          <Section title={t.sectionOrder.title}>
+            <p className="text-sm text-(--cl-muted) mb-3">{t.sectionOrder.help}</p>
             <SectionOrderEditor
               sectionOrder={sectionOrder}
               onChange={(order) => { setSectionOrder(order); markDirty(); }}
@@ -766,16 +771,16 @@ export function CvEditor({
         )}
 
         {/* Cover letter */}
-        <Section title="Cover letter">
+        <Section title={t.coverLetter.title}>
           <textarea
             value={coverLetter}
             onChange={(e) => { setCoverLetter(e.target.value); markDirty(); }}
-            placeholder="Write a cover letter for this application…"
+            placeholder={t.coverLetter.placeholder}
             rows={8}
             maxLength={5000}
             className="w-full border border-(--cl-border) rounded-lg px-3 py-2 text-sm bg-white text-(--cl-text) placeholder:text-(--cl-muted) focus:outline-none focus:ring-2 focus:ring-(--cl-accent) resize-y"
           />
-          <p className="text-sm text-(--cl-muted)">Printed as a separate page before the CV when not empty.</p>
+          <p className="text-sm text-(--cl-muted)">{t.coverLetter.help}</p>
         </Section>
 
         {/* Actions — save moved to the sticky header, so this row is the one
@@ -793,7 +798,7 @@ export function CvEditor({
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
             )}
-            {deleting ? "Deleting…" : "Delete CV"}
+            {deleting ? t.deleteCv.deleting : t.deleteCv.label}
           </ActionChip>
         </div>
       </div>
@@ -812,6 +817,8 @@ function SaveButton({
   isDirty: boolean;
   saved: boolean;
 }) {
+  const t = useDictionary().editor.save;
+
   if (saving) {
     return (
       <button
@@ -822,7 +829,7 @@ function SaveButton({
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-        Saving…
+        {t.saving}
       </button>
     );
   }
@@ -833,7 +840,7 @@ function SaveButton({
         className="bg-(--cl-accent) text-white rounded-lg px-4 py-1.5 text-sm font-medium hover:bg-(--cl-accent-hov) transition-colors flex items-center gap-1.5"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-amber-300 shrink-0" />
-        Save changes
+        {t.dirty}
       </button>
     );
   }
@@ -843,7 +850,7 @@ function SaveButton({
         disabled
         className="rounded-lg px-4 py-1.5 text-sm font-medium text-(--cl-muted) bg-(--cl-pill) cursor-default"
       >
-        Saved ✓
+        {t.saved}
       </button>
     );
   }
@@ -853,7 +860,7 @@ function SaveButton({
       onClick={onClick}
       className="rounded-lg border border-(--cl-border) px-4 py-1.5 text-sm font-medium text-(--cl-muted) hover:border-(--cl-accent) hover:text-(--cl-accent) transition-colors bg-white"
     >
-      Save
+      {t.idle}
     </button>
   );
 }
@@ -862,8 +869,9 @@ function SaveButton({
 // link carries the CV along so that page can offer a way straight back, and names
 // the tab so the trip lands on the right one.
 function ContentLink({ cvId, tab }: { cvId: string; tab: string }) {
+  const { myContent } = useDictionary().nav;
   return (
-    <ActionChip href={`/content?tab=${tab}&from=${cvId}`}>My Content →</ActionChip>
+    <ActionChip href={`/content?tab=${tab}&from=${cvId}`}>{myContent} →</ActionChip>
   );
 }
 
@@ -882,6 +890,7 @@ function Section({
   onToggleAll?: () => void;
   headerAction?: React.ReactNode;
 }) {
+  const t = useDictionary().editor;
   const allChecked = allIds && selectedIds && selectedIds.length === allIds.length;
   return (
     <div className="space-y-2">
@@ -897,7 +906,7 @@ function Section({
         </div>
         {onToggleAll && (
           <ActionChip onClick={onToggleAll}>
-            {allChecked ? "None" : "All"}
+            {allChecked ? t.selectNone : t.selectAll}
           </ActionChip>
         )}
       </div>

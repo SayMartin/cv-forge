@@ -26,6 +26,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { CvSkillGroup } from "@/lib/cv-content-types";
+import { useDictionary } from "@/i18n/DictionaryProvider";
+import { format } from "@/i18n/format";
 
 export type SkillOption = { id: string; name: string; level?: number; cefrLevel?: string };
 export type CategoryOption = { id: string; name: string; kind: string };
@@ -64,6 +66,7 @@ function SkillChip({
   disabled?: boolean;
   onToggle: () => void;
 }) {
+  const t = useDictionary().editor.skills;
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: skill.id });
 
@@ -84,7 +87,7 @@ function SkillChip({
         checked={selected}
         disabled={disabled}
         onChange={onToggle}
-        aria-label={`Include ${skill.name}`}
+        aria-label={format(t.include, { name: skill.name })}
         className="rounded accent-(--cl-accent) disabled:opacity-40"
       />
       <button
@@ -92,7 +95,7 @@ function SkillChip({
         {...attributes}
         {...listeners}
         type="button"
-        aria-label={`Move ${skill.name} to another category`}
+        aria-label={format(t.move, { name: skill.name })}
         className={`text-sm cursor-grab active:cursor-grabbing touch-none ${
           selected ? "text-(--cl-text)" : "text-(--cl-muted)"
         }`}
@@ -119,6 +122,7 @@ function GroupRow({
   onToggleSkill: (id: string) => void;
   onToggleHidden: () => void;
 }) {
+  const t = useDictionary().editor.skills;
   const {
     attributes, listeners, setNodeRef, setActivatorNodeRef,
     transform, transition, isDragging, isOver: rowIsOver,
@@ -147,7 +151,7 @@ function GroupRow({
             type="checkbox"
             checked={!group.hidden}
             onChange={onToggleHidden}
-            aria-label={`Show ${category.name} on this CV`}
+            aria-label={format(t.show, { category: category.name })}
             className="rounded accent-(--cl-accent)"
           />
           <span className={`text-sm font-semibold uppercase tracking-wide flex-1 ${
@@ -160,7 +164,7 @@ function GroupRow({
             {...attributes}
             {...listeners}
             type="button"
-            aria-label={`Reorder ${category.name}`}
+            aria-label={format(t.reorder, { category: category.name })}
             className="text-(--cl-muted) hover:text-(--cl-text) cursor-grab active:cursor-grabbing touch-none opacity-50 hover:opacity-100"
           >
             <GripIcon />
@@ -170,7 +174,7 @@ function GroupRow({
         <SortableContext items={group.skillIds} strategy={rectSortingStrategy}>
           <div className="flex flex-wrap gap-1.5 min-h-9">
             {skills.length === 0 ? (
-              <p className="text-sm text-(--cl-muted) self-center">Drag skills here</p>
+              <p className="text-sm text-(--cl-muted) self-center">{t.dropHere}</p>
             ) : (
               skills.map((skill) => (
                 <SkillChip
@@ -405,6 +409,7 @@ export function CvSkillsEditor({
 // no-op context — registering nothing, reporting no error, and quietly refusing
 // every drop.
 function UnplacedTray({ skills }: { skills: SkillOption[] }) {
+  const t = useDictionary().editor.skills;
   const { setNodeRef, isOver } = useDroppable({ id: UNPLACED });
 
   return (
@@ -415,12 +420,12 @@ function UnplacedTray({ skills }: { skills: SkillOption[] }) {
       }`}
     >
       <p className="text-sm font-semibold uppercase tracking-wide text-(--cl-muted) mb-2">
-        Not on this CV
+        {t.unplaced}
       </p>
       <SortableContext items={skills.map((s) => s.id)} strategy={rectSortingStrategy}>
         <div className="flex flex-wrap gap-1.5 min-h-9">
           {skills.length === 0 ? (
-            <p className="text-sm text-(--cl-muted) self-center">Every skill is placed.</p>
+            <p className="text-sm text-(--cl-muted) self-center">{t.allPlaced}</p>
           ) : (
             skills.map((skill) => (
               <SkillChip key={skill.id} skill={skill} selected={false} disabled onToggle={() => {}} />

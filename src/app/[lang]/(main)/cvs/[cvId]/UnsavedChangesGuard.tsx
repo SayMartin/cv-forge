@@ -2,11 +2,16 @@
 
 import { useEffect } from "react";
 
-const MESSAGE = "This CV has unsaved changes. Leave without saving?";
-
-/** For navigation that does not go through a link — a select, a router.push. */
-export function confirmLeave() {
-  return confirm(MESSAGE);
+/**
+ * For navigation that does not go through a link — a select, a router.push.
+ *
+ * Takes the message rather than owning it: this file is a pair of listeners
+ * with no dictionary of its own, and the caller that knows about the unsaved
+ * CV is also the one holding the strings. Passing it in also keeps the hook and
+ * this function saying the same thing, since both are handed the same key.
+ */
+export function confirmLeave(message: string) {
+  return confirm(message);
 }
 
 /**
@@ -17,8 +22,12 @@ export function confirmLeave() {
  * swap the page out silently. So links are caught during the capture phase,
  * before the router's own handler sees the click, which is the only point where
  * the navigation can still be stopped.
+ *
+ * `message` reaches only the capture-phase prompt. Browsers stopped letting a
+ * page word the `beforeunload` dialog years ago and show their own text, already
+ * in the user's language — which is why nothing is passed to it below.
  */
-export function useUnsavedChangesWarning(dirty: boolean) {
+export function useUnsavedChangesWarning(dirty: boolean, message: string) {
   useEffect(() => {
     if (!dirty) return;
 
@@ -47,7 +56,7 @@ export function useUnsavedChangesWarning(dirty: boolean) {
       if (!anchor || !href || href.startsWith("#") || anchor.target === "_blank") return;
       if (href === window.location.pathname + window.location.search) return;
 
-      if (!confirmLeave()) {
+      if (!confirmLeave(message)) {
         event.preventDefault();
         event.stopPropagation();
       }
@@ -59,5 +68,7 @@ export function useUnsavedChangesWarning(dirty: boolean) {
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("click", onClick, true);
     };
-  }, [dirty]);
+    // `message` is read inside the listener, so a language switch has to
+    // re-register it — the toggle is an anchor, and this guard is what stops it.
+  }, [dirty, message]);
 }

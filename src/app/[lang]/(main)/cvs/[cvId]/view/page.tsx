@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { createElement } from "react";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { localePath } from "@/i18n/server";
+import { getDictionary, localePath } from "@/i18n/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLayoutComponent } from "@/components/cv-layouts";
-import { getLayoutMeta, DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
+import { resolveLayoutId, DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
 import type { CvContent, CvProfile, CvSkillGroup } from "@/lib/cv-content-types";
 import { CvScaleWrapper } from "./CvScaleWrapper";
 import { ViewToolbar } from "./ViewToolbar";
@@ -162,7 +162,10 @@ export default async function CvViewPage({ params }: Params) {
     others: byIds(others, cv.otherIds),
   };
 
-  const layoutMeta = getLayoutMeta(cv.layoutId);
+  // The badge names the layout in the *UI* language: it labels a control on
+  // this page, not anything printed on the CV.
+  const { layouts } = await getDictionary();
+  const layoutName = layouts[resolveLayoutId(cv.layoutId)].name;
 
   const sectionOrder = (
     cv.sectionOrder.length ? cv.sectionOrder : DEFAULT_SECTION_ORDER
@@ -171,7 +174,7 @@ export default async function CvViewPage({ params }: Params) {
   return (
     <div>
       {/* ── Toolbar ──────────────────────────────────────────────── */}
-      <ViewToolbar cvId={cvId} cvName={cv.name} layoutName={layoutMeta.name} />
+      <ViewToolbar cvId={cvId} cvName={cv.name} layoutName={layoutName} />
 
       {/* ── Cover letter (print page, hidden on screen) ──────────── */}
       {cv.coverLetter && (

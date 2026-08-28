@@ -18,7 +18,8 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { SECTION_LABELS, type SectionKey } from "@/lib/cv-layouts";
+import { type SectionKey } from "@/lib/cv-layouts";
+import { useDictionary } from "@/i18n/DictionaryProvider";
 
 // ── Grip icon ─────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,9 @@ function GripIcon() {
 // ── Sortable row ──────────────────────────────────────────────────────────────
 
 function SortableRow({ id }: { id: SectionKey }) {
+  // `sections` is keyed by SectionKey, so an unlabelled section is a compile
+  // error at this lookup rather than a blank row.
+  const { sections, dragToReorder } = useDictionary().editor;
   const {
     attributes,
     listeners,
@@ -72,7 +76,7 @@ function SortableRow({ id }: { id: SectionKey }) {
       }`}
     >
       <span className="text-sm text-(--cl-text) flex-1">
-        {SECTION_LABELS[id]}
+        {sections[id]}
       </span>
 
       {/* Drag handle — only this triggers the drag */}
@@ -81,7 +85,7 @@ function SortableRow({ id }: { id: SectionKey }) {
         {...attributes}
         {...listeners}
         type="button"
-        aria-label="Drag to reorder"
+        aria-label={dragToReorder}
         className="text-(--cl-muted) hover:text-(--cl-text) cursor-grab active:cursor-grabbing touch-none shrink-0 opacity-50 hover:opacity-100"
       >
         <GripIcon />

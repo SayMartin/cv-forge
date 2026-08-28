@@ -3,9 +3,11 @@ import { auth } from "./auth";
 import { common } from "./common";
 import { content } from "./content";
 import { cvs } from "./cvs";
+import { editor } from "./editor";
 import { footer } from "./footer";
 import { importPage } from "./importPage";
 import { landing } from "./landing";
+import { layouts } from "./layouts";
 import { nav } from "./nav";
 import { settings } from "./settings";
 
@@ -24,9 +26,11 @@ export const sv = {
   common,
   content,
   cvs,
+  editor,
   footer,
   importPage,
   landing,
+  layouts,
   nav,
   settings,
 } satisfies Dictionary;
