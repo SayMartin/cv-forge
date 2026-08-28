@@ -13,7 +13,7 @@
 | Database  | Self-hosted PostgreSQL via Prisma ORM       | All app data: users, sessions, CVs, themes, all content    |
 | Storage   | Cloudflare R2 (S3-compatible)               | Avatar image uploads                                       |
 | Auth      | Better Auth — email + password + Google OAuth | Authentication + role-based access                       |
-| Email     | Resend (`noreply@appfinningar.se`)           | Transactional email — email verification on sign-up        |
+| Email     | Resend (`noreply@appfinningar.se`)           | Transactional email — verification on sign-up, password reset; both localised |
 | Hosting   | Self-hosted (Docker Compose on a home server, "smurfserver") | Deploy                                    |
 | CI/CD     | GitHub Actions (build + push to GHCR) + a self-hosted runner on the server (auto-migrate) + Watchtower (auto-pull) | Build offloaded from the server; zero-touch deploy *and* migration on push to `main` |
 | Routing   | Cloudflare Tunnel (direct to host ports)    | Public ingress + TLS termination, no reverse proxy          |
@@ -119,6 +119,7 @@ cv-cms/
 │   │   ├── format.tsx                               ← format() for "{name}" placeholders; <RichText> for the node-valued version; plural() + PluralForms
 │   │   ├── authErrors.ts                            ← Better Auth codes → translated sentences; the codes are the contract, not the English text
 │   │   ├── apiErrors.ts                             ← translateApiError(dict, locale, body, fallback); isomorphic, no next/server
+│   │   ├── emails.ts                                ← the one HTML shell every transactional email renders into + escapeHtml; pure
 │   │   ├── useApiError.ts                           ← "use client" — the hook form, used at all ~20 render sites
 │   │   ├── persistLocale.ts                         ← "use client" — keepalive POST to /api/locale; fire-and-forget by design
 │   │   ├── DictionaryProvider.tsx                   ← "use client" — context + useDictionary(); mounted in the root layout
@@ -128,7 +129,10 @@ cv-cms/
 │   │       │   ├── index.ts                         ← composes the slices and exports `type Dictionary`
 │   │       │   └── common.ts, nav.ts, footer.ts, landing.ts, auth.ts, cvs.ts, content.ts, editor.ts, errors.ts, layouts.ts, settings.ts, importPage.ts
 │   │       │                                        ← `importPage`, not `import` — a reserved word cannot be an import name
-│   │       └── sv/                                  ← same file list; each slice annotated Dictionary["<slice>"]
+│   │       ├── sv/                                  ← same file list; each slice annotated Dictionary["<slice>"]
+│   │       └── server/                              ← server-only: the two emails. Functions, so it can NEVER be serialised to a client
+│   │           ├── index.ts                         ← serverDictionaryFor(locale), emailLocale(user.locale)
+│   │           └── en.ts, sv.ts                     ← `type ServerDictionary = typeof en`, same contract as the client half
 │   ├── app/
 │   │   ├── not-found.tsx                            ← the 404 for notFound(); sits OUTSIDE [lang] because nothing inside it works — see Internationalisation
 │   │   ├── [lang]/                                  ← every page lives under /sv or /en; `lang` is a root param
@@ -241,6 +245,7 @@ cv-cms/
 │   │           └── EuropassThumb.tsx
 │   └── lib/
 │       ├── auth.ts                                  ← exported `auth` singleton (Better Auth)
+│       ├── email.ts                                  ← sendAuthEmail(kind, user, url): picks the language, renders, sends via Resend
 │       ├── auth-client.ts                           ← createAuthClient ("use client" only)
 │       ├── api-errors.ts                            ← API_ERROR_CODES + ApiErrorCode + apiError(); the only way a route reports a failure
 │       ├── color-utils.ts                           ← HSL color math: darkenColor, lightenColor, getContrastColor, hexToRgba, mixColors, sidebarGradient
@@ -631,7 +636,7 @@ Three places hold a language, and they answer different questions. Confusing the
 |---|---|---|---|
 | URL segment | what this page renders in, **right now** | the link that was followed; `proxy.ts` | `next/root-params`, `useLocale()` |
 | `cvforge_locale` cookie | what *this device* was last using | `proxy.ts`, both `/api/locale` routes | `proxy.ts`, `app/not-found.tsx` |
-| `user.locale` | what *this account* prefers | the navbar toggle, the settings control, sign-up | sign-in, and later the emails |
+| `user.locale` | what *this account* prefers | the navbar toggle, the settings control, sign-up | sign-in; both transactional emails |
 
 **Only a deliberate act writes `user.locale`.** Merely viewing a page in a locale does not: `proxy.ts` keeps the cookie in step with the URL, so opening a link a colleague sent you in the other language changes what you see and nothing else. The account preference is written by the toggle, the settings control, and sign-up — and by nothing else.
 
@@ -804,6 +809,57 @@ Parsing is deliberately defensive: `res.json()` is `any`, a proxy can answer wit
 tab open across a deploy can meet a code this build has never heard of. All three end at the
 fallback rather than at a thrown error inside a `catch`.
 
+### Emails: the one place translations are functions
+
+The two transactional emails live in `src/i18n/dictionaries/server/{en,sv}.ts`, which is a **second,
+server-only dictionary**. It is separate from the client one for a reason that is not stylistic: its
+values are **functions**, and a function cannot cross the server→client boundary. Putting them in the
+dictionary `DictionaryProvider` serialises would break every page. The corollary is a free win — the
+browser never receives two sixty-line HTML templates in two languages.
+
+Being server-only is what lets this half do what the client half cannot:
+
+| | Client dictionary | Server dictionary |
+|---|---|---|
+| Values | plain strings, `{placeholder}` + `format()` | `(vars) => EmailBody` |
+| A dropped variable | compiles; renders `Hi ,` to a real person | `tsc` catches a missing *field*; eslint's `no-unused-vars` flags an unused `name` |
+| Reaches the browser | yes, in every Flight payload | never |
+
+**The markup is not translated.** Two emails × two languages would be four copies of the same fifty
+lines of table layout, so `renderEmail()` in `src/i18n/emails.ts` owns the shell and each translation
+supplies only `{ subject, greeting, paragraphs[], button, linkFallback, footer }`. A padding change is
+one edit rather than four, and the two languages cannot drift structurally.
+
+`subject` is a flat string, not part of the function, and that is load-bearing: a mail header is not
+markup, so an escaped `&amp;` there would show literally in the inbox list. Keeping it out of the
+function makes it impossible to build a subject from the escaped values the body receives.
+
+> **`name` is escaped now; it was not before.** It is whatever the user typed into the sign-up form
+> and it lands inside a `<p>`. Mail clients do not run scripts, so this was never an XSS — but a `<`
+> in a display name tore the layout apart, and an `<a>` smuggled into the greeting of a message that
+> genuinely comes from us is a phishing primitive. `renderEmail` escapes both `name` and `url` before
+> calling the template, so a template body drops them straight into markup and must not escape twice.
+> Escaping `url` also fixes a latent bug: the `&` between `token` and `callbackURL` was a bare `&`
+> inside an `href`, which is malformed HTML that some clients truncate at.
+
+**The language comes from `user.locale`, and there is nothing else it could come from.** Both callbacks
+run inside a Route Handler — Better Auth's `/api/auth/*` mount — where `next/root-params` does not
+exist, and the reset email is not triggered from a page at all: it is triggered by an address typed
+into a form, possibly from a different browser. The account column is the one durable answer to "what
+language does this person read". `emailLocale()` validates it on the way in, because the column is
+nullable *and* `input: true`; NULL means "never chose", and an account with no preference has always
+received English.
+
+`<html lang>` follows that locale. Both templates were hardcoded `lang="en"`, which made a Swedish
+screen reader pronounce Swedish words with English phonemes.
+
+**`sendAuthEmail()` throws; what that means is the caller's business.** The verification path lets it
+through, because `sign-up/page.tsx` calls `POST /api/auth/send-verification-email` explicitly and that
+endpoint rethrows to the client — the whole point of `sendOnSignUp: false`. The reset path swallows
+it: Better Auth's `runInBackgroundOrAwait` catches there anyway, and the reset endpoint answers
+identically whether or not the address exists, so a failure that changed the response would be the
+tell that it does.
+
 ### The language toggle
 
 `src/components/LanguageToggle.tsx`, in the navbar immediately right of the wordmark. Three decisions
@@ -964,12 +1020,15 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
+    sendResetPassword: async ({ user, url }) => {
+      // sendAuthEmail throws; this one swallows — see Emails above
+    },
   },
   emailVerification: {
     sendOnSignUp: false, // auto-send on signup is swallowed by Better Auth; sent explicitly from the client instead
     sendVerificationEmail: async ({ user, url }) => {
-      // sends via Resend from EMAIL_FROM (default: noreply@appfinningar.se)
-      // throws on failure (missing key / Resend error) so callers can surface it
+      await sendAuthEmail("verificationEmail", user, url);
+      // throws on failure (missing key / Resend error) so the sign-up form can surface it
     },
   },
   socialProviders: {
@@ -983,7 +1042,12 @@ export const auth = betterAuth({
 ```
 
 - **Why `sendOnSignUp: false`** — Better Auth's built-in auto-send during `signUp.email` runs through `runInBackgroundOrAwait`, which always catches and only logs errors, so a thrown error there never reaches the client. The dedicated `POST /api/auth/send-verification-email` endpoint (exposed as `authClient.sendVerificationEmail`) does *not* swallow errors — it rethrows them to the caller. Calling that endpoint explicitly from `sign-up/page.tsx` after account creation is what lets the frontend show a real failure message instead of a false success screen.
-- **No mail is sent outside production.** When `NODE_ENV !== "production"`, both `sendVerificationEmail` and `sendResetPassword` print the link to the server console and return before touching Resend. `.env.local` carries live Resend credentials, so without this every test sign-up delivered a real message from the production sender. To verify a local account, copy the link from the terminal running `npm run dev`; `RESEND_API_KEY` can be left blank there.
+- **No mail is sent outside production.** When `NODE_ENV !== "production"`, `sendAuthEmail` composes the message, prints it to the server console and returns before touching Resend. `.env.local` carries live Resend credentials, so without this every test sign-up delivered a real message from the production sender. To verify a local account, copy the link from the terminal running `npm run dev`; `RESEND_API_KEY` can be left blank there. The line carries the **resolved locale and the composed subject** alongside the link, because composing a message and never sending it is exactly the state where "did this come out in Swedish?" has no other way to be answered:
+  ```
+  [email] Verification link for a@b.se — development, no email sent
+          locale: sv · subject: Välkommen till CV Forge — bekräfta din e-postadress
+          http://localhost:3000/api/auth/verify-email?token=…
+  ```
 - `trustedOrigins` — the production `BETTER_AUTH_URL` plus localhost ports, so both deployed sign-in and local dev sign-in pass Better Auth's CSRF origin check
 
 - Client-side helpers live in `src/lib/auth-client.ts` — only import from `"use client"` files

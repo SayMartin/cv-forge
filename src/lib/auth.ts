@@ -5,27 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { safeError } from "@/lib/log";
 import { seedSkillCategories } from "@/lib/skill-categories";
 import { purgeUserSideEffects } from "@/lib/user-deletion";
-import { Resend } from "resend";
-
-const EMAIL_FROM = process.env.EMAIL_FROM ?? "CV Forge <noreply@appfinningar.se>";
-
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
-
-/**
- * Outside production, print the link rather than sending it.
- *
- * `.env.local` carries live Resend credentials, so without this every test
- * sign-up delivers a real message from the production sender and spends its
- * reputation on throwaway accounts. Database and storage are separated per
- * environment; this is the last dependency that was not.
- *
- * Returns true when it handled the link, so callers can bail out early.
- */
-function printLinkInDevelopment(kind: string, email: string, url: string): boolean {
-  if (IS_PRODUCTION) return false;
-  console.log(`\n[auth] ${kind} for ${email} — development, no email sent:\n       ${url}\n`);
-  return true;
-}
+import { sendAuthEmail } from "@/lib/email";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -39,137 +19,47 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
-    sendResetPassword: async ({ user, url }: { user: { name: string; email: string }; url: string }) => {
-      if (printLinkInDevelopment("Password reset link", user.email, url)) return;
-
-      if (!process.env.RESEND_API_KEY) {
-        console.error("[auth] RESEND_API_KEY is not set");
-        return;
-      }
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const { error } = await resend.emails.send({
-        from: EMAIL_FROM,
-        to: user.email,
-        subject: "Reset your CV Forge password",
-        html: `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f5f0;font-family:Georgia,serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f0;padding:40px 0;">
-    <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e5e0;">
-
-        <tr><td style="background:#2d5a27;padding:32px 40px;text-align:center;">
-          <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;letter-spacing:1px;">CV Forge</p>
-        </td></tr>
-
-        <tr><td style="padding:40px 40px 32px;">
-          <p style="margin:0 0 16px;font-size:18px;color:#1a1a1a;">Hi ${user.name},</p>
-          <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#444;">
-            We received a request to reset the password for your CV Forge account. Click the button below to choose a new password.
-          </p>
-          <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#444;">
-            This link is valid for <strong>1 hour</strong>. If you did not request a password reset, you can safely ignore this email — your password will not change.
-          </p>
-
-          <table cellpadding="0" cellspacing="0" style="margin:0 auto 32px;">
-            <tr><td style="background:#2d5a27;border-radius:8px;">
-              <a href="${url}" style="display:block;padding:14px 32px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
-                Reset my password
-              </a>
-            </td></tr>
-          </table>
-
-          <p style="margin:0;font-size:13px;line-height:1.6;color:#888;">
-            If the button doesn't work, copy and paste this link into your browser:<br>
-            <a href="${url}" style="color:#2d5a27;word-break:break-all;">${url}</a>
-          </p>
-        </td></tr>
-
-        <tr><td style="background:#f9f9f7;border-top:1px solid #e5e5e0;padding:20px 40px;">
-          <p style="margin:0;font-size:12px;color:#aaa;line-height:1.6;">
-            You received this because a password reset was requested for the CV Forge account associated with this address.
-            If that wasn't you, no action is needed.
-          </p>
-        </td></tr>
-
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`,
-      });
-      if (error) {
-        console.error("[auth] Resend error (reset password):", safeError(error));
+    /**
+     * `user` is the raw row Better Auth read from Postgres, so `locale` is on it
+     * — but only because it is declared in `additionalFields` below. The
+     * hand-written parameter type is what makes that visible here; Better Auth's
+     * own inferred type would carry it too, and spelling it out keeps the
+     * dependency from being invisible if the declaration is ever removed.
+     */
+    sendResetPassword: async ({
+      user,
+      url,
+    }: {
+      user: { name: string; email: string; locale?: string | null };
+      url: string;
+    }) => {
+      // Swallowed on purpose, and not only out of caution. Better Auth runs this
+      // through `runInBackgroundOrAwait`, which catches anyway — and the reset
+      // endpoint answers identically whether or not the address exists, so a
+      // failure that changed the response would be the tell that it does.
+      try {
+        await sendAuthEmail("resetPasswordEmail", user, url);
+      } catch (error) {
+        console.error("[auth] password reset email failed:", safeError(error));
       }
     },
   },
   emailVerification: {
     sendOnSignUp: false,
-    sendVerificationEmail: async ({ user, url }: { user: { name: string; email: string }; url: string }) => {
-      if (printLinkInDevelopment("Verification link", user.email, url)) return;
-
-      if (!process.env.RESEND_API_KEY) {
-        console.error("[auth] RESEND_API_KEY is not set");
-        throw new Error("Email service is not configured");
-      }
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const { error } = await resend.emails.send({
-        from: EMAIL_FROM,
-        to: user.email,
-        subject: "Welcome to CV Forge — please verify your email",
-        html: `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f5f0;font-family:Georgia,serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f0;padding:40px 0;">
-    <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e5e0;">
-
-        <tr><td style="background:#2d5a27;padding:32px 40px;text-align:center;">
-          <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;letter-spacing:1px;">CV Forge</p>
-        </td></tr>
-
-        <tr><td style="padding:40px 40px 32px;">
-          <p style="margin:0 0 16px;font-size:18px;color:#1a1a1a;">Hi ${user.name},</p>
-          <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#444;">
-            Welcome — we're glad you're here. You signed up for <strong>CV Forge</strong>, a tool for building clean, professional CVs that are ready to export.
-          </p>
-          <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#444;">
-            Before you can sign in, we need to confirm that this email address belongs to you. Click the button below to verify and activate your account.
-          </p>
-
-          <table cellpadding="0" cellspacing="0" style="margin:0 auto 32px;">
-            <tr><td style="background:#2d5a27;border-radius:8px;">
-              <a href="${url}" style="display:block;padding:14px 32px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
-                Verify my email address
-              </a>
-            </td></tr>
-          </table>
-
-          <p style="margin:0;font-size:13px;line-height:1.6;color:#888;">
-            If the button doesn't work, copy and paste this link into your browser:<br>
-            <a href="${url}" style="color:#2d5a27;word-break:break-all;">${url}</a>
-          </p>
-        </td></tr>
-
-        <tr><td style="background:#f9f9f7;border-top:1px solid #e5e5e0;padding:20px 40px;">
-          <p style="margin:0;font-size:12px;color:#aaa;line-height:1.6;">
-            You received this email because someone signed up for CV Forge using this address.
-            If that wasn't you, you can safely ignore this email — no account will be activated without verification.
-          </p>
-        </td></tr>
-
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`,
-      });
-      if (error) {
-        console.error("[auth] Resend error:", safeError(error));
-        throw new Error("Failed to send verification email");
-      }
+    /**
+     * Left to throw, unlike the reset above. `sign-up/page.tsx` calls
+     * `POST /api/auth/send-verification-email` explicitly for this reason: that
+     * endpoint rethrows to the caller, so a Resend failure becomes a real
+     * message on the sign-up form instead of a false "check your email".
+     */
+    sendVerificationEmail: async ({
+      user,
+      url,
+    }: {
+      user: { name: string; email: string; locale?: string | null };
+      url: string;
+    }) => {
+      await sendAuthEmail("verificationEmail", user, url);
     },
   },
   /**
