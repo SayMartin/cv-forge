@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { LocaleLink } from "@/components/LocaleLink";
 import { authClient } from "@/lib/auth-client";
-import { PasswordField } from "@/app/(auth)/PasswordField";
-import { GoogleSignInButton } from "@/app/(auth)/GoogleSignInButton";
+import { PasswordField } from "@/app/[lang]/(auth)/PasswordField";
+import { GoogleSignInButton } from "@/app/[lang]/(auth)/GoogleSignInButton";
+import { localeHref } from "@/i18n/routing";
+import { useLocale } from "@/i18n/useLocale";
 
 export default function SignUpPage() {
+  const locale = useLocale();
+  // The verification link lands here from an email, so the locale has to be
+  // baked into the URL — there is no cookie or referrer to fall back on when the
+  // link is opened in a different browser from the one that signed up.
+  const verifiedCallback = localeHref(locale, "/sign-in?verified=true");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +35,7 @@ export default function SignUpPage() {
       name,
       email,
       password,
-      callbackURL: "/sign-in?verified=true",
+      callbackURL: verifiedCallback,
     });
 
     if (error) {
@@ -39,7 +46,7 @@ export default function SignUpPage() {
 
     const { error: verificationError } = await authClient.sendVerificationEmail({
       email,
-      callbackURL: "/sign-in?verified=true",
+      callbackURL: verifiedCallback,
     });
 
     if (verificationError) {
@@ -62,9 +69,9 @@ export default function SignUpPage() {
             We sent a verification link to <span className="font-medium text-(--cl-text)">{email}</span>.
             Click the link to activate your account.
           </p>
-          <Link href="/sign-in" className="text-sm text-(--cl-accent) font-medium hover:underline">
+          <LocaleLink href="/sign-in" className="text-sm text-(--cl-accent) font-medium hover:underline">
             Back to sign in
-          </Link>
+          </LocaleLink>
         </div>
       </main>
     );
@@ -152,21 +159,21 @@ export default function SignUpPage() {
 
         <p className="text-sm text-center text-(--cl-muted)">
           Already have an account?{" "}
-          <Link
+          <LocaleLink
             href="/sign-in"
             className="text-(--cl-accent) font-medium hover:underline"
           >
             Sign in
-          </Link>
+          </LocaleLink>
         </p>
 
         {/* Article 13 wants the information given at the point data is collected,
             which is this form — not only somewhere in the footer. */}
         <p className="text-sm text-center text-(--cl-muted)">
           By creating an account you agree to how your data is handled, described in the{" "}
-          <Link href="/privacy" className="underline underline-offset-2 hover:text-(--cl-text)">
+          <LocaleLink href="/privacy" className="underline underline-offset-2 hover:text-(--cl-text)">
             privacy policy
-          </Link>
+          </LocaleLink>
           .
         </p>
       </form>

@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton } from "./SignOutButton";
 import { Logo } from "@/components/Logo";
+import { LocaleLink } from "@/components/LocaleLink";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { useDictionary } from "@/i18n/DictionaryProvider";
+import { stripLocale } from "@/i18n/routing";
 
 type User = { name: string; email: string; role?: string | null };
 
@@ -29,13 +32,16 @@ function NavLink({
   drawer?: boolean;
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  // `stripLocale` first: usePathname() returns "/sv/cvs" while `href` is written
+  // un-prefixed as "/cvs", so comparing them raw marks nothing as active — every
+  // link in the bar silently loses its marker the moment locales are introduced.
+  const pathname = stripLocale(usePathname());
   // Prefix match so /cvs stays marked while editing or previewing a CV
   // (/cvs/<id>, /cvs/<id>/view), which are that section, not separate places.
   const active = pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <Link
+    <LocaleLink
       href={href}
       onClick={onClick}
       aria-current={active ? "page" : undefined}
@@ -46,35 +52,47 @@ function NavLink({
       }`}
     >
       {children}
-    </Link>
+    </LocaleLink>
   );
 }
 
 export function NavBar({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const { nav } = useDictionary();
 
   return (
     <header className="bg-(--cl-nav)">
       {/* ── Top bar ─────────────────────────────────────────────── */}
       <nav className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between gap-6">
-        <Link
-          href="/"
-          onClick={close}
-          className="flex items-center gap-2 text-(--cl-nav-text) hover:text-white transition-colors"
-        >
-          <Logo size={26} />
-          <span className="font-semibold text-sm tracking-widest uppercase">
-            CV Forge
-          </span>
-        </Link>
+        {/* The wordmark and the language toggle share one flex child. The nav
+            is `justify-between`, so adding the toggle as a fourth sibling would
+            distribute the space across all four and strand it mid-bar instead
+            of leaving it beside the logo. */}
+        <div className="flex items-center gap-3">
+          <LocaleLink
+            href="/"
+            onClick={close}
+            className="flex items-center gap-2 text-(--cl-nav-text) hover:text-white transition-colors"
+          >
+            <Logo size={26} />
+            {/* Hidden below 400px so the toggle, not the wordmark, keeps the
+                room on a 375px screen: the logo mark still identifies the app,
+                and the toggle is the one control a visitor in the wrong
+                language needs before they can read anything else. */}
+            <span className="hidden min-[400px]:inline font-semibold text-sm tracking-widest uppercase">
+              CV Forge
+            </span>
+          </LocaleLink>
+          <LanguageToggle />
+        </div>
 
         {/* Desktop links */}
         {user ? (
           <div className="hidden sm:flex items-center gap-5">
-            <NavLink href="/cvs">My CVs</NavLink>
-            <NavLink href="/content">My Content</NavLink>
-            <NavLink href="/import">Import PDF</NavLink>
+            <NavLink href="/cvs">{nav.myCvs}</NavLink>
+            <NavLink href="/content">{nav.myContent}</NavLink>
+            <NavLink href="/import">{nav.importPdf}</NavLink>
             {/* Drawn, not a "|" glyph: the character's thickness belongs to the
                 font and cannot be widened. 2px against the 14px nav text, and
                 h-4 sits between the text's x-height and its line box so it reads
@@ -90,30 +108,30 @@ export function NavBar({ user }: { user: User | null }) {
             <span className="text-sm text-(--cl-nav-muted) max-w-40 truncate">
               {user.name}
             </span>
-            <NavLink href="/settings">Settings</NavLink>
+            <NavLink href="/settings">{nav.settings}</NavLink>
             <SignOutButton />
           </div>
         ) : (
           <div className="hidden sm:flex items-center gap-4">
-            <Link
+            <LocaleLink
               href="/sign-in"
               className="text-sm text-(--cl-nav-text) hover:text-white transition-colors"
             >
-              Sign in
-            </Link>
-            <Link
+              {nav.signIn}
+            </LocaleLink>
+            <LocaleLink
               href="/sign-up"
               className="text-sm bg-(--cl-accent) text-white rounded-lg px-3 py-1.5 hover:bg-(--cl-accent-hov) transition-colors"
             >
-              Sign up
-            </Link>
+              {nav.signUp}
+            </LocaleLink>
           </div>
         )}
 
         {/* Mobile hamburger */}
         <button
           onClick={() => setOpen((v) => !v)}
-          aria-label={open ? "Close menu" : "Open menu"}
+          aria-label={open ? nav.closeMenu : nav.openMenu}
           className="sm:hidden flex flex-col gap-1.5 p-1 text-(--cl-nav-text)"
         >
           <span
@@ -139,30 +157,30 @@ export function NavBar({ user }: { user: User | null }) {
               <span className="text-sm text-(--cl-nav-muted) truncate pl-3">
                 {user.name}
               </span>
-              <NavLink href="/cvs" onClick={close} drawer>My CVs</NavLink>
-              <NavLink href="/content" onClick={close} drawer>My Content</NavLink>
-              <NavLink href="/import" onClick={close} drawer>Import PDF</NavLink>
-              <NavLink href="/settings" onClick={close} drawer>Settings</NavLink>
+              <NavLink href="/cvs" onClick={close} drawer>{nav.myCvs}</NavLink>
+              <NavLink href="/content" onClick={close} drawer>{nav.myContent}</NavLink>
+              <NavLink href="/import" onClick={close} drawer>{nav.importPdf}</NavLink>
+              <NavLink href="/settings" onClick={close} drawer>{nav.settings}</NavLink>
               <div className="pl-3">
                 <SignOutButton />
               </div>
             </>
           ) : (
             <>
-              <Link
+              <LocaleLink
                 href="/sign-in"
                 onClick={close}
                 className="text-sm text-(--cl-nav-text) hover:text-white transition-colors"
               >
-                Sign in
-              </Link>
-              <Link
+                {nav.signIn}
+              </LocaleLink>
+              <LocaleLink
                 href="/sign-up"
                 onClick={close}
                 className="text-sm bg-(--cl-accent) text-white rounded-lg px-3 py-1.5 text-center hover:bg-(--cl-accent-hov) transition-colors"
               >
-                Sign up
-              </Link>
+                {nav.signUp}
+              </LocaleLink>
             </>
           )}
         </div>

@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { localeHref } from "@/i18n/routing";
+import { useLocale } from "@/i18n/useLocale";
 
 export function CreateCvForm() {
   const router = useRouter();
+  const locale = useLocale();
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +31,7 @@ export function CreateCvForm() {
     }
 
     const cv = await res.json();
-    router.push(`/cvs/${cv.id}`);
+    router.push(localeHref(locale, `/cvs/${cv.id}`));
   }
 
   return (

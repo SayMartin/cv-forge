@@ -99,59 +99,77 @@ The same build/push steps can also be run manually from a dev machine via `npm r
 ```
 cv-cms/
 ├── src/
+│   ├── proxy.ts                                     ← locale routing (Next 16's renamed middleware); redirects bare paths to /sv or /en
+│   ├── i18n/
+│   │   ├── config.ts                                ← LOCALES, DEFAULT_LOCALE, Locale, isLocale(), LOCALE_COOKIE
+│   │   ├── routing.ts                               ← localeHref() / stripLocale() / swapLocale(); pure, used on both sides
+│   │   ├── negotiate.ts                             ← pickLocale(Accept-Language); hand-rolled, no deps (proxy runs per request)
+│   │   ├── useLocale.ts                             ← "use client" — active locale, derived from usePathname()
+│   │   ├── server.ts                                ← getLocale() / localePath() / getDictionary() via next/root-params (Server Components only)
+│   │   ├── format.tsx                               ← format() for "{name}" placeholders; <RichText> for the node-valued version
+│   │   ├── DictionaryProvider.tsx                   ← "use client" — context + useDictionary(); mounted in the root layout
+│   │   └── dictionaries/
+│   │       ├── index.ts                             ← dictionaryFor(locale); Record<Locale, Dictionary>
+│   │       ├── en/                                  ← the reference dictionary; its shape IS the contract
+│   │       │   ├── index.ts                         ← composes the slices and exports `type Dictionary`
+│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts
+│   │       └── sv/                                  ← same file list; each slice annotated Dictionary["<slice>"]
 │   ├── app/
-│   │   ├── (auth)/
-│   │   │   ├── layout.tsx                          ← metadata: robots noindex for the whole group
-│   │   │   ├── PasswordField.tsx                   ← shared eye-toggle password input component
-│   │   │   ├── GoogleSignInButton.tsx              ← shared "Continue with Google" OAuth button
-│   │   │   ├── sign-in/
-│   │   │   │   ├── layout.tsx                      ← metadata: title "Sign In"
-│   │   │   │   └── page.tsx                        ← Google button + email/password form, reads ?callbackUrl
-│   │   │   └── sign-up/
-│   │   │       ├── layout.tsx                      ← metadata: title "Sign Up"
-│   │   │       └── page.tsx                        ← Google button + email + password + confirm; instant account creation
-│   │   ├── (main)/                                  ← route group with shared nav layout
-│   │   │   ├── layout.tsx                           ← reads session; renders BotanicalBackground + NavBar; footer with support email
-│   │   │   ├── NavBar.tsx                           ← client nav; logo + "CV Forge" wordmark; desktop inline / mobile hamburger
-│   │   │   ├── SignOutButton.tsx                    ← client sign-out; variant="nav"|"page"
-│   │   │   ├── page.tsx                             ← landing page: hero + how-it-works (4 steps) + CTA (visitors only)
-│   │   │   ├── import/
-│   │   │   │   ├── layout.tsx                       ← metadata: title "Import CV"
-│   │   │   │   └── page.tsx                         ← PDF CV import UI
-│   │   │   ├── content/
-│   │   │   │   ├── page.tsx                         ← tabbed content library (auth-gated)
-│   │   │   │   ├── ContentTabs.tsx                  ← client tab switcher; open tab lives in ?tab=, carries ?from= back to a CV
-│   │   │   │   ├── AvatarsTab.tsx                   ← upload / remove avatar images (POST/PATCH /api/avatars); max 5, 5 MB, JPEG/PNG/WebP
-│   │   │   │   ├── ProfilesTab.tsx
-│   │   │   │   ├── ExperienceTab.tsx
-│   │   │   │   ├── EducationTab.tsx
-│   │   │   │   ├── SkillsTab.tsx                    ← flat alphabetical skill library; delete lives inside the edit card
-│   │   │   │   ├── SkillCategoryManager.tsx         ← create/rename/reorder/delete categories (max 8; the language one is locked)
-│   │   │   │   ├── ProjectsTab.tsx
-│   │   │   │   └── OtherTab.tsx
-│   │   │   ├── privacy/
-│   │   │   │   └── page.tsx                         ← privacy policy; not auth-gated, linked from footer + sign-up
-│   │   │   ├── settings/
-│   │   │   │   ├── page.tsx                         ← account card (email, sign-out, delete account)
-│   │   │   │   └── DeleteAccountSection.tsx         ← client: email-confirm dialog → DELETE /api/user
-│   │   │   └── cvs/
-│   │   │       ├── page.tsx                         ← CV list + create (auth-gated)
-│   │   │       ├── CreateCvForm.tsx                 ← "New CV" client form
-│   │   │       ├── DuplicateCvButton.tsx
-│   │   │       └── [cvId]/
-│   │   │           ├── page.tsx                     ← CV editor page (server); renders CvEditShell
-│   │   │           ├── CvEditShell.tsx              ← client wrapper: builds the breadcrumb + Preview link and passes them to CvEditor as header slots; holds live CV name and the dirty flag
-│   │   │           ├── CvSwitcher.tsx               ← select dropdown to switch between CVs
-│   │   │           ├── CvEditor.tsx                 ← layout picker + theme picker + profile radio + avatar picker + entry checkboxes + section order + cover letter; sticky header carrying the trail, Revert/Save and Preview; maxLength on all text inputs; calls onNameChange on successful save
-│   │   │           ├── SectionOrderEditor.tsx       ← drag-and-drop section reorder (dnd-kit)
-│   │   │           ├── SortableEntryList.tsx        ← drag-and-drop entry list with checkboxes
-│   │   │           ├── CvSkillsEditor.tsx           ← per-CV skill grouping: reorder categories, drag skills between them, show/hide
-│   │   │           ├── UnsavedChangesGuard.tsx      ← beforeunload + capture-phase link interception while the editor is dirty
-│   │   │           └── view/
-│   │   │               ├── page.tsx                 ← A4 CV preview (server)
-│   │   │               ├── CvScaleWrapper.tsx       ← client wrapper: scales CV to fit viewport (transform: scale)
-│   │   │               ├── ViewToolbar.tsx          ← sticky client toolbar: `← Back to <CV name>` | layout badge + PDF
-│   │   │               └── ExportButton.tsx         ← "Save as PDF" client button (calls window.print())
+│   │   ├── not-found.tsx                            ← the 404 for notFound(); sits OUTSIDE [lang] because nothing inside it works — see Internationalisation
+│   │   ├── [lang]/                                  ← every page lives under /sv or /en; `lang` is a root param
+│   │   │   ├── layout.tsx                           ← root layout: <html lang>, fonts, metadata, DictionaryProvider
+│   │   │   ├── (auth)/
+│   │   │   │   ├── layout.tsx                      ← metadata: robots noindex for the whole group
+│   │   │   │   ├── PasswordField.tsx               ← shared eye-toggle password input component
+│   │   │   │   ├── GoogleSignInButton.tsx          ← shared "Continue with Google" OAuth button
+│   │   │   │   ├── sign-in/
+│   │   │   │   │   ├── layout.tsx                  ← metadata: title "Sign In"
+│   │   │   │   │   └── page.tsx                    ← Google button + email/password form, reads ?callbackUrl
+│   │   │   │   └── sign-up/
+│   │   │   │       ├── layout.tsx                  ← metadata: title "Sign Up"
+│   │   │   │       └── page.tsx                    ← Google button + email + password + confirm; instant account creation
+│   │   │   ├── (main)/                              ← route group with shared nav layout
+│   │   │   │   ├── layout.tsx                       ← reads session; renders BotanicalBackground + NavBar; footer with support email
+│   │   │   │   ├── NavBar.tsx                       ← client nav; logo + wordmark + LanguageToggle; desktop inline / mobile hamburger
+│   │   │   │   ├── SignOutButton.tsx                ← client sign-out; variant="nav"|"page"
+│   │   │   │   ├── page.tsx                         ← landing page: hero + how-it-works (4 steps) + CTA (visitors only)
+│   │   │   │   ├── import/
+│   │   │   │   │   ├── layout.tsx                   ← metadata: title "Import CV"
+│   │   │   │   │   └── page.tsx                     ← PDF CV import UI
+│   │   │   │   ├── content/
+│   │   │   │   │   ├── page.tsx                     ← tabbed content library (auth-gated)
+│   │   │   │   │   ├── ContentTabs.tsx              ← client tab switcher; open tab lives in ?tab=, carries ?from= back to a CV
+│   │   │   │   │   ├── AvatarsTab.tsx               ← upload / remove avatar images (POST/PATCH /api/avatars); max 5, 5 MB, JPEG/PNG/WebP
+│   │   │   │   │   ├── ProfilesTab.tsx
+│   │   │   │   │   ├── ExperienceTab.tsx
+│   │   │   │   │   ├── EducationTab.tsx
+│   │   │   │   │   ├── SkillsTab.tsx                ← flat alphabetical skill library; delete lives inside the edit card
+│   │   │   │   │   ├── SkillCategoryManager.tsx     ← create/rename/reorder/delete categories (max 8; the language one is locked)
+│   │   │   │   │   ├── ProjectsTab.tsx
+│   │   │   │   │   └── OtherTab.tsx
+│   │   │   │   ├── privacy/
+│   │   │   │   │   └── page.tsx                     ← privacy policy; not auth-gated, linked from footer + sign-up
+│   │   │   │   ├── settings/
+│   │   │   │   │   ├── page.tsx                     ← account card (email, sign-out, delete account)
+│   │   │   │   │   └── DeleteAccountSection.tsx     ← client: email-confirm dialog → DELETE /api/user
+│   │   │   │   └── cvs/
+│   │   │   │       ├── page.tsx                     ← CV list + create (auth-gated)
+│   │   │   │       ├── CreateCvForm.tsx             ← "New CV" client form
+│   │   │   │       ├── DuplicateCvButton.tsx
+│   │   │   │       └── [cvId]/
+│   │   │   │           ├── page.tsx                 ← CV editor page (server); renders CvEditShell
+│   │   │   │           ├── CvEditShell.tsx          ← client wrapper: builds the breadcrumb + Preview link and passes them to CvEditor as header slots; holds live CV name and the dirty flag
+│   │   │   │           ├── CvSwitcher.tsx           ← select dropdown to switch between CVs
+│   │   │   │           ├── CvEditor.tsx             ← layout picker + theme picker + profile radio + avatar picker + entry checkboxes + section order + cover letter; sticky header carrying the trail, Revert/Save and Preview; maxLength on all text inputs; calls onNameChange on successful save
+│   │   │   │           ├── SectionOrderEditor.tsx   ← drag-and-drop section reorder (dnd-kit)
+│   │   │   │           ├── SortableEntryList.tsx    ← drag-and-drop entry list with checkboxes
+│   │   │   │           ├── CvSkillsEditor.tsx       ← per-CV skill grouping: reorder categories, drag skills between them, show/hide
+│   │   │   │           ├── UnsavedChangesGuard.tsx  ← beforeunload + capture-phase link interception while the editor is dirty
+│   │   │   │           └── view/
+│   │   │   │               ├── page.tsx             ← A4 CV preview (server)
+│   │   │   │               ├── CvScaleWrapper.tsx   ← client wrapper: scales CV to fit viewport (transform: scale)
+│   │   │   │               ├── ViewToolbar.tsx      ← sticky client toolbar: `← Back to <CV name>` | layout badge + PDF
+│   │   │   │               └── ExportButton.tsx     ← "Save as PDF" client button (calls window.print())
 │   │   └── api/
 │   │       ├── auth/[...all]/route.ts               ← Better Auth catch-all handler
 │   │       ├── cv-import/route.ts                   ← PDF → Gemini → Prisma write (all content types)
@@ -171,7 +189,13 @@ cv-cms/
 │   │       │   ├── projects/route.ts + [id]/route.ts
 │   │       │   └── other/route.ts + [id]/route.ts
 │   │       └── user/route.ts                        ← DELETE: prisma.user.delete() → cascades all content
+│   │   ├── globals.css                              ← these four stay at the app root, NOT under [lang]:
+│   │   ├── icon.svg                                    they are metadata/asset file conventions, need no
+│   │   ├── robots.ts                                   root layout above them, and are origin-scoped —
+│   │   └── sitemap.ts                                  /sv/robots.txt would be meaningless
 │   ├── components/
+│   │   ├── LocaleLink.tsx                           ← the app's ONLY internal link; wraps next/link with the locale prefix
+│   │   ├── LanguageToggle.tsx                       ← flag + SV/EN in the navbar; plain <a>, so switching is a full page load
 │   │   ├── ActionChip.tsx                           ← shared small secondary action (Edit / Delete / All / My Content →); tone="accent"|"danger"|"danger-strong"; Link when href is given
 │   │   ├── Breadcrumbs.tsx                          ← Breadcrumbs / CrumbLink / CrumbCurrent; used by the CV editor
 │   │   ├── BackToCvLink.tsx                         ← `← Back to <CV name>`; shared by My Content and the preview toolbar
@@ -471,6 +495,182 @@ Google bills PDF pages as tokens (~258 each), so an import costs on the order of
 
 ---
 
+## Internationalisation
+
+The app ships Swedish and English. The locale is a **URL segment** (`/sv/…`, `/en/…`), so every page
+lives under `src/app/[lang]/`. Two things follow from that and are easy to trip over.
+
+**`next typegen` is now part of the quality gate.** `next/root-params` types are generated by
+`next dev`, `next build`, or `next typegen`. Running `tsc --noEmit` on a clean checkout fails to
+resolve the `lang` export until one of those has run, so the full gate is:
+
+```bash
+npx next typegen && npx tsc --noEmit && npx eslint src
+```
+
+**Every internal link goes through `LocaleLink`.** A bare `href="/cvs"` drops the visitor out of
+their language. `ActionChip`, `CrumbLink` and `BackToCvLink` all render `LocaleLink` internally, so
+their callers keep passing un-prefixed hrefs. Two checks enforce it — as close to a test as this repo
+gets. Both should print nothing but the one expected line:
+
+```bash
+# 1. Only LocaleLink may import next/link.
+grep -rln 'from "next/link"' src/app src/components        # expect: only LocaleLink.tsx
+
+# 2. Given (1), the only remaining way to emit an un-prefixed internal link is a raw <a>.
+#    Multiline-aware, because JSX routinely puts href= on its own line.
+perl -0777 -ne 'while (/<a\b[^>]*?href=\{?"\/[^"]*"/gs) { print "$ARGV: $&\n" }' \
+  $(git ls-files '*.tsx' | grep -E '^src/(app|components)/')   # expect: no output
+```
+
+Do **not** use a plain `grep -rn 'href="/'` for check 2 — it flags every correct `LocaleLink` and
+`NavLink` too, so it is noise rather than a signal.
+
+Two files deliberately sit outside this rule, and both compute their href rather than writing a
+literal, so neither check flags them: `LanguageToggle.tsx` (its whole job is to *change* the locale)
+and `app/not-found.tsx` (it renders outside the locale tree, so there is no segment for
+`useLocale()` to read).
+
+For imperative navigation there is no component, so use the helpers directly: `localeHref(locale, …)`
+with `useLocale()` in Client Components, and `await localePath(…)` (which reads `next/root-params`)
+in Server Components — chiefly for `redirect()` targets.
+
+### Where the locale is decided
+
+`src/proxy.ts` — Next 16's rename of `middleware.ts`, and it sits at `src/`, level with `app/`. It
+runs before rendering, may be deployed to a CDN, and **cannot reach Postgres**, which is the
+constraint the whole design bends around. Its precedence, in order:
+
+1. **The URL already names a locale** → serve it; correct the cookie if it disagrees.
+2. **Bare path + valid cookie** → `307` to the cookie's locale. The hot path: no parsing, no session.
+3. **Bare path + no cookie** → negotiate `Accept-Language`, `307`, and set the cookie so negotiation
+   runs once per browser rather than on every bare link.
+4. **Nothing matched** → `en`.
+
+Rule 1 is why a shared link works: **the URL always wins.** `/en/cvs/<id>` opens in English even for
+an account set to Swedish. Anything else makes sent links unreliable.
+
+Two details that are invisible in development and would bite in production:
+
+- **`307`, never `308`.** A permanent redirect on `/` pins `/ → /en` in intermediate caches and in
+  Google's index, which is wrong when the target legitimately varies by header and cookie.
+- **`Vary: Accept-Language, Cookie`** on the redirect. Cloudflare fronts this origin and does not
+  cache HTML by default, but a Cache Rule added later would otherwise serve one visitor's locale
+  redirect to everyone.
+
+`Accept-Language` parsing is ~20 hand-rolled lines rather than `negotiator` +
+`@formatjs/intl-localematcher`. Those libraries resolve BCP-47 against locale sets with regional
+variants; ours is `["sv", "en"]` with none, so the whole decision is a q-value sort plus a
+primary-subtag compare. The two cases the parser must get right — and which naive versions miss — are
+`sv-SE,sv;q=0.9,en;q=0.8 → sv` (match the primary subtag) and `* → null` (the wildcard is not a
+preference and must fall through to the default).
+
+### The dictionaries
+
+Strings live in `src/i18n/dictionaries/`, as **`.ts` modules, not `.json`**. JSON gives a
+structurally-inferred shape rather than a checked one, and cannot express the plural-form pairs later
+steps need with a type both locales must satisfy.
+
+**English is the reference; its shape is the contract.** Two rules make a translation gap a
+compile error, and both are easy to undo by accident:
+
+1. **Never write `as const` in `en/index.ts`.** It would make every value a string *literal* type, so
+   `Dictionary["nav"]["myCvs"]` would be the type `"My CVs"` — and the Swedish file could only
+   satisfy it by containing the English text. Plain inference widens values to `string`, which is the
+   point: the *keys* are the contract, the words are not.
+2. **Annotate each Swedish slice in its own file**, `export const nav: Dictionary["nav"] = {…}`, not
+   just the composed object in `sv/index.ts`. Annotating only the root reports "property missing" on
+   a four-property literal in `sv/index.ts`, while the fix belongs three directories away. Per-slice
+   annotation puts the error in `sv/nav.ts`. `sv/index.ts` adds a `satisfies Dictionary` to catch the
+   remaining case: a slice added to `en/index.ts` but never imported into `sv`.
+
+Both directions are covered — a missing key is `TS2741`, a stale one is `TS2353` from excess-property
+checking. That matters more here than in most projects: `tsc` and `eslint` are the entire safety net.
+
+**Anything that varies is a `{placeholder}`, never two keys glued together in JSX.** A sentence split
+into `…Before` and `…After` locks both languages into one word order and one punctuation pattern, and
+Swedish obliges neither — the landing page's data paragraph reads "…from Settings and every piece…"
+in English but "…under Inställningar, så…" in Swedish, and that comma has nowhere to live in a fixed
+`After` fragment. `format()` handles string values; `<RichText>` handles node values (a link, a
+`<strong>`), so the translation decides where the markup falls.
+
+**Two ways in, depending on which side of the boundary you are on:**
+
+| | Server Components | Client Components |
+|---|---|---|
+| How | `await getDictionary()` from `@/i18n/server` | `useDictionary()` from `@/i18n/DictionaryProvider` |
+| Locale from | `next/root-params` | the URL, via `useLocale()` |
+
+`DictionaryProvider` is mounted once in `app/[lang]/layout.tsx`. Its `children` arrive from a Server
+Component, so wrapping the tree in a client provider does not drag any of it across the boundary —
+only the dictionary itself is serialised. A context rather than props because 32 components here are
+`"use client"` and the string-heavy ones are the worst candidates for drilling: `CvEditor` already
+takes 27 props. `useDictionary()` **throws** when no provider is above it; a silent English fallback
+renders a plausible-looking page and is the bug nobody reports.
+
+The whole dictionary lands in every page's Flight payload. That is cheap now and grows with each
+translated area. If it stops being cheap, move the provider down into the route-group layouts and
+hand each one only its slices — the `useDictionary()` call sites do not change.
+
+Never import `@/i18n/dictionaries` from a Client Component: it would pull **both** languages into
+the browser bundle. Importing the `Dictionary` *type* is fine — type imports are erased.
+
+### The language toggle
+
+`src/components/LanguageToggle.tsx`, in the navbar immediately right of the wordmark. Three decisions
+worth keeping:
+
+- **Flag *and* language code.** A flag is a country, not a language: the Swedish flag leaves out
+  Finland-Swedish speakers and a Union Flag standing for "English" is a claim nobody needs to defend.
+  The code identifies the choice; the flag makes it findable by someone who cannot yet read the page.
+- **Links with `aria-current="true"`, not buttons with `aria-pressed`.** Each locale of a page is a
+  real, shareable URL, and these mark which variant is showing — not a pressed state.
+- **A plain `<a>`, so switching is a full page load.** This is the one sanctioned exception to
+  "internal links go through `LocaleLink`" — `LocaleLink` builds an href for the *current* locale,
+  which is precisely what must not happen here. `next/link` would work, but the Next docs state that
+  layouts do not re-render on navigation and `<html lang>` is set by the root layout: a client-side
+  switch risks leaving the document declaring the old language while showing the new one, which is
+  invisible on screen and wrong for every screen reader. A document request also guarantees
+  `proxy.ts` sees it and rewrites the cookie. The cost is one page load on a rare, deliberate action.
+
+It combines `usePathname()` with `useSearchParams()`, because the query string carries real state —
+`/content?tab=skills&from=<id>` has to survive the switch.
+
+**The auth pages have no navbar, so they have no toggle.** A visitor who follows a shared
+`/en/sign-in` cannot switch there. Deferred deliberately: the auth group renders no chrome at all, so
+placing a control in it is a design decision, and it belongs with the step that translates those
+pages.
+
+### The 404: it must live outside `[lang]`
+
+`src/app/not-found.tsx`, **not** `src/app/[lang]/not-found.tsx`. This was verified by experiment, and
+the obvious placement is the wrong one:
+
+> A `not-found.tsx` anywhere inside the locale tree — at `[lang]/` or at `[lang]/(main)/` — is
+> **never rendered**. An explicit `notFound()` call falls straight through to Next's built-in page.
+> Only the app-root position works when the root layout lives under a top-level dynamic segment.
+
+Being outside the root layout has three consequences, each handled inside the file rather than
+inherited: Next wraps it in a bare `<html><body>` of its own, so **`globals.css` and the font are
+imported directly** (without them it renders unstyled black-on-white); `next/root-params` is
+unavailable, so **the locale comes from the `cvforge_locale` cookie** — which is exactly what that
+cookie exists for; and `<html lang>` cannot be reached, so `lang` is set on the page's `<main>`.
+
+**The cost, and how to reverse it:** the not-found boundary is part of every route's tree, so calling
+`cookies()` there makes **every** route dynamic. Before this, `generateStaticParams` prerendered the
+four `(auth)` pages per locale (`● /sv/sign-in`, …); now nothing is prerendered and the build shows
+`ƒ` throughout. That was judged the better trade — those four are `noindex` forms that render in
+~40ms, while an English 404 shown to a Swedish user is text somebody actually reads. Replacing the
+`cookies()` read with `DEFAULT_LOCALE` restores the eight prerendered pages in one line, at the price
+of an English-only 404.
+
+Still **not** covered: a URL matching no route at all (`/sv/nonsense`) gets Next's built-in page.
+Fixing that needs `experimental.globalNotFound` plus an `app/global-not-found.tsx` that re-imports the
+stylesheet and fonts and cannot read the locale (it bypasses rendering). Not worth an experimental
+flag on a repo that deploys straight to production.
+
+---
+
 ## Build
 
 ```bash
@@ -489,14 +689,19 @@ Every page exports `metadata` (static) or `generateMetadata` (dynamic). The root
 
 ### Search indexing
 
-The public surface is two pages: `/` and `/privacy`. Everything else either redirects a logged-out visitor to `/sign-in` or is an auth page.
+The public surface is two pages, now in two languages: `/{sv,en}` and `/{sv,en}/privacy`. Everything else either redirects a logged-out visitor to `/sign-in` or is an auth page.
+
+> **Not yet updated for locales.** `robots.ts` and `sitemap.ts` still list the bare `/` and `/privacy`
+> paths, which now only exist as `307` redirects, and no `hreflang` / `x-default` cluster is emitted
+> yet. That is a deliberate later step, not an oversight — see the plan's SEO step. Until then the
+> two indexed URLs redirect rather than 404, so nothing is broken, only suboptimal.
 
 | File | Role |
 | ---- | ---- |
 | `src/lib/site.ts` | `SITE_URL` — the canonical origin |
 | `src/app/robots.ts` | `Disallow` for `/api/` and the session-gated routes; points at the sitemap |
 | `src/app/sitemap.ts` | `/` and `/privacy`, nothing else |
-| `src/app/(auth)/layout.tsx` | `robots: { index: false, follow: true }` for the whole auth group |
+| `src/app/[lang]/(auth)/layout.tsx` | `robots: { index: false, follow: true }` for the whole auth group |
 
 Two things here are load-bearing and easy to undo by accident:
 
@@ -586,11 +791,13 @@ export const auth = betterAuth({
 
 ### Navigation — `(main)` route group
 
-All main app pages live under `src/app/(main)/`. This group has its own `layout.tsx` that reads the session server-side and renders `<NavBar>`. The `(auth)/` group sits outside it and receives no nav bar.
+All main app pages live under `src/app/[lang]/(main)/`. This group has its own `layout.tsx` that reads the session server-side and renders `<NavBar>`. The `(auth)/` group sits beside it under the same `[lang]` segment and receives no nav bar.
 
 `NavBar` is a `"use client"` component. On desktop (`≥ sm`) all links are rendered inline. On mobile (`< sm`) a hamburger button opens a full-width drawer with the user name, nav links, and sign-out.
 
 Both rows share one `NavLink`, which marks the current section from `usePathname()` and sets `aria-current="page"`. Matching is a prefix (`pathname === href || pathname.startsWith(href + "/")`) so **My CVs** stays marked while editing or previewing a CV — `/cvs/<id>` and `/cvs/<id>/view` are that section, not separate destinations.
+
+`NavLink` compares **`stripLocale(usePathname())`** against its un-prefixed `href`, and renders a `LocaleLink` so the prefix is added on the way out. Both halves matter: `usePathname()` returns `/sv/cvs` while the hrefs in this file are written `/cvs`, so comparing them raw silently marks nothing as active — every link in the bar loses its marker, with no error anywhere.
 
 The marker is a bar in `--cl-nav-muted` olive — underneath the link on desktop, to its left in the drawer — plus white text and `font-medium`. Two colours that look like the obvious choice are not: `--cl-accent` (`#2d5a1b`) is *darker* than the nav itself (`#1b2f0e`) and vanishes against it, and colour alone cannot carry the state either, since links are already cream going white on hover. Inactive links keep a transparent border of the same width so nothing shifts, and the drawer's non-link rows carry a matching `pl-3` so the name and Sign out do not hang to the left of the list.
 

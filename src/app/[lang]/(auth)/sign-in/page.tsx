@@ -2,14 +2,20 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { LocaleLink } from "@/components/LocaleLink";
 import { authClient } from "@/lib/auth-client";
-import { PasswordField } from "@/app/(auth)/PasswordField";
-import { GoogleSignInButton } from "@/app/(auth)/GoogleSignInButton";
+import { PasswordField } from "@/app/[lang]/(auth)/PasswordField";
+import { GoogleSignInButton } from "@/app/[lang]/(auth)/GoogleSignInButton";
+import { localeHref } from "@/i18n/routing";
+import { useLocale } from "@/i18n/useLocale";
 
 function SignInForm() {
   const router = useRouter();
+  const locale = useLocale();
   const searchParams = useSearchParams();
+  // Carried un-prefixed in the query — the locale is added on the way out, so a
+  // `?callbackUrl=/cvs` written by a server redirect stays readable. `localeHref`
+  // is idempotent, so an already-prefixed value passes through unharmed.
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const verified = searchParams.get("verified") === "true";
   const reset = searchParams.get("reset") === "true";
@@ -30,7 +36,7 @@ function SignInForm() {
       setError(error.message ?? "Sign in failed");
       setPending(false);
     } else {
-      router.push(callbackUrl);
+      router.push(localeHref(locale, callbackUrl));
     }
   }
 
@@ -93,9 +99,9 @@ function SignInForm() {
           autoComplete="current-password"
         />
         <div className="text-right">
-          <Link href="/forgot-password" className="text-sm text-(--cl-muted) hover:text-(--cl-accent)">
+          <LocaleLink href="/forgot-password" className="text-sm text-(--cl-muted) hover:text-(--cl-accent)">
             Forgot password?
-          </Link>
+          </LocaleLink>
         </div>
       </div>
 
@@ -115,12 +121,12 @@ function SignInForm() {
 
       <p className="text-sm text-center text-(--cl-muted)">
         No account yet?{" "}
-        <Link
+        <LocaleLink
           href="/sign-up"
           className="text-(--cl-accent) font-medium hover:underline"
         >
           Create one
-        </Link>
+        </LocaleLink>
       </p>
     </form>
   );

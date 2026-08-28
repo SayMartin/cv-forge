@@ -1,36 +1,22 @@
-import Link from "next/link";
+import { LocaleLink } from "@/components/LocaleLink";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-
-const STEPS = [
-  {
-    n: "01",
-    title: "Import your existing CV",
-    body: "Already have a PDF CV? Upload it and we'll extract your work history, education, and skills automatically — no manual re-entry needed.",
-    tag: "optional shortcut",
-  },
-  {
-    n: "02",
-    title: "Build your content library",
-    body: "Add or review your personal details, work experience, education, and skills. Everything is stored once as reusable building blocks.",
-    tag: null,
-  },
-  {
-    n: "03",
-    title: "Build a CV",
-    body: "Create a new CV, choose a layout, and pick exactly which content to include. Customise colours and style to match your brand.",
-    tag: null,
-  },
-  {
-    n: "04",
-    title: "Export to PDF",
-    body: "Download a pixel-perfect, print-ready PDF in seconds. Share it directly or send it off to your next opportunity.",
-    tag: null,
-  },
-];
+import { RichText } from "@/i18n/format";
+import { getDictionary } from "@/i18n/server";
 
 export default async function Home() {
   const session = await auth.api.getSession({ headers: await headers() });
+  const { landing, nav } = await getDictionary();
+
+  // The numerals are not language, so they stay here rather than being repeated
+  // in both dictionaries. The steps are named keys in the dictionary — an array
+  // there would let a translation ship three of four and still compile.
+  const steps: { n: string; title: string; body: string; tag?: string }[] = [
+    { n: "01", ...landing.steps.import },
+    { n: "02", ...landing.steps.library },
+    { n: "03", ...landing.steps.build },
+    { n: "04", ...landing.steps.export },
+  ];
 
   return (
     <div>
@@ -41,39 +27,38 @@ export default async function Home() {
             — the section just stops being narrower than everything after it. */}
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white leading-tight">
-            Craft your story,
+            {landing.hero.titleLine1}
             <br />
-            land the role.
+            {landing.hero.titleLine2}
           </h1>
           <p
             className="text-lg leading-relaxed max-w-lg mx-auto"
             style={{ color: "#8FA87A" }}
           >
-            CV Forge lets you manage your career content in one place and
-            export beautifully formatted CVs in seconds.
+            {landing.hero.subtitle}
           </p>
           {session ? (
-            <Link
+            <LocaleLink
               href="/cvs"
               className="inline-block bg-(--cl-accent) text-white rounded-lg px-7 py-3 text-sm font-semibold hover:bg-(--cl-accent-hov) transition-colors"
             >
-              My CVs →
-            </Link>
+              {landing.hero.ctaSignedIn}
+            </LocaleLink>
           ) : (
             <div className="flex items-center justify-center gap-4 flex-wrap">
-              <Link
+              <LocaleLink
                 href="/sign-up"
                 className="inline-block bg-(--cl-accent) text-white rounded-lg px-7 py-3 text-sm font-semibold hover:bg-(--cl-accent-hov) transition-colors"
               >
-                Get started — it&apos;s free →
-              </Link>
-              <Link
+                {landing.hero.ctaSignUp}
+              </LocaleLink>
+              <LocaleLink
                 href="/sign-in"
                 className="text-sm hover:text-white transition-colors"
                 style={{ color: "#8FA87A" }}
               >
-                Already have an account? Sign in
-              </Link>
+                {landing.hero.ctaSignIn}
+              </LocaleLink>
             </div>
           )}
         </div>
@@ -83,14 +68,14 @@ export default async function Home() {
       <section className="py-20 px-6 bg-(--cl-bg)">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-(--cl-muted) text-center mb-14">
-            How it works
+            {landing.howItWorks}
           </h2>
           {/* Two columns rather than a taller single one. Stretching these four
               paragraphs across the wider section would push them past a
               comfortable line length; splitting them keeps each body around the
               measure it had at max-w-2xl and spends the width on the layout. */}
           <ol className="grid gap-x-10 gap-y-10 sm:grid-cols-2">
-            {STEPS.map((step) => (
+            {steps.map((step) => (
               <li key={step.n} className="flex gap-6 items-start">
                 <span
                   className="text-3xl font-bold tabular-nums leading-none shrink-0 w-10 text-right select-none"
@@ -127,21 +112,41 @@ export default async function Home() {
               paragraph — it keeps a reading measure of its own rather than running
               the full width. */}
           <div className="space-y-2 max-w-2xl">
-            <h2 className="text-base font-semibold text-(--cl-text)">Your data, your control</h2>
+            <h2 className="text-base font-semibold text-(--cl-text)">
+              {landing.data.title}
+            </h2>
+            {/* Both paragraphs put their inline markup in the middle of a
+                sentence, so the sentence stays one dictionary string with a
+                placeholder and the translation decides where the markup lands.
+                In Swedish {settings} is followed by a comma English does not
+                have — which is exactly what a split Before/After key pair could
+                not express. */}
             <p className="text-sm text-(--cl-muted) leading-relaxed">
-              Sign up with email and password or your Google account — no credit card, no obligations.
-              All your content belongs to you. If you ever want to leave, delete your account from{" "}
-              <strong className="text-(--cl-text) font-medium">Settings</strong> and every piece of data
-              associated with your account — CVs, profiles, experience, education, skills, all other
-              entries, and any photos you uploaded — is permanently and immediately erased.
+              <RichText
+                template={landing.data.deleteBody}
+                values={{
+                  settings: (
+                    <strong className="text-(--cl-text) font-medium">
+                      {nav.settings}
+                    </strong>
+                  ),
+                }}
+              />
             </p>
             <p className="text-sm text-(--cl-muted) leading-relaxed">
-              No analytics, no tracking, no advertising. What is stored and who else can reach it is
-              spelled out in the{" "}
-              <Link href="/privacy" className="text-(--cl-accent) underline underline-offset-2">
-                privacy policy
-              </Link>
-              .
+              <RichText
+                template={landing.data.privacyBody}
+                values={{
+                  privacyPolicy: (
+                    <LocaleLink
+                      href="/privacy"
+                      className="text-(--cl-accent) underline underline-offset-2"
+                    >
+                      {landing.data.privacyLink}
+                    </LocaleLink>
+                  ),
+                }}
+              />
             </p>
           </div>
         </div>
@@ -152,17 +157,15 @@ export default async function Home() {
         <section className="py-16 px-6 bg-(--cl-surface) border-t border-(--cl-border)">
           <div className="max-w-md mx-auto text-center space-y-5">
             <h2 className="text-2xl font-bold text-(--cl-text) tracking-tight">
-              Ready to get started?
+              {landing.cta.title}
             </h2>
-            <p className="text-sm text-(--cl-muted)">
-              Create your account in seconds. No credit card required.
-            </p>
-            <Link
+            <p className="text-sm text-(--cl-muted)">{landing.cta.body}</p>
+            <LocaleLink
               href="/sign-up"
               className="inline-block bg-(--cl-accent) text-white rounded-lg px-7 py-3 text-sm font-semibold hover:bg-(--cl-accent-hov) transition-colors"
             >
-              Create a free account
-            </Link>
+              {landing.cta.button}
+            </LocaleLink>
           </div>
         </section>
       )}

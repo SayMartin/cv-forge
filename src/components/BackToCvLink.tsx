@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { LocaleLink } from "@/components/LocaleLink";
 
 // The way back to a CV the user stepped away from — from My Content, or from
 // the preview. Both are detours out of an edit in progress rather than places
@@ -23,7 +23,7 @@ export function BackToCvLink({
   className?: string;
 }) {
   return (
-    <Link
+    <LocaleLink
       href={`/cvs/${cvId}`}
       className={`inline-flex items-center gap-2 min-w-0 text-base text-(--cl-text) hover:text-(--cl-accent) transition-colors ${className}`}
     >
@@ -35,6 +35,6 @@ export function BackToCvLink({
       {/* Only the name truncates — losing "Back to" to a long CV name would
           leave a dangling arrow, which is the state this link moved away from. */}
       <span className="truncate font-medium">{cvName}</span>
-    </Link>
+    </LocaleLink>
   );
 }

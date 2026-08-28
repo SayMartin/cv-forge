@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Children, type ReactNode } from "react";
+import { LocaleLink } from "@/components/LocaleLink";
 
 // A trail of places, not a row of buttons. Each child is one segment and the
 // separators are drawn between them, so a segment can be plain text, a link, or
@@ -28,12 +28,12 @@ export function Breadcrumbs({ children }: { children: ReactNode }) {
 
 export function CrumbLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link
+    <LocaleLink
       href={href}
       className="text-sm text-(--cl-muted) hover:text-(--cl-text) transition-colors whitespace-nowrap"
     >
       {children}
-    </Link>
+    </LocaleLink>
   );
 }
 

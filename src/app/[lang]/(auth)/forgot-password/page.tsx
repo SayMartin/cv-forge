@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { LocaleLink } from "@/components/LocaleLink";
 import { authClient } from "@/lib/auth-client";
 
 export default function ForgotPasswordPage() {
@@ -28,9 +28,9 @@ export default function ForgotPasswordPage() {
           <p className="text-sm text-(--cl-muted)">
             If <span className="font-medium text-(--cl-text)">{email}</span> is registered, you will receive a reset link shortly.
           </p>
-          <Link href="/sign-in" className="text-sm text-(--cl-accent) font-medium hover:underline">
+          <LocaleLink href="/sign-in" className="text-sm text-(--cl-accent) font-medium hover:underline">
             Back to sign in
-          </Link>
+          </LocaleLink>
         </div>
       </main>
     );
@@ -74,9 +74,9 @@ export default function ForgotPasswordPage() {
         </button>
 
         <p className="text-sm text-center text-(--cl-muted)">
-          <Link href="/sign-in" className="text-(--cl-accent) font-medium hover:underline">
+          <LocaleLink href="/sign-in" className="text-(--cl-accent) font-medium hover:underline">
             Back to sign in
-          </Link>
+          </LocaleLink>
         </p>
       </form>
     </main>

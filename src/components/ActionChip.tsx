@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
+import { LocaleLink } from "@/components/LocaleLink";
 
 // The app's small secondary action: "Edit", "Delete", "All/None", "My Content →".
 //
@@ -82,9 +82,9 @@ export function ActionChip({
 
   if (href) {
     return (
-      <Link href={href} className={classes} title={title} onClick={onClick}>
+      <LocaleLink href={href} className={classes} title={title} onClick={onClick}>
         {children}
-      </Link>
+      </LocaleLink>
     );
   }
 

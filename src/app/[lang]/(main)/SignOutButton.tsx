@@ -2,6 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { useDictionary } from "@/i18n/DictionaryProvider";
+import { localeHref } from "@/i18n/routing";
+import { useLocale } from "@/i18n/useLocale";
 
 export function SignOutButton({
   variant = "nav",
@@ -9,11 +12,13 @@ export function SignOutButton({
   variant?: "nav" | "page";
 }) {
   const router = useRouter();
+  const locale = useLocale();
+  const { common } = useDictionary();
 
   async function handleSignOut() {
     localStorage.removeItem("cv_app_user_id");
     await authClient.signOut();
-    router.push("/");
+    router.push(localeHref(locale, "/"));
     router.refresh();
   }
 
@@ -24,7 +29,7 @@ export function SignOutButton({
 
   return (
     <button onClick={handleSignOut} className={className}>
-      Sign out
+      {common.signOut}
     </button>
   );
 }

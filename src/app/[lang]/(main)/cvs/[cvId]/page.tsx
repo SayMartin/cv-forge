@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { localePath } from "@/i18n/server";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -23,7 +24,7 @@ export default async function CvEditorPage({ params }: Params) {
     params,
   ]);
 
-  if (!session) redirect("/sign-in?callbackUrl=/cvs");
+  if (!session) redirect(await localePath("/sign-in?callbackUrl=/cvs"));
 
   const userId = session.user.id;
 

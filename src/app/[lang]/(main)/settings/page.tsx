@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import Link from "next/link";
+import { LocaleLink } from "@/components/LocaleLink";
 
 export const metadata: Metadata = { title: "Account Settings" };
 import { redirect } from "next/navigation";
+import { localePath } from "@/i18n/server";
 import { auth } from "@/lib/auth";
 import { DeleteAccountSection } from "./DeleteAccountSection";
-import { SignOutButton } from "@/app/(main)/SignOutButton";
+import { SignOutButton } from "@/app/[lang]/(main)/SignOutButton";
 
 export default async function SettingsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/sign-in");
+  if (!session) redirect(await localePath("/sign-in"));
 
   const { name, email } = session.user;
 
@@ -40,9 +41,9 @@ export default async function SettingsPage() {
       <p className="text-sm text-(--cl-muted)">
         What is stored about you, who else can reach it, and exactly what deleting your account
         removes is described in the{" "}
-        <Link href="/privacy" className="text-(--cl-accent) underline underline-offset-2">
+        <LocaleLink href="/privacy" className="text-(--cl-accent) underline underline-offset-2">
           privacy policy
-        </Link>
+        </LocaleLink>
         .
       </p>
 

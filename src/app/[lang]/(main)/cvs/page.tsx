@@ -3,7 +3,8 @@ import { headers } from "next/headers";
 
 export const metadata: Metadata = { title: "My CVs" };
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { localePath } from "@/i18n/server";
+import { LocaleLink } from "@/components/LocaleLink";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CreateCvForm } from "./CreateCvForm";
@@ -11,7 +12,7 @@ import { DuplicateCvButton } from "./DuplicateCvButton";
 
 export default async function CvsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/sign-in?callbackUrl=/cvs");
+  if (!session) redirect(await localePath("/sign-in?callbackUrl=/cvs"));
 
   const cvs = await prisma.cV.findMany({
     where: { userId: session.user.id },
@@ -41,7 +42,7 @@ export default async function CvsPage() {
           <ul className="space-y-3">
             {cvs.map((cv) => (
               <li key={cv.id} className="flex items-center gap-2">
-                <Link
+                <LocaleLink
                   href={`/cvs/${cv.id}`}
                   className="flex-1 flex items-center justify-between bg-white border border-(--cl-border) rounded-xl px-5 py-4 hover:border-(--cl-accent) transition-colors group"
                 >
@@ -61,7 +62,7 @@ export default async function CvsPage() {
                       year: "numeric",
                     })}
                   </span>
-                </Link>
+                </LocaleLink>
                 <DuplicateCvButton cvId={cv.id} />
               </li>
             ))}

@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { localeHref } from "@/i18n/routing";
+import { useLocale } from "@/i18n/useLocale";
 
 type CvEntry = { id: string; name: string };
 
@@ -15,6 +17,7 @@ export function CvSwitcher({
   onBeforeSwitch?: () => boolean;
 }) {
   const router = useRouter();
+  const locale = useLocale();
 
   return (
     <select
@@ -27,7 +30,7 @@ export function CvSwitcher({
           e.target.value = currentId;
           return;
         }
-        router.push(`/cvs/${e.target.value}`);
+        router.push(localeHref(locale, `/cvs/${e.target.value}`));
       }}
       aria-label="Switch CV"
       // Sits as the last segment of the breadcrumb, so it carries the weight of a

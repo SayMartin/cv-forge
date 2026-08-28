@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { localePath } from "@/i18n/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { BackToCvLink } from "@/components/BackToCvLink";
@@ -18,7 +19,7 @@ export default async function ContentPage({ searchParams }: { searchParams: Sear
     auth.api.getSession({ headers: await headers() }),
     searchParams,
   ]);
-  if (!session) redirect("/sign-in?callbackUrl=/content");
+  if (!session) redirect(await localePath("/sign-in?callbackUrl=/content"));
 
   const userId = session.user.id;
 

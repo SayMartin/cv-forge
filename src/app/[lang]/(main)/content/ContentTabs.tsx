@@ -9,6 +9,8 @@ import { ProjectsTab } from "./ProjectsTab";
 import { OtherTab } from "./OtherTab";
 import { ProfilesTab } from "./ProfilesTab";
 import { AvatarsTab } from "./AvatarsTab";
+import { localeHref } from "@/i18n/routing";
+import { useLocale } from "@/i18n/useLocale";
 
 const TABS = [
   { id: "profiles", label: "Profiles" },
@@ -150,6 +152,7 @@ export function ContentTabs({
   returnToCvId,
 }: Props) {
   const router = useRouter();
+  const locale = useLocale();
   const [activeTab, setActiveTab] = useState<TabId>(
     TABS.some((tab) => tab.id === initialTab) ? (initialTab as TabId) : "profiles",
   );
@@ -161,7 +164,7 @@ export function ContentTabs({
     setActiveTab(id);
     const query = new URLSearchParams({ tab: id });
     if (returnToCvId) query.set("from", returnToCvId);
-    router.replace(`/content?${query}`, { scroll: false });
+    router.replace(localeHref(locale, `/content?${query}`), { scroll: false });
   }
 
   return (

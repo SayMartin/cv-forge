@@ -3,10 +3,14 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { PasswordField } from "@/app/(auth)/PasswordField";
+import { PasswordField } from "@/app/[lang]/(auth)/PasswordField";
+import { LocaleLink } from "@/components/LocaleLink";
+import { localeHref } from "@/i18n/routing";
+import { useLocale } from "@/i18n/useLocale";
 
 function ResetPasswordForm() {
   const router = useRouter();
+  const locale = useLocale();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -22,9 +26,9 @@ function ResetPasswordForm() {
         <p className="text-sm text-(--cl-muted)">
           This password reset link is invalid or has expired. Please request a new one.
         </p>
-        <a href="/forgot-password" className="text-sm text-(--cl-accent) font-medium hover:underline">
+        <LocaleLink href="/forgot-password" className="text-sm text-(--cl-accent) font-medium hover:underline">
           Request a new link
-        </a>
+        </LocaleLink>
       </div>
     );
   }
@@ -44,7 +48,7 @@ function ResetPasswordForm() {
       setError(error.message ?? "Failed to reset password. The link may have expired.");
       setPending(false);
     } else {
-      router.push("/sign-in?reset=true");
+      router.push(localeHref(locale, "/sign-in?reset=true"));
     }
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { LocaleLink } from "@/components/LocaleLink";
 import { Breadcrumbs, CrumbLink } from "@/components/Breadcrumbs";
 import { CvSwitcher } from "./CvSwitcher";
 import { CvEditor } from "./CvEditor";
@@ -50,12 +50,12 @@ export function CvEditShell({ cvs, cvId, initialName, ...editorProps }: Props) {
         </Breadcrumbs>
       }
       headerLink={
-        <Link
+        <LocaleLink
           href={`/cvs/${cvId}/view`}
           className="text-sm bg-(--cl-accent) text-white rounded-lg px-4 py-1.5 hover:bg-(--cl-accent-hov) transition-colors shrink-0"
         >
           Preview →
-        </Link>
+        </LocaleLink>
       }
       {...editorProps}
     />

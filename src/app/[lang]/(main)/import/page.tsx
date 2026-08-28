@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import Link from "next/link";
+import { LocaleLink } from "@/components/LocaleLink";
 
 type ImportResult = {
   ok: boolean;
@@ -137,7 +137,7 @@ export default function ImportPage() {
             </ul>
             <p className="text-green-600 pt-1">
               Review and edit in{" "}
-              <Link href="/content" className="underline font-medium">My Content</Link>.
+              <LocaleLink href="/content" className="underline font-medium">My Content</LocaleLink>.
             </p>
           </div>
         )}

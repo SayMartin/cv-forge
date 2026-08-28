@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { LocaleLink } from "@/components/LocaleLink";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -160,9 +160,9 @@ export default function PrivacyPage() {
       <Section title="Deleting your account">
         <p>
           You can delete your account yourself, at any time, from{" "}
-          <Link href="/settings" className="text-(--cl-accent) underline underline-offset-2">
+          <LocaleLink href="/settings" className="text-(--cl-accent) underline underline-offset-2">
             Settings
-          </Link>
+          </LocaleLink>
           . There is no need to ask, and no waiting period.
         </p>
         <p>Deleting removes, immediately and permanently:</p>

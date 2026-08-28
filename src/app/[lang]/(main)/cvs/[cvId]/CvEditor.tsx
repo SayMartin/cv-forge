@@ -9,6 +9,8 @@ import { SortableEntryList } from "./SortableEntryList";
 import { CvSkillsEditor, type CategoryOption } from "./CvSkillsEditor";
 import { ActionChip } from "@/components/ActionChip";
 import type { CvSkillGroup } from "@/lib/cv-content-types";
+import { localeHref } from "@/i18n/routing";
+import { useLocale } from "@/i18n/useLocale";
 
 type Entry = { id: string; [key: string]: unknown };
 type Experience = Entry & { company: string; role: string };
@@ -101,6 +103,7 @@ export function CvEditor({
   themes: initialThemes,
 }: Props) {
   const router = useRouter();
+  const locale = useLocale();
 
   const [name, setName] = useState(initialName);
   const [layoutId, setLayoutId] = useState(
@@ -281,7 +284,7 @@ export function CvEditor({
 
     const res = await fetch(`/api/cvs/${cvId}`, { method: "DELETE" });
     if (res.ok) {
-      router.push("/cvs");
+      router.push(localeHref(locale, "/cvs"));
     } else {
       setError("Delete failed");
       setDeleting(false);

@@ -1,8 +1,9 @@
 import { headers } from "next/headers";
-import Link from "next/link";
+import { LocaleLink } from "@/components/LocaleLink";
 import { auth } from "@/lib/auth";
 import { NavBar } from "./NavBar";
 import { BotanicalBackground } from "@/components/BotanicalBackground";
+import { getDictionary } from "@/i18n/server";
 
 export default async function MainLayout({
   children,
@@ -10,6 +11,7 @@ export default async function MainLayout({
   children: React.ReactNode;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
+  const { footer } = await getDictionary();
   const user = session
     ? {
         name: session.user.name,
@@ -32,7 +34,7 @@ export default async function MainLayout({
               CV Forge
             </p>
             <p className="text-sm text-(--cl-nav-muted) mt-1">
-              Craft modern CVs with ease. Your career, your story, beautifully told.
+              {footer.tagline}
             </p>
           </div>
           <div className="flex flex-col sm:items-end gap-1.5">
@@ -45,12 +47,12 @@ export default async function MainLayout({
                 appfinningar.se
               </a>
             </p>
-            <Link
+            <LocaleLink
               href="/privacy"
               className="text-sm text-(--cl-nav-muted) hover:text-white transition-colors"
             >
-              Privacy policy
-            </Link>
+              {footer.privacy}
+            </LocaleLink>
           </div>
         </div>
       </footer>
