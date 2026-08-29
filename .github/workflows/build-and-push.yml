@@ -38,33 +38,46 @@ jobs:
     needs: build-migrator
     runs-on: self-hosted
     steps:
-      # A repo SECRET rather than a literal path, and not a variable: this file
-      # is public, and so are the Actions logs of a public repo. Every `run`
-      # step is echoed there with its expressions already substituted, and only
-      # secrets are masked — a `vars.` value would be printed in full, which
-      # would defeat the point of moving it out of this file. The path is not
-      # confidential in itself; the masking is what keeps it out of the log.
+      # The path to the server's .env, as a repo SECRET rather than a literal
+      # value here, and not a variable: this file is public, and so are the
+      # Actions logs of a public repo. Every `run` step is echoed there with its
+      # expressions already substituted, and only secrets are masked.
       #
-      # Set it once at Settings -> Secrets and variables -> Actions -> Secrets:
+      # Set at Settings -> Secrets and variables -> Actions -> Secrets:
       #   SERVER_ENV_FILE = /path/to/cv-forge/.env
       #
-      # Checked explicitly so an unset secret fails here, with a readable
-      # message, instead of reaching `docker run` as an empty --env-file and
-      # failing with something that looks like a Docker problem. This job
-      # already fails closed by design; it should also fail legibly.
-      - name: Check runner configuration
+      # Passed through `env:` rather than interpolated into the script, which is
+      # the documented way to hand a secret to a shell — the value never becomes
+      # part of the command text.
+      - name: Apply pending Prisma migrations
+        env:
+          SERVER_ENV_FILE: ${{ secrets.SERVER_ENV_FILE }}
         run: |
-          if [ -z "${{ secrets.SERVER_ENV_FILE }}" ]; then
+          # Trimmed, because a secret pasted with a trailing newline keeps it.
+          # `docker run --env-file` then looks for a path ending in a newline and
+          # dies with exit 125 — and since the value is masked, the log reads
+          # "open ***" with the rest of the message on the next line, which
+          # reveals almost nothing about the cause. It cost a failed deploy once.
+          env_file="$(printf '%s' "$SERVER_ENV_FILE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+          if [ -z "$env_file" ]; then
             echo "::error::Repo secret SERVER_ENV_FILE is not set — see the comment in this workflow."
             exit 1
           fi
 
-      - name: Apply pending Prisma migrations
-        run: |
+          # -r, not -f: docker needs to *read* the file, so an unreadable one is
+          # the same failure as a missing one and deserves the same clear error.
+          # Checked before `docker pull` so a misconfigured runner fails in a
+          # second instead of after fetching the image.
+          if [ ! -r "$env_file" ]; then
+            echo "::error::SERVER_ENV_FILE does not point at a readable file on this runner. Check the path and its permissions."
+            exit 1
+          fi
+
           docker pull ghcr.io/saymartin/cv-forge:migrator
           docker run --rm \
             --network postgres_default \
-            --env-file "${{ secrets.SERVER_ENV_FILE }}" \
+            --env-file "$env_file" \
             ghcr.io/saymartin/cv-forge:migrator \
             npx prisma migrate deploy
 
