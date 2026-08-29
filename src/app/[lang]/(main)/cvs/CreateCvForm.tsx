@@ -24,7 +24,10 @@ export function CreateCvForm() {
     const res = await fetch("/api/cvs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      // A new CV starts in the language of the page it was created from — the
+      // most likely intent, and changeable in the editor. It is only a default:
+      // `Cv.language` and the UI locale are separate settings from here on.
+      body: JSON.stringify({ name, language: locale }),
     });
 
     if (!res.ok) {

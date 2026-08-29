@@ -1,17 +1,21 @@
 import type { CvContent, CvEducation, CvExperience, CvOther, CvProject } from "@/lib/cv-content-types";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
-import { buildTimeline, TIMELINE_TYPE_LABEL } from "@/lib/cv-timeline";
+import { buildTimeline } from "@/lib/cv-timeline";
+import { cvStrings, type CvStrings } from "@/lib/cv-strings";
+import { format } from "@/i18n/format";
 import { Paginated } from "./pagination/Paginated";
 import type { PageBlock } from "./pagination/types";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(dateStr?: string | null) {
+// `locale` is the CV's, from `cvStrings(language).dateLocale` — passed rather
+// than read, because this helper sits above the component that knows it.
+function formatDate(dateStr: string | null | undefined, locale: string) {
   if (!dateStr) return "";
   if (/^\d{4}$/.test(dateStr)) return dateStr;
   const [year, month] = dateStr.split("-");
-  return new Date(Number(year), Number(month) - 1).toLocaleDateString("en-GB", {
+  return new Date(Number(year), Number(month) - 1).toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
   });
@@ -35,17 +39,19 @@ function TypeBadge({ label }: { label: string }) {
   );
 }
 
-function ExperienceItem({ job, badge }: { job: CvExperience; badge?: boolean }) {
+// Takes `t` as a prop rather than reading a context: the layouts are Server
+// Components and the CV's language is data, so there is nothing to read from.
+function ExperienceItem({ job, badge, t }: { job: CvExperience; badge?: boolean; t: CvStrings }) {
   const dateStr = [
-    formatDate(job.startDate),
-    job.current ? "Present" : formatDate(job.endDate),
+    formatDate(job.startDate, t.dateLocale),
+    job.current ? t.present : formatDate(job.endDate, t.dateLocale),
   ]
     .filter(Boolean)
     .join(" – ");
 
   return (
     <div className="break-inside-avoid">
-      {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.experience} />}
+      {badge && <TypeBadge label={t.timelineType.experience} />}
       <div className="flex items-baseline justify-between">
         <p className="text-sm font-semibold text-zinc-800">
           {job.role}{" "}
@@ -59,7 +65,7 @@ function ExperienceItem({ job, badge }: { job: CvExperience; badge?: boolean }) 
       </div>
       {job.url && (
         <span className="block wrap-break-word text-xs text-zinc-400 mt-0.5">
-          Live at: <a href={job.url} className="hover:text-black">{job.url}</a>
+          {t.liveAt} <a href={job.url} className="hover:text-black">{job.url}</a>
         </span>
       )}
       {job.description && (
@@ -89,29 +95,31 @@ export function DefaultLayout({
   content,
   sectionOrder = DEFAULT_SECTION_ORDER,
   chronological = false,
+  language,
 }: {
   content: CvContent;
   theme?: CvTheme;
   sectionOrder?: SectionKey[];
   chronological?: boolean;
+  language?: string;
 }) {
   const { profile, experiences, educations, skillGroups, projects, others } = content;
+  const t = cvStrings(language);
 
 
   function educationEntry(edu: CvEducation, badge?: boolean) {
     const dateStr = [
-      formatDate(edu.startDate),
-      edu.current ? "Present" : formatDate(edu.endDate),
+      formatDate(edu.startDate, t.dateLocale),
+      edu.current ? t.present : formatDate(edu.endDate, t.dateLocale),
     ]
       .filter(Boolean)
       .join(" – ");
     return (
       <div className="break-inside-avoid">
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.education} />}
+        {badge && <TypeBadge label={t.timelineType.education} />}
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-semibold text-zinc-800">
-            {edu.degree}
-            {edu.field ? ` in ${edu.field}` : ""}
+            {edu.field ? format(t.degreeIn, { degree: edu.degree ?? "", field: edu.field }) : edu.degree}
           </p>
           {dateStr && (
             <span className="text-xs text-zinc-400 shrink-0 ml-4">
@@ -130,10 +138,10 @@ export function DefaultLayout({
   }
 
   function projectEntry(proj: CvProject, badge?: boolean) {
-    const dateStr = [formatDate(proj.startDate), proj.current ? "Present" : formatDate(proj.endDate)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt) : "");
+    const dateStr = [formatDate(proj.startDate, t.dateLocale), proj.current ? t.present : formatDate(proj.endDate, t.dateLocale)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt, t.dateLocale) : "");
     return (
       <div className="break-inside-avoid">
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.projects} />}
+        {badge && <TypeBadge label={t.timelineType.projects} />}
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-semibold text-zinc-800">
             {proj.title}
@@ -146,12 +154,12 @@ export function DefaultLayout({
           <div className="flex flex-col gap-0.5 text-xs text-zinc-400 mt-0.5">
             {proj.url && (
               <span className="wrap-break-word">
-                Live at: <a href={proj.url} className="hover:text-black">{proj.url}</a>
+                {t.liveAt} <a href={proj.url} className="hover:text-black">{proj.url}</a>
               </span>
             )}
             {proj.sourceUrl && (
               <span className="wrap-break-word">
-                Source: <a href={proj.sourceUrl} className="hover:text-black">{proj.sourceUrl}</a>
+                {t.source} <a href={proj.sourceUrl} className="hover:text-black">{proj.sourceUrl}</a>
               </span>
             )}
           </div>
@@ -180,7 +188,7 @@ export function DefaultLayout({
   function otherEntry(o: CvOther, badge?: boolean) {
     return (
       <div className="break-inside-avoid">
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.other} />}
+        {badge && <TypeBadge label={t.timelineType.other} />}
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-semibold text-zinc-800">
             {o.title}
@@ -190,7 +198,7 @@ export function DefaultLayout({
           </p>
           {o.date && (
             <span className="text-xs text-zinc-400 shrink-0 ml-4">
-              {formatDate(o.date)}
+              {formatDate(o.date, t.dateLocale)}
             </span>
           )}
         </div>
@@ -216,8 +224,8 @@ export function DefaultLayout({
           id: `experience-${job.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionTitle title="Experience" />}
-              <ExperienceItem job={job} />
+              {i === 0 && <SectionTitle title={t.sections.experience} />}
+              <ExperienceItem job={job} t={t} />
             </div>
           ),
         }));
@@ -227,7 +235,7 @@ export function DefaultLayout({
           id: `education-${edu.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionTitle title="Education" />}
+              {i === 0 && <SectionTitle title={t.sections.education} />}
               {educationEntry(edu)}
             </div>
           ),
@@ -240,7 +248,7 @@ export function DefaultLayout({
                 id: "skills",
                 node: (
                   <div className="mb-6">
-                    <SectionTitle title="Skills" />
+                    <SectionTitle title={t.sections.skills} />
                     <div className="space-y-2">
                       {skillGroups.map(({ categoryId, name: category, skills: items }) => (
                         <div
@@ -260,7 +268,7 @@ export function DefaultLayout({
                                 {s.level != null && (
                                   <span
                                     className="flex gap-0.5"
-                                    aria-label={`Level ${s.level} of 5`}
+                                    aria-label={format(t.levelOf, { level: s.level })}
                                   >
                                     {Array.from({ length: 5 }, (_, i) => (
                                       <span
@@ -287,7 +295,7 @@ export function DefaultLayout({
           id: `project-${proj.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionTitle title="Projects" />}
+              {i === 0 && <SectionTitle title={t.sections.projects} />}
               {projectEntry(proj)}
             </div>
           ),
@@ -298,7 +306,7 @@ export function DefaultLayout({
           id: `other-${o.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionTitle title="Other" />}
+              {i === 0 && <SectionTitle title={t.sections.other} />}
               {otherEntry(o)}
             </div>
           ),
@@ -315,10 +323,10 @@ export function DefaultLayout({
   function chronologicalBlocks(): PageBlock[] {
     const timeline = buildTimeline(content);
     const timelineBlocks: PageBlock[] = timeline.map((entry, i) => {
-      const title = i === 0 ? <SectionTitle title="Timeline" /> : null;
+      const title = i === 0 ? <SectionTitle title={t.sections.timeline} /> : null;
       const entryNode = (() => {
         switch (entry.type) {
-          case "experience": return <ExperienceItem job={entry.data} badge />;
+          case "experience": return <ExperienceItem job={entry.data} badge t={t} />;
           case "education": return educationEntry(entry.data, true);
           case "projects": return projectEntry(entry.data, true);
           case "other": return otherEntry(entry.data, true);
@@ -373,7 +381,7 @@ export function DefaultLayout({
           <a href={profile.social.github} className="hover:text-black">GitHub</a>
         )}
         {profile.social?.website && (
-          <a href={profile.social.website} className="hover:text-black">Website</a>
+          <a href={profile.social.website} className="hover:text-black">{t.website}</a>
         )}
       </div>
     </header>
@@ -386,6 +394,7 @@ export function DefaultLayout({
       <Paginated
         header={header}
         blocks={mainBlocks}
+        pageLabel={t.pageOf}
         pageClassName="bg-white shadow-md print:shadow-none border border-gray-300 print:border-none p-12 print:p-10 text-zinc-800"
       />
     </div>

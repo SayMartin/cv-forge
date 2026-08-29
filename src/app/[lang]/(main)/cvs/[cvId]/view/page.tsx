@@ -190,6 +190,10 @@ export default async function CvViewPage({ params }: Params) {
           theme: theme ?? undefined,
           sectionOrder,
           chronological: cv.chronological,
+          // The CV's own language, not the page's. `layoutName` two lines above
+          // is the opposite case and deliberately reads the UI dictionary: it
+          // labels a control in the toolbar, not anything printed on the CV.
+          language: cv.language,
         })}
       </CvScaleWrapper>
     </div>

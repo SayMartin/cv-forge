@@ -1,7 +1,9 @@
 import type { CvContent, CvOther } from "@/lib/cv-content-types";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
-import { buildTimeline, TIMELINE_TYPE_LABEL } from "@/lib/cv-timeline";
+import { buildTimeline } from "@/lib/cv-timeline";
+import { cvStrings, type CvStrings } from "@/lib/cv-strings";
+import { format } from "@/i18n/format";
 import { Paginated } from "./pagination/Paginated";
 import type { PageBlock } from "./pagination/types";
 
@@ -16,11 +18,13 @@ const TEXT_LINK = "#79c0ff";
 const TAG_BG = "#21262d";
 const TAG_INFRA = "#ffa657";
 
-function formatDate(dateStr?: string | null) {
+// `locale` is the CV's, from `cvStrings(language).dateLocale` — passed rather
+// than read, because this helper sits above the component that knows it.
+function formatDate(dateStr: string | null | undefined, locale: string) {
   if (!dateStr) return "";
   if (/^\d{4}$/.test(dateStr)) return dateStr;
   const [year, month] = dateStr.split("-");
-  return new Date(Number(year), Number(month) - 1).toLocaleDateString("en-GB", {
+  return new Date(Number(year), Number(month) - 1).toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
   });
@@ -77,11 +81,11 @@ function TypeBadge({ label }: { label: string }) {
   );
 }
 
-function ExpHeader({ role, company, dateStr, badge }: { role: string; company: string; dateStr: string; badge?: boolean }) {
+function ExpHeader({ role, company, dateStr, badge, t }: { role: string; company: string; dateStr: string; badge?: boolean; t: CvStrings }) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.experience} />}
+        {badge && <TypeBadge label={t.timelineType.experience} />}
         <p className="font-mono text-sm font-bold leading-tight" style={{ color: TEXT_PRIMARY }}>{role}</p>
         <p className="font-mono text-sm leading-tight mt-0.5" style={{ color: TEXT_LINK }}>{company}</p>
       </div>
@@ -90,11 +94,11 @@ function ExpHeader({ role, company, dateStr, badge }: { role: string; company: s
   );
 }
 
-function EduHeader({ degreeField, institution, dateStr, badge }: { degreeField: string; institution: string; dateStr: string; badge?: boolean }) {
+function EduHeader({ degreeField, institution, dateStr, badge, t }: { degreeField: string; institution: string; dateStr: string; badge?: boolean; t: CvStrings }) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.education} />}
+        {badge && <TypeBadge label={t.timelineType.education} />}
         <p className="font-mono text-sm font-bold leading-tight" style={{ color: TEXT_PRIMARY }}>{degreeField}</p>
         <p className="font-mono text-sm leading-tight mt-0.5" style={{ color: TEXT_LINK }}>{institution}</p>
       </div>
@@ -103,12 +107,12 @@ function EduHeader({ degreeField, institution, dateStr, badge }: { degreeField: 
   );
 }
 
-function ProjectCard({ proj, accent, badge }: { proj: CvContent["projects"][0]; accent: string; badge?: boolean }) {
+function ProjectCard({ proj, accent, badge, t }: { proj: CvContent["projects"][0]; accent: string; badge?: boolean; t: CvStrings }) {
   const lang = proj.skills?.[0];
-  const dateStr = [formatDate(proj.startDate), proj.current ? "Present" : formatDate(proj.endDate)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt) : "");
+  const dateStr = [formatDate(proj.startDate, t.dateLocale), proj.current ? t.present : formatDate(proj.endDate, t.dateLocale)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt, t.dateLocale) : "");
   return (
     <div className="p-3 rounded-md" style={{ background: CARD_BG, border: `1px solid ${BORDER_COLOR}` }}>
-      {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.projects} />}
+      {badge && <TypeBadge label={t.timelineType.projects} />}
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs" style={{ color: TEXT_MUTED }}>⎇</span>
@@ -128,12 +132,12 @@ function ProjectCard({ proj, accent, badge }: { proj: CvContent["projects"][0]; 
         <div className="flex flex-col gap-0.5 mt-2 font-mono text-xs" style={{ color: TEXT_MUTED }}>
           {proj.url && (
             <span className="wrap-break-word">
-              Live at: <a href={proj.url} style={{ color: TEXT_LINK }}>{proj.url}</a>
+              {t.liveAt} <a href={proj.url} style={{ color: TEXT_LINK }}>{proj.url}</a>
             </span>
           )}
           {proj.sourceUrl && (
             <span className="wrap-break-word">
-              Source: <a href={proj.sourceUrl} style={{ color: TEXT_LINK }}>{proj.sourceUrl}</a>
+              {t.source} <a href={proj.sourceUrl} style={{ color: TEXT_LINK }}>{proj.sourceUrl}</a>
             </span>
           )}
         </div>
@@ -147,13 +151,16 @@ export function TerminalLayout({
   theme,
   sectionOrder = DEFAULT_SECTION_ORDER,
   chronological = false,
+  language,
 }: {
   content: CvContent;
   theme?: CvTheme;
   sectionOrder?: SectionKey[];
   chronological?: boolean;
+  language?: string;
 }) {
   const { profile, experiences, educations, skillGroups, projects, others } = content;
+  const t = cvStrings(language);
 
   const ACCENT = theme?.accentColor ?? DEFAULT_ACCENT;
   const SIDEBAR_BG = theme?.sidebarColor ?? DEFAULT_SIDEBAR_BG;
@@ -175,14 +182,14 @@ export function TerminalLayout({
     switch (key) {
       case "experience":
         return experiences.map((job, i) => {
-          const dateStr = [formatDate(job.startDate), job.current ? "Present" : formatDate(job.endDate)].filter(Boolean).join(" – ");
+          const dateStr = [formatDate(job.startDate, t.dateLocale), job.current ? t.present : formatDate(job.endDate, t.dateLocale)].filter(Boolean).join(" – ");
           return {
             id: `experience-${job.id}`,
             node: (
               <div className="mb-6">
-                {i === 0 && <SectionLabel label="EXPERIENCE" colors={colors} />}
+                {i === 0 && <SectionLabel label={t.sections.experience.toUpperCase()} colors={colors} />}
                 <div className="break-inside-avoid">
-                  <ExpHeader role={job.role} company={job.company} dateStr={dateStr} />
+                  <ExpHeader role={job.role} company={job.company} dateStr={dateStr} t={t} />
                   {job.skills && job.skills.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {job.skills.map((s) => (
@@ -197,7 +204,7 @@ export function TerminalLayout({
                   )}
                   {job.url && (
                     <p className="font-mono text-xs mt-1 wrap-break-word" style={{ color: TEXT_MUTED }}>
-                      Live at: <a href={job.url} style={{ color: TEXT_LINK }}>{job.url}</a>
+                      {t.liveAt} <a href={job.url} style={{ color: TEXT_LINK }}>{job.url}</a>
                     </p>
                   )}
                   {i < experiences.length - 1 && <div className="mt-4 h-px" style={{ background: BORDER_COLOR }} />}
@@ -209,15 +216,17 @@ export function TerminalLayout({
 
       case "education":
         return educations.map((edu, i) => {
-          const dateStr = [formatDate(edu.startDate), edu.current ? "Present" : formatDate(edu.endDate)].filter(Boolean).join(" – ");
-          const degreeField = [edu.degree, edu.field ? `in ${edu.field}` : null].filter(Boolean).join(" ");
+          const dateStr = [formatDate(edu.startDate, t.dateLocale), edu.current ? t.present : formatDate(edu.endDate, t.dateLocale)].filter(Boolean).join(" – ");
+          const degreeField = edu.field
+            ? format(t.degreeIn, { degree: edu.degree ?? "", field: edu.field })
+            : (edu.degree ?? "");
           return {
             id: `education-${edu.id}`,
             node: (
               <div className="mb-6">
-                {i === 0 && <SectionLabel label="EDUCATION" colors={colors} />}
+                {i === 0 && <SectionLabel label={t.sections.education.toUpperCase()} colors={colors} />}
                 <div className="break-inside-avoid">
-                  <EduHeader degreeField={degreeField || edu.institution} institution={edu.institution} dateStr={dateStr} />
+                  <EduHeader degreeField={degreeField || edu.institution} institution={edu.institution} dateStr={dateStr} t={t} />
                   {edu.description && (
                     <p className="font-mono text-sm mt-2 whitespace-pre-line leading-relaxed" style={{ color: TEXT_MUTED }}>{edu.description}</p>
                   )}
@@ -233,9 +242,9 @@ export function TerminalLayout({
           id: `project-${proj.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionLabel label="PROJECTS" colors={colors} />}
+              {i === 0 && <SectionLabel label={t.sections.projects.toUpperCase()} colors={colors} />}
               <div className="break-inside-avoid">
-                <ProjectCard proj={proj} accent={ACCENT} />
+                <ProjectCard proj={proj} accent={ACCENT} t={t} />
               </div>
             </div>
           ),
@@ -246,7 +255,7 @@ export function TerminalLayout({
           id: `other-${o.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionLabel label="OTHER" colors={colors} />}
+              {i === 0 && <SectionLabel label={t.sections.other.toUpperCase()} colors={colors} />}
               {otherEntry(o, { divider: i < others.length - 1 })}
             </div>
           ),
@@ -260,13 +269,13 @@ export function TerminalLayout({
   function otherEntry(o: CvOther, opts?: { badge?: boolean; divider?: boolean }) {
     return (
       <div className="break-inside-avoid">
-        {opts?.badge && <TypeBadge label={TIMELINE_TYPE_LABEL.other} />}
+        {opts?.badge && <TypeBadge label={t.timelineType.other} />}
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-mono text-sm font-bold leading-tight" style={{ color: TEXT_PRIMARY }}>{o.title}</p>
             {o.subtitle && <p className="font-mono text-sm leading-tight mt-0.5" style={{ color: TEXT_LINK }}>{o.subtitle}</p>}
           </div>
-          {o.date && <p className="font-mono text-xs shrink-0" style={{ color: TEXT_MUTED }}>{formatDate(o.date)}</p>}
+          {o.date && <p className="font-mono text-xs shrink-0" style={{ color: TEXT_MUTED }}>{formatDate(o.date, t.dateLocale)}</p>}
         </div>
         {o.url && (
           <p className="font-mono text-xs mt-1 wrap-break-word" style={{ color: TEXT_MUTED }}>
@@ -291,10 +300,10 @@ export function TerminalLayout({
       const entryNode = (() => {
         switch (entry.type) {
           case "experience": {
-            const dateStr = [formatDate(entry.data.startDate), entry.data.current ? "Present" : formatDate(entry.data.endDate)].filter(Boolean).join(" – ");
+            const dateStr = [formatDate(entry.data.startDate, t.dateLocale), entry.data.current ? t.present : formatDate(entry.data.endDate, t.dateLocale)].filter(Boolean).join(" – ");
             return (
               <div className="break-inside-avoid">
-                <ExpHeader role={entry.data.role} company={entry.data.company} dateStr={dateStr} badge />
+                <ExpHeader role={entry.data.role} company={entry.data.company} dateStr={dateStr} badge t={t} />
                 {entry.data.skills && entry.data.skills.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
                     {entry.data.skills.map((s) => (
@@ -312,11 +321,13 @@ export function TerminalLayout({
             );
           }
           case "education": {
-            const dateStr = [formatDate(entry.data.startDate), entry.data.current ? "Present" : formatDate(entry.data.endDate)].filter(Boolean).join(" – ");
-            const degreeField = [entry.data.degree, entry.data.field ? `in ${entry.data.field}` : null].filter(Boolean).join(" ");
+            const dateStr = [formatDate(entry.data.startDate, t.dateLocale), entry.data.current ? t.present : formatDate(entry.data.endDate, t.dateLocale)].filter(Boolean).join(" – ");
+            const degreeField = entry.data.field
+              ? format(t.degreeIn, { degree: entry.data.degree ?? "", field: entry.data.field })
+              : (entry.data.degree ?? "");
             return (
               <div className="break-inside-avoid">
-                <EduHeader degreeField={degreeField || entry.data.institution} institution={entry.data.institution} dateStr={dateStr} badge />
+                <EduHeader degreeField={degreeField || entry.data.institution} institution={entry.data.institution} dateStr={dateStr} badge t={t} />
                 {entry.data.description && (
                   <p className="font-mono text-sm mt-2 whitespace-pre-line leading-relaxed" style={{ color: TEXT_MUTED }}>{entry.data.description}</p>
                 )}
@@ -325,7 +336,7 @@ export function TerminalLayout({
             );
           }
           case "projects":
-            return <ProjectCard proj={entry.data} accent={ACCENT} badge />;
+            return <ProjectCard proj={entry.data} accent={ACCENT} badge t={t} />;
           case "other":
             return otherEntry(entry.data, { badge: true, divider: !isLast });
         }
@@ -334,7 +345,7 @@ export function TerminalLayout({
         id: `${entry.type}-${entry.id}`,
         node: (
           <div className="mb-6">
-            {i === 0 && <SectionLabel label="TIMELINE" colors={colors} />}
+            {i === 0 && <SectionLabel label={t.sections.timeline.toUpperCase()} colors={colors} />}
             {entryNode}
           </div>
         ),
@@ -372,7 +383,7 @@ export function TerminalLayout({
       </div>
       {profile && (
         <div className="flex flex-col gap-2">
-          <SectionLabel label="CONTACT" colors={colors} />
+          <SectionLabel label={t.sections.contact.toUpperCase()} colors={colors} />
           {profile.email && <ContactItem prefix="@" text={profile.email} />}
           {profile.phone && <ContactItem prefix="☏" text={profile.phone} />}
           {profile.location && <ContactItem prefix="⌖" text={profile.location} />}
@@ -384,7 +395,7 @@ export function TerminalLayout({
       <SidebarDivider />
       {techGroups.length > 0 && (
         <div className="flex flex-col gap-2">
-          <SectionLabel label="TECH STACK" colors={colors} />
+          <SectionLabel label={t.sections.techStack.toUpperCase()} colors={colors} />
           <div className="flex flex-wrap gap-1.5">
             {/* Iterated by group rather than flattened, because the tag colour is
                 derived from the group's name — a skill no longer carries one. */}
@@ -401,13 +412,13 @@ export function TerminalLayout({
 
   const sidebarRest = languageSkills.length > 0 ? (
     <div className="flex flex-col gap-2">
-      <SectionLabel label="LANGUAGES" colors={colors} />
+      <SectionLabel label={t.sections.languages.toUpperCase()} colors={colors} />
       {languageSkills.map((s) => (
         <div key={s.id} className="flex items-center justify-between">
           <span className="font-mono text-xs" style={{ color: TEXT_PRIMARY }}>{s.name}</span>
           {s.level != null && (
             <span className="font-mono text-xs" style={{ color: TEXT_MUTED }}>
-              {["Beginner", "Elementary", "Intermediate", "Advanced", "Fluent"][Math.min(4, Math.max(0, Math.round(s.level) - 1))]}
+              {t.proficiency[Math.min(4, Math.max(0, Math.round(s.level) - 1))]}
             </span>
           )}
         </div>
@@ -432,6 +443,7 @@ export function TerminalLayout({
         topHeader={topHeader}
         header={header}
         blocks={mainBlocks}
+        pageLabel={t.pageOf}
         pageClassName="shadow-md print:shadow-none"
         footerClassName="absolute bottom-3 inset-x-0 text-center font-mono text-xs pointer-events-none select-none"
         sidebarFirst={sidebarFirst}

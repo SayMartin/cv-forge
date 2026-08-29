@@ -8,17 +8,21 @@ import {
 } from "@/lib/color-utils";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
-import { buildTimeline, TIMELINE_TYPE_LABEL } from "@/lib/cv-timeline";
+import { buildTimeline } from "@/lib/cv-timeline";
+import { cvStrings } from "@/lib/cv-strings";
+import { format } from "@/i18n/format";
 import { Paginated } from "./pagination/Paginated";
 import type { PageBlock } from "./pagination/types";
 
 const DEFAULT_TEAL = "#2d7d8a";
 
-function formatDate(dateStr?: string | null) {
+// `locale` is the CV's, from `cvStrings(language).dateLocale` — passed rather
+// than read, because this helper sits above the component that knows it.
+function formatDate(dateStr: string | null | undefined, locale: string) {
   if (!dateStr) return "";
   if (/^\d{4}$/.test(dateStr)) return dateStr;
   const [year, month] = dateStr.split("-");
-  return new Date(Number(year), Number(month) - 1).toLocaleDateString("en-GB", {
+  return new Date(Number(year), Number(month) - 1).toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
   });
@@ -72,13 +76,16 @@ export function TealSidebarLayout({
   theme,
   sectionOrder = DEFAULT_SECTION_ORDER,
   chronological = false,
+  language,
 }: {
   content: CvContent;
   theme?: CvTheme;
   sectionOrder?: SectionKey[];
   chronological?: boolean;
+  language?: string;
 }) {
   const { profile, experiences, educations, skillGroups, projects, others } = content;
+  const t = cvStrings(language);
 
   const TEAL = theme?.sidebarColor ?? DEFAULT_TEAL;
   const TEAL_DARK = darkenColor(TEAL, 0.09);
@@ -92,10 +99,10 @@ export function TealSidebarLayout({
   const tealColors: TealColors = { teal: TEAL, tealDark: TEAL_DARK, sidebarText: SIDEBAR_TEXT };
 
   function experienceEntry(job: CvExperience, badge?: boolean) {
-    const dateStr = [formatDate(job.startDate), job.current ? "Present" : formatDate(job.endDate)].filter(Boolean).join(" – ");
+    const dateStr = [formatDate(job.startDate, t.dateLocale), job.current ? t.present : formatDate(job.endDate, t.dateLocale)].filter(Boolean).join(" – ");
     return (
       <div className="break-inside-avoid">
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.experience} />}
+        {badge && <TypeBadge label={t.timelineType.experience} />}
         {dateStr && <p className="text-xs font-semibold" style={{ color: TEAL }}>{dateStr}</p>}
         <p className="font-bold text-zinc-800">{job.role} — {job.company}</p>
         {job.description && (
@@ -103,7 +110,7 @@ export function TealSidebarLayout({
         )}
         {job.url && (
           <p className="text-xs text-zinc-500 wrap-break-word mt-1">
-            Live at: <a href={job.url} style={{ color: TEAL }}>{job.url}</a>
+            {t.liveAt} <a href={job.url} style={{ color: TEAL }}>{job.url}</a>
           </p>
         )}
         {job.skills && job.skills.length > 0 && (
@@ -120,13 +127,13 @@ export function TealSidebarLayout({
   }
 
   function educationEntry(edu: CvEducation, badge?: boolean) {
-    const dateStr = [formatDate(edu.startDate), edu.current ? "Present" : formatDate(edu.endDate)].filter(Boolean).join(" – ");
+    const dateStr = [formatDate(edu.startDate, t.dateLocale), edu.current ? t.present : formatDate(edu.endDate, t.dateLocale)].filter(Boolean).join(" – ");
     return (
       <div>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.education} />}
+        {badge && <TypeBadge label={t.timelineType.education} />}
         {dateStr && <p className="text-xs font-semibold" style={{ color: TEAL }}>{dateStr}</p>}
         <p className="font-bold text-zinc-800">
-          {edu.degree}{edu.field ? ` in ${edu.field}` : ""} — {edu.institution}
+          {edu.field ? format(t.degreeIn, { degree: edu.degree ?? "", field: edu.field }) : edu.degree} — {edu.institution}
         </p>
         {edu.description && (
           <p className="text-zinc-500 mt-0.5 text-sm leading-relaxed">{edu.description}</p>
@@ -136,22 +143,22 @@ export function TealSidebarLayout({
   }
 
   function projectEntry(proj: CvProject, badge?: boolean) {
-    const dateStr = [formatDate(proj.startDate), proj.current ? "Present" : formatDate(proj.endDate)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt) : "");
+    const dateStr = [formatDate(proj.startDate, t.dateLocale), proj.current ? t.present : formatDate(proj.endDate, t.dateLocale)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt, t.dateLocale) : "");
     return (
       <div>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.projects} />}
+        {badge && <TypeBadge label={t.timelineType.projects} />}
         {dateStr && <p className="text-xs font-semibold" style={{ color: TEAL }}>{dateStr}</p>}
         <p className="font-bold text-zinc-800">{proj.title}</p>
         {proj.summary && <p className="text-zinc-500 mt-0.5 text-sm leading-relaxed">{proj.summary}</p>}
         <div className="flex flex-col gap-0.5 text-xs mt-1">
           {proj.url && (
             <span className="text-zinc-400 wrap-break-word">
-              Live at: <a href={proj.url} style={{ color: TEAL }}>{proj.url}</a>
+              {t.liveAt} <a href={proj.url} style={{ color: TEAL }}>{proj.url}</a>
             </span>
           )}
           {proj.sourceUrl && (
             <span className="text-zinc-400 wrap-break-word">
-              Source: <a href={proj.sourceUrl} style={{ color: TEAL }}>{proj.sourceUrl}</a>
+              {t.source} <a href={proj.sourceUrl} style={{ color: TEAL }}>{proj.sourceUrl}</a>
             </span>
           )}
         </div>
@@ -162,8 +169,8 @@ export function TealSidebarLayout({
   function otherEntry(o: CvOther, badge?: boolean) {
     return (
       <div>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.other} />}
-        {o.date && <p className="text-xs font-semibold" style={{ color: TEAL }}>{formatDate(o.date)}</p>}
+        {badge && <TypeBadge label={t.timelineType.other} />}
+        {o.date && <p className="text-xs font-semibold" style={{ color: TEAL }}>{formatDate(o.date, t.dateLocale)}</p>}
         <p className="font-bold text-zinc-800">
           {o.title}{o.subtitle && ` — ${o.subtitle}`}
         </p>
@@ -189,7 +196,7 @@ export function TealSidebarLayout({
           id: `experience-${job.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionHeader title="Experience" icon="💼" colors={tealColors} />}
+              {i === 0 && <SectionHeader title={t.sections.experience} icon="💼" colors={tealColors} />}
               {experienceEntry(job)}
             </div>
           ),
@@ -200,7 +207,7 @@ export function TealSidebarLayout({
           id: `education-${edu.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionHeader title="Education" icon="🎓" colors={tealColors} />}
+              {i === 0 && <SectionHeader title={t.sections.education} icon="🎓" colors={tealColors} />}
               {educationEntry(edu)}
             </div>
           ),
@@ -211,7 +218,7 @@ export function TealSidebarLayout({
           id: `project-${proj.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionHeader title="Projects" icon="🚀" colors={tealColors} />}
+              {i === 0 && <SectionHeader title={t.sections.projects} icon="🚀" colors={tealColors} />}
               {projectEntry(proj)}
             </div>
           ),
@@ -222,7 +229,7 @@ export function TealSidebarLayout({
           id: `other-${o.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionHeader title="Other" icon="📌" colors={tealColors} />}
+              {i === 0 && <SectionHeader title={t.sections.other} icon="📌" colors={tealColors} />}
               {otherEntry(o)}
             </div>
           ),
@@ -251,7 +258,7 @@ export function TealSidebarLayout({
         id: `${entry.type}-${entry.id}`,
         node: (
           <div className="mb-6">
-            {i === 0 && <SectionHeader title="Timeline" icon="🕒" colors={tealColors} />}
+            {i === 0 && <SectionHeader title={t.sections.timeline} icon="🕒" colors={tealColors} />}
             {entryNode}
           </div>
         ),
@@ -272,7 +279,7 @@ export function TealSidebarLayout({
         )}
       </div>
       <div className="mb-4">
-        <SidebarHeader title="Contact" colors={tealColors} />
+        <SidebarHeader title={t.sections.contact} colors={tealColors} />
         <ul className="px-4 space-y-2 text-xs">
           {profile?.name && <li className="flex items-center gap-2"><span>👤</span><span>{profile.name}</span></li>}
           {profile?.phone && <li className="flex items-center gap-2"><span>📞</span><span>{profile.phone}</span></li>}
@@ -293,7 +300,7 @@ export function TealSidebarLayout({
     <div className="pt-8">
       {languageSkills.length > 0 && (
         <div className="mb-4">
-          <SidebarHeader title="Language" colors={tealColors} />
+          <SidebarHeader title={t.sections.language} colors={tealColors} />
           <ul className="px-4 space-y-1.5">
             {languageSkills.map((s) => (
               <li key={s.id} className="flex items-center justify-between">
@@ -306,7 +313,7 @@ export function TealSidebarLayout({
       )}
       {otherSkills.length > 0 && (
         <div className="mb-4">
-          <SidebarHeader title="Skills" colors={tealColors} />
+          <SidebarHeader title={t.sections.skills} colors={tealColors} />
           <ul className="px-4 space-y-1.5">
             {otherSkills.map((s) => (
               <li key={s.id} className="flex items-center justify-between">
@@ -340,7 +347,7 @@ export function TealSidebarLayout({
       </div>
       {profile?.bio && (
         <section className="relative z-10 mb-6">
-          <SectionHeader title="Profile" icon="👤" colors={tealColors} />
+          <SectionHeader title={t.sections.profile} icon="👤" colors={tealColors} />
           <p className="text-zinc-600 leading-relaxed text-sm">{profile.bio}</p>
         </section>
       )}
@@ -355,6 +362,7 @@ export function TealSidebarLayout({
       <Paginated
         header={header}
         blocks={mainBlocks}
+        pageLabel={t.pageOf}
         pageClassName="shadow-md print:shadow-none border border-gray-300 print:border-none text-sm"
         sidebarFirst={sidebarFirst}
         sidebarRest={sidebarRest}

@@ -10,6 +10,13 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ cvId: string }> };
 
 // POST /api/cvs/[cvId]/duplicate — copy a CV and return the new one
+//
+// NOTE — pre-existing bug, deliberately not fixed here: this copies neither
+// `chronological`, `targetRole`, `coverLetter` nor `skillGroups`, so a
+// duplicated CV silently loses its timeline mode, its target role, its cover
+// letter and its whole per-CV skills arrangement. `language` was added to the
+// list when per-CV language shipped; the other four predate it and fixing them
+// is a behaviour change that deserves its own commit and its own testing.
 export async function POST(_req: Request, { params }: Params) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return apiError("unauthorized", 401);
@@ -35,6 +42,7 @@ export async function POST(_req: Request, { params }: Params) {
       projectIds: source.projectIds,
       otherIds: source.otherIds,
       sectionOrder: source.sectionOrder.length ? source.sectionOrder : DEFAULT_SECTION_ORDER,
+      language: source.language,
     },
   });
 

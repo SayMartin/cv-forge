@@ -2,6 +2,7 @@
 
 import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { format } from "@/i18n/format";
 import type { PageBlock } from "./types";
 
 const PAGE_HEIGHT_MM = 297;
@@ -23,6 +24,17 @@ type PaginatedProps = {
   blocks: PageBlock[];
   /** Visual-only classes: border, shadow, background, padding, text size/color. */
   pageClassName: string;
+  /**
+   * The page footer, as a `format()` template with `{page}` and `{pages}`.
+   *
+   * A prop rather than an import, and **required** rather than defaulted to the
+   * English wording. This is the one client file in the CV renderer, so
+   * importing `cv-strings.ts` here would pull every language of every heading
+   * into the browser bundle to produce one line. And a default would be an
+   * English string that silently survives a layout forgetting to pass its own —
+   * required makes that a compile error at all six call sites.
+   */
+  pageLabel: string;
   /** Classes for the "Page X of Y" footer. Defaults to the shared style used by every layout today. */
   footerClassName?: string;
   /**
@@ -44,6 +56,7 @@ export function Paginated({
   header,
   blocks,
   pageClassName,
+  pageLabel,
   footerClassName = DEFAULT_FOOTER_CLASSNAME,
   sidebarFirst,
   sidebarRest,
@@ -121,7 +134,11 @@ export function Paginated({
   }
 
   function renderFooter(page: number, pageCount: number) {
-    return <div className={footerClassName}>Page {page} of {pageCount}</div>;
+    return (
+      <div className={footerClassName}>
+        {format(pageLabel, { page, pages: pageCount })}
+      </div>
+    );
   }
 
   // The sidebar/main row's own direction. When there's a `topHeader`, this row

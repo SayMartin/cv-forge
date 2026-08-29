@@ -4,6 +4,7 @@ import { apiError } from "@/lib/api-errors";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { CvSkillGroup } from "@/lib/cv-content-types";
+import { isLocale } from "@/i18n/config";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,7 @@ export async function PATCH(request: Request, { params }: Params) {
     coverLetter?: string | null;
     sectionOrder?: string[];
     chronological?: boolean;
+    language?: string;
     skillGroups?: CvSkillGroup[];
   } = {};
 
@@ -71,6 +73,11 @@ export async function PATCH(request: Request, { params }: Params) {
   if (body.coverLetter !== undefined) data.coverLetter = body.coverLetter ?? null;
   if (Array.isArray(body.sectionOrder)) data.sectionOrder = body.sectionOrder;
   if (typeof body.chronological === "boolean") data.chronological = body.chronological;
+  // Validated rather than coerced, and silently ignored when invalid: an
+  // unrecognised value would render the CV in English anyway (`cvStrings`
+  // falls back), so storing it would only turn a rejected write into a
+  // permanently confusing row.
+  if (isLocale(body.language)) data.language = body.language;
 
   // skillGroups carries the whole per-CV skills arrangement, so it is validated
   // rather than trusted: unknown category ids would render as empty headings, and

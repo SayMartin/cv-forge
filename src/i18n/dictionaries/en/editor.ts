@@ -1,3 +1,4 @@
+import type { Locale } from "@/i18n/config";
 import type { SectionKey } from "@/lib/cv-layouts";
 
 /**
@@ -40,6 +41,16 @@ const sections: Record<SectionKey, string> = {
  * after both have been edited. They are read from `nav` at the use site; the
  * arrow after them is punctuation and stays in the JSX.
  */
+/**
+ * The languages a CV can be written in. `Record<Locale, string>` for the same
+ * reason as everywhere else: a third locale is a compile error in both
+ * dictionaries rather than an option that renders blank.
+ */
+const cvLanguageNames: Record<Locale, string> = {
+  sv: "Swedish",
+  en: "English",
+};
+
 export const editor = {
   /** aria-label on the CV `<select>` in the breadcrumb. */
   switchCv: "Switch CV",
@@ -93,6 +104,14 @@ export const editor = {
   dragToReorder: "Drag to reorder",
 
   layout: { title: "Layout" },
+
+  cvLanguage: {
+    title: "CV language",
+    help: "Sets the headings, the dates and \"Present\" on the CV itself. Separate from the language you use CV Forge in — a Swedish interface can produce an English CV.",
+    // Exonyms, like `nav.language.names`: this is a control in the app, read in
+    // the app's language, not a label on the CV.
+    names: cvLanguageNames,
+  },
 
   theme: {
     title: "Colour theme",

@@ -10,12 +10,10 @@ export type TimelineEntry =
   | { type: "projects"; id: string; data: CvProject }
   | { type: "other"; id: string; data: CvOther };
 
-export const TIMELINE_TYPE_LABEL: Record<TimelineEntry["type"], string> = {
-  experience: "Work",
-  education: "Education",
-  projects: "Project",
-  other: "Other",
-};
+// The badge labels that used to live here are now `cvStrings(language)
+// .timelineType`. They are printed on the CV, so they follow the CV's own
+// language — and this module is pure date-sorting logic that has no business
+// knowing about languages at all.
 
 // "YYYY" or "YYYY-MM" (same format used by every layout's formatDate()) → a
 // sortable numeric value. Missing/unparseable dates sort last.

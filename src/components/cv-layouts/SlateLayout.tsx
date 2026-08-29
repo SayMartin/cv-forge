@@ -2,18 +2,22 @@ import type { CvContent, CvEducation, CvExperience, CvOther } from "@/lib/cv-con
 import { getContrastColor } from "@/lib/color-utils";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
-import { buildTimeline, TIMELINE_TYPE_LABEL } from "@/lib/cv-timeline";
+import { buildTimeline } from "@/lib/cv-timeline";
+import { cvStrings, type CvStrings } from "@/lib/cv-strings";
+import { format } from "@/i18n/format";
 import { Paginated } from "./pagination/Paginated";
 import type { PageBlock } from "./pagination/types";
 
 const DEFAULT_ACCENT = "#6366f1";
 const DEFAULT_SIDEBAR_BG = "#1e293b";
 
-function formatDate(dateStr?: string | null) {
+// `locale` is the CV's, from `cvStrings(language).dateLocale` — passed rather
+// than read, because this helper sits above the component that knows it.
+function formatDate(dateStr: string | null | undefined, locale: string) {
   if (!dateStr) return "";
   if (/^\d{4}$/.test(dateStr)) return dateStr;
   const [year, month] = dateStr.split("-");
-  return new Date(Number(year), Number(month) - 1).toLocaleDateString("en-GB", {
+  return new Date(Number(year), Number(month) - 1).toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
   });
@@ -109,12 +113,12 @@ function TechPill({ label }: { label: string }) {
   );
 }
 
-function ProjectCard({ proj, accent, badge }: { proj: CvContent["projects"][0]; accent: string; badge?: boolean }) {
+function ProjectCard({ proj, accent, badge, t }: { proj: CvContent["projects"][0]; accent: string; badge?: boolean; t: CvStrings }) {
   const lang = proj.skills?.[0];
-  const dateStr = [formatDate(proj.startDate), proj.current ? "Present" : formatDate(proj.endDate)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt) : "");
+  const dateStr = [formatDate(proj.startDate, t.dateLocale), proj.current ? t.present : formatDate(proj.endDate, t.dateLocale)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt, t.dateLocale) : "");
   return (
     <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
-      {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.projects} />}
+      {badge && <TypeBadge label={t.timelineType.projects} />}
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <p className="text-sm font-bold" style={{ color: accent }}>{proj.title}</p>
         <div className="flex items-center gap-2 shrink-0">
@@ -131,12 +135,12 @@ function ProjectCard({ proj, accent, badge }: { proj: CvContent["projects"][0]; 
         <div className="flex flex-col gap-0.5 mt-2 text-xs text-slate-400">
           {proj.url && (
             <span className="wrap-break-word">
-              Live at: <a href={proj.url} style={{ color: accent }}>{proj.url}</a>
+              {t.liveAt} <a href={proj.url} style={{ color: accent }}>{proj.url}</a>
             </span>
           )}
           {proj.sourceUrl && (
             <span className="wrap-break-word">
-              Source: <a href={proj.sourceUrl} style={{ color: accent }}>{proj.sourceUrl}</a>
+              {t.source} <a href={proj.sourceUrl} style={{ color: accent }}>{proj.sourceUrl}</a>
             </span>
           )}
         </div>
@@ -150,13 +154,16 @@ export function SlateLayout({
   theme,
   sectionOrder = DEFAULT_SECTION_ORDER,
   chronological = false,
+  language,
 }: {
   content: CvContent;
   theme?: CvTheme;
   sectionOrder?: SectionKey[];
   chronological?: boolean;
+  language?: string;
 }) {
   const { profile, experiences, educations, skillGroups, projects, others } = content;
+  const t = cvStrings(language);
 
   const ACCENT = theme?.accentColor ?? DEFAULT_ACCENT;
   const SIDEBAR_BG = theme?.sidebarColor ?? DEFAULT_SIDEBAR_BG;
@@ -176,10 +183,10 @@ export function SlateLayout({
   const sidebarStyle = { background: SIDEBAR_BG, width: "35%", color: SIDEBAR_TEXT } as const;
 
   function experienceEntry(job: CvExperience, opts?: { badge?: boolean; divider?: boolean }) {
-    const dateStr = [formatDate(job.startDate), job.current ? "Present" : formatDate(job.endDate)].filter(Boolean).join(" – ");
+    const dateStr = [formatDate(job.startDate, t.dateLocale), job.current ? t.present : formatDate(job.endDate, t.dateLocale)].filter(Boolean).join(" – ");
     return (
       <div className="break-inside-avoid">
-        {opts?.badge && <TypeBadge label={TIMELINE_TYPE_LABEL.experience} />}
+        {opts?.badge && <TypeBadge label={t.timelineType.experience} />}
         <div className="flex items-baseline justify-between gap-4 mb-1.5">
           <p className="text-sm font-bold text-slate-900">
             {job.company}
@@ -198,7 +205,7 @@ export function SlateLayout({
         )}
         {job.url && (
           <p className="text-xs text-slate-400 wrap-break-word mt-1">
-            Live at: <a href={job.url} style={{ color: ACCENT }}>{job.url}</a>
+            {t.liveAt} <a href={job.url} style={{ color: ACCENT }}>{job.url}</a>
           </p>
         )}
         {opts?.divider && <div className="mt-4 border-b border-slate-100" />}
@@ -207,11 +214,13 @@ export function SlateLayout({
   }
 
   function educationEntry(edu: CvEducation, opts?: { badge?: boolean; divider?: boolean }) {
-    const dateStr = [formatDate(edu.startDate), edu.current ? "Present" : formatDate(edu.endDate)].filter(Boolean).join(" – ");
-    const degreeField = [edu.degree, edu.field ? `in ${edu.field}` : null].filter(Boolean).join(" ");
+    const dateStr = [formatDate(edu.startDate, t.dateLocale), edu.current ? t.present : formatDate(edu.endDate, t.dateLocale)].filter(Boolean).join(" – ");
+    const degreeField = edu.field
+      ? format(t.degreeIn, { degree: edu.degree ?? "", field: edu.field })
+      : (edu.degree ?? "");
     return (
       <div className="break-inside-avoid">
-        {opts?.badge && <TypeBadge label={TIMELINE_TYPE_LABEL.education} />}
+        {opts?.badge && <TypeBadge label={t.timelineType.education} />}
         <div className="flex items-baseline justify-between gap-4 mb-1.5">
           <p className="text-sm font-bold text-slate-900">
             {edu.institution}
@@ -232,7 +241,7 @@ export function SlateLayout({
   function otherEntry(o: CvOther, opts?: { badge?: boolean; divider?: boolean }) {
     return (
       <div className="break-inside-avoid">
-        {opts?.badge && <TypeBadge label={TIMELINE_TYPE_LABEL.other} />}
+        {opts?.badge && <TypeBadge label={t.timelineType.other} />}
         <div className="flex items-baseline justify-between gap-4 mb-1">
           <p className="text-sm font-bold text-slate-900">
             {o.title}
@@ -240,7 +249,7 @@ export function SlateLayout({
               <><span className="text-slate-400 font-normal mx-1.5">·</span>{o.subtitle}</>
             )}
           </p>
-          {o.date && <p className="text-xs text-slate-400 shrink-0">{formatDate(o.date)}</p>}
+          {o.date && <p className="text-xs text-slate-400 shrink-0">{formatDate(o.date, t.dateLocale)}</p>}
         </div>
         {o.url && (
           <p className="text-xs text-slate-400 wrap-break-word mb-1">
@@ -265,7 +274,7 @@ export function SlateLayout({
           id: `experience-${job.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionHeader title="Experience" accent={ACCENT} />}
+              {i === 0 && <SectionHeader title={t.sections.experience} accent={ACCENT} />}
               {experienceEntry(job, { divider: i < experiences.length - 1 })}
             </div>
           ),
@@ -276,7 +285,7 @@ export function SlateLayout({
           id: `education-${edu.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionHeader title="Education" accent={ACCENT} />}
+              {i === 0 && <SectionHeader title={t.sections.education} accent={ACCENT} />}
               {educationEntry(edu, { divider: i < educations.length - 1 })}
             </div>
           ),
@@ -287,9 +296,9 @@ export function SlateLayout({
           id: `project-${proj.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionHeader title="Projects" accent={ACCENT} />}
+              {i === 0 && <SectionHeader title={t.sections.projects} accent={ACCENT} />}
               <div className="break-inside-avoid">
-                <ProjectCard proj={proj} accent={ACCENT} />
+                <ProjectCard proj={proj} accent={ACCENT} t={t} />
               </div>
             </div>
           ),
@@ -300,7 +309,7 @@ export function SlateLayout({
           id: `other-${o.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionHeader title="Other" accent={ACCENT} />}
+              {i === 0 && <SectionHeader title={t.sections.other} accent={ACCENT} />}
               {otherEntry(o, { divider: i < others.length - 1 })}
             </div>
           ),
@@ -322,7 +331,7 @@ export function SlateLayout({
         switch (entry.type) {
           case "experience": return experienceEntry(entry.data, { badge: true, divider: !isLast });
           case "education": return educationEntry(entry.data, { badge: true, divider: !isLast });
-          case "projects": return <ProjectCard proj={entry.data} accent={ACCENT} badge />;
+          case "projects": return <ProjectCard proj={entry.data} accent={ACCENT} badge t={t} />;
           case "other": return otherEntry(entry.data, { badge: true, divider: !isLast });
         }
       })();
@@ -330,7 +339,7 @@ export function SlateLayout({
         id: `${entry.type}-${entry.id}`,
         node: (
           <div className="mb-6">
-            {i === 0 && <SectionHeader title="Timeline" accent={ACCENT} />}
+            {i === 0 && <SectionHeader title={t.sections.timeline} accent={ACCENT} />}
             {entryNode}
           </div>
         ),
@@ -360,7 +369,7 @@ export function SlateLayout({
 
       {profile && (
         <div className="px-6 py-4">
-          <SidebarLabel text="Contact" colors={colors} />
+          <SidebarLabel text={t.sections.contact} colors={colors} />
           <ul className="space-y-2">
             {profile.email && <ContactRow icon="✉" text={profile.email} colors={colors} />}
             {profile.phone && <ContactRow icon="☏" text={profile.phone} colors={colors} />}
@@ -375,7 +384,7 @@ export function SlateLayout({
 
       {techGroups.length > 0 && (
         <div className="px-6 py-4 flex flex-col gap-4">
-          <SidebarLabel text="Skills" colors={colors} />
+          <SidebarLabel text={t.sections.skills} colors={colors} />
           {techGroups.map(({ categoryId, name: category, skills: catSkills }) => (
             <div key={categoryId} className="flex flex-col gap-2">
               <SidebarCategoryLabel text={category} colors={colors} />
@@ -394,7 +403,7 @@ export function SlateLayout({
 
   const sidebarRest = languageSkills.length > 0 ? (
     <div className="px-6 py-6 flex flex-col gap-3">
-      <SidebarLabel text="Languages" colors={colors} />
+      <SidebarLabel text={t.sections.languages} colors={colors} />
       {languageSkills.map((s) => (
         <div key={s.id} className="flex items-center justify-between gap-2">
           <span className="text-xs" style={{ color: SIDEBAR_TEXT }}>{s.name}</span>
@@ -424,6 +433,7 @@ export function SlateLayout({
       <Paginated
         header={header}
         blocks={mainBlocks}
+        pageLabel={t.pageOf}
         pageClassName="shadow-md print:shadow-none border border-slate-200 print:border-none"
         footerClassName="absolute bottom-3 inset-x-0 text-center text-xs text-slate-400 pointer-events-none select-none"
         sidebarFirst={sidebarFirst}

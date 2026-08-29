@@ -11,6 +11,7 @@ import { ActionChip } from "@/components/ActionChip";
 import type { CvSkillGroup } from "@/lib/cv-content-types";
 import { localeHref } from "@/i18n/routing";
 import { useLocale } from "@/i18n/useLocale";
+import { DEFAULT_LOCALE, isLocale, LOCALES, type Locale } from "@/i18n/config";
 import { useDictionary } from "@/i18n/DictionaryProvider";
 import { useApiError } from "@/i18n/useApiError";
 import { format } from "@/i18n/format";
@@ -62,6 +63,7 @@ interface Props {
   initialCoverLetter: string | null;
   initialSectionOrder?: string[];
   initialChronological?: boolean;
+  initialLanguage?: string;
   profiles: Profile[];
   avatarDoc: AvatarDoc | null;
   experiences: Experience[];
@@ -95,6 +97,7 @@ export function CvEditor({
   initialCoverLetter,
   initialSectionOrder,
   initialChronological,
+  initialLanguage,
   profiles,
   avatarDoc,
   experiences,
@@ -133,6 +136,12 @@ export function CvEditor({
     (initialSectionOrder?.length ? initialSectionOrder : DEFAULT_SECTION_ORDER) as SectionKey[],
   );
   const [chronological, setChronological] = useState<boolean>(initialChronological ?? false);
+  // The CV's own language — deliberately seeded from the row, never from
+  // `useLocale()`. Defaulting an existing CV to the UI locale would silently
+  // re-language every document the first time a Swedish user opened one.
+  const [cvLanguage, setCvLanguage] = useState<Locale>(
+    isLocale(initialLanguage) ? initialLanguage : DEFAULT_LOCALE,
+  );
   const [targetRole, setTargetRole] = useState<string>(initialTargetRole ?? "");
   const [coverLetter, setCoverLetter] = useState<string>(initialCoverLetter ?? "");
 
@@ -238,6 +247,7 @@ export function CvEditor({
         otherIds,
         sectionOrder,
         chronological,
+        language: cvLanguage,
         targetRole: targetRole.trim() || null,
         coverLetter: coverLetter.trim() || null,
       }),
@@ -271,6 +281,7 @@ export function CvEditor({
       (initialSectionOrder?.length ? initialSectionOrder : DEFAULT_SECTION_ORDER) as SectionKey[],
     );
     setChronological(initialChronological ?? false);
+    setCvLanguage(isLocale(initialLanguage) ? initialLanguage : DEFAULT_LOCALE);
     setTargetRole(initialTargetRole ?? "");
     setCoverLetter(initialCoverLetter ?? "");
     setIsDirty(false);
@@ -418,6 +429,25 @@ export function CvEditor({
                 </button>
               );
             })}
+          </div>
+        </Section>
+
+        {/* CV language — the language of the document, not of the app */}
+        <Section title={t.cvLanguage.title}>
+          <p className="text-sm text-(--cl-muted) mb-3">{t.cvLanguage.help}</p>
+          <div className="flex flex-col gap-2">
+            {LOCALES.map((code) => (
+              <label key={code} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="cvLanguage"
+                  checked={cvLanguage === code}
+                  onChange={() => { setCvLanguage(code); markDirty(); }}
+                  className="h-4 w-4 accent-(--cl-accent)"
+                />
+                <span className="text-sm text-(--cl-text)">{t.cvLanguage.names[code]}</span>
+              </label>
+            ))}
           </div>
         </Section>
 

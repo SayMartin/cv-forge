@@ -246,6 +246,7 @@ cv-cms/
 │   └── lib/
 │       ├── auth.ts                                  ← exported `auth` singleton (Better Auth)
 │       ├── email.ts                                  ← sendAuthEmail(kind, user, url): picks the language, renders, sends via Resend
+│       ├── cv-strings.ts                              ← the words printed ON a CV, keyed by Cv.language. NOT the app dictionary; never root-params
 │       ├── auth-client.ts                           ← createAuthClient ("use client" only)
 │       ├── api-errors.ts                            ← API_ERROR_CODES + ApiErrorCode + apiError(); the only way a route reports a failure
 │       ├── color-utils.ts                           ← HSL color math: darkenColor, lightenColor, getContrastColor, hexToRgba, mixColors, sidebarGradient
@@ -334,7 +335,7 @@ A **CV** is a named, versioned selection of the user's content entries plus a ch
 | `projectIds`    | `TEXT[]`      | Prisma `id` values of selected Project rows          |
 | `otherIds`      | `TEXT[]`      | Prisma `id` values of selected Other rows            |
 | `sectionOrder`  | `TEXT[]`      | Section display order in the CV renderer             |
-| `language`      | `TEXT`        | `NOT NULL DEFAULT 'en'` — the language the CV is *written in*, not the UI locale |
+| `language`      | `TEXT`        | `NOT NULL DEFAULT 'en'` — the language the CV is *written in*, not the UI locale; drives `cvStrings()` in all six layouts |
 | `targetRole`    | `TEXT?`       | "Tailored for" label — shown in CV list only; max 100 chars |
 | `coverLetter`   | `TEXT?`       | Printed as a separate page before the CV; max 5000 chars |
 
@@ -446,12 +447,59 @@ union of the six ids, and the component map and both dictionary slices are typed
 one per map. Only step 5 can still be forgotten silently, because `LayoutThumb`
 switches on a string and falls through to a default.
 
+A new layout starts with `const t = cvStrings(language);` and takes every printed
+word from `t`. Forgetting the `pageLabel={t.pageOf}` prop on `Paginated` is a
+compile error — it is required precisely so a layout cannot fall back to an
+English footer on a Swedish CV.
+
 > The layout's **name and description are not in the registry**. They are labels
 > on a picker, so they follow the *UI* locale and live in `dict.layouts[id]`;
 > the `id` stays in code because it is written to `cv.layoutId`. `SECTION_LABELS`
 > left the same file for the same reason and is now `dict.editor.sections`. None
 > of this is the CV's *own* language — that is `Cv.language`, and it drives the
 > headings printed on the document rather than the words around it.
+
+#### The CV's language is not the app's language
+
+Every word printed on a CV comes from `cvStrings(cv.language)` in
+`src/lib/cv-strings.ts`, which is **not** the app dictionary and must not become
+it. The two answer different questions:
+
+| | Source | Language it follows |
+|---|---|---|
+| "Erfarenhet" as a heading in the editor | `dict.editor.sections.experience` | the **reader's** — `User.locale` / the URL |
+| "Erfarenhet" as a heading on the PDF | `cvStrings(cv.language).sections.experience` | the **document's** — `Cv.language` |
+
+Same word, different thing. A Swedish speaker applying abroad keeps a Swedish
+interface and exports an English CV; that is the common case, not the exotic one,
+and it is the entire reason the column exists.
+
+Two rules keep them from collapsing into each other:
+
+1. **`cv-strings.ts` never touches `next/root-params`.** The CV's language is
+   *data*, read from a column; the request's locale is a different fact about a
+   different thing. Reading root-params there would give exactly the wrong answer
+   in the one case the feature was built for. The module is plain and
+   synchronous, so it cannot even be tempted.
+2. **`CV_STRINGS` stays off the client.** All six layouts are Server Components,
+   so it never enters a bundle. `Paginated.tsx` is the one `"use client"` file in
+   the renderer, which is why it takes `pageLabel` as a required prop instead of
+   importing the module — that import would drag every heading in every language
+   into the browser to produce one footer line.
+
+`Cv.language` is `NOT NULL DEFAULT 'en'`, unlike the nullable `User.locale`, and
+the asymmetry is deliberate: "en" is real data rather than a guess, because every
+CV that exists was authored with English headings and en-GB dates. The English
+strings in `cv-strings.ts` are the pre-existing literals verbatim, so every stored
+row renders exactly as it did. **That matters more than it looks — a language
+changes rendered text width, and `Paginated` measures width to decide where the
+page breaks fall.** Re-languaging existing CVs by default would have silently
+repaginated them.
+
+A CV's language is set from the editor and defaults, on creation, to the locale of
+the page it was created from — `CreateCvForm` sends it, because `POST /api/cvs` is
+a Route Handler and cannot read root-params. It is only a default; the two
+settings are independent from then on.
 
 > `thumbnails/index.tsx` is **not** a registration point — it only re-exports `LayoutThumb` (plus three unused named thumbs). `LayoutThumb.tsx` imports each thumb directly, so nothing needs adding to the barrel.
 
@@ -637,6 +685,13 @@ Three places hold a language, and they answer different questions. Confusing the
 | URL segment | what this page renders in, **right now** | the link that was followed; `proxy.ts` | `next/root-params`, `useLocale()` |
 | `cvforge_locale` cookie | what *this device* was last using | `proxy.ts`, both `/api/locale` routes | `proxy.ts`, `app/not-found.tsx` |
 | `user.locale` | what *this account* prefers | the navbar toggle, the settings control, sign-up | sign-in; both transactional emails |
+| `cv.language` | what *this document* is written in | the CV editor; seeded from the UI locale at creation | the six layouts, via `cvStrings()` |
+
+The last row is a different axis from the first three, and the table lists it to
+stop it being mistaken for one of them: the URL, the cookie and the account
+preference all answer "what language is this person reading", while `cv.language`
+answers "what language is this document written in". See **The CV's language is
+not the app's language** under the layout system.
 
 **Only a deliberate act writes `user.locale`.** Merely viewing a page in a locale does not: `proxy.ts` keeps the cookie in step with the URL, so opening a link a colleague sent you in the other language changes what you see and nothing else. The account preference is written by the toggle, the settings control, and sign-up — and by nothing else.
 

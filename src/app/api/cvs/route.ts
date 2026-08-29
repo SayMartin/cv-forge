@@ -4,6 +4,7 @@ import { apiError } from "@/lib/api-errors";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_SECTION_ORDER } from "@/lib/cv-layouts";
+import { DEFAULT_LOCALE, isLocale } from "@/i18n/config";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +27,16 @@ export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return apiError("unauthorized", 401);
 
-  const { name } = await request.json();
+  const { name, language } = await request.json();
   if (!name?.trim()) {
     return apiError("cv_name_required", 400);
   }
+
+  // A new CV starts in the language of the page the user created it from, which
+  // the *client* sends: this is a Route Handler, so `next/root-params` is not
+  // available and the request itself carries no locale. Validated rather than
+  // trusted — the body is `any` and the column feeds every heading on the page.
+  const cvLanguage = isLocale(language) ? language : DEFAULT_LOCALE;
 
   const cv = await prisma.cV.create({
     data: {
@@ -40,6 +47,7 @@ export async function POST(request: Request) {
       skillIds: [],
       projectIds: [],
       sectionOrder: DEFAULT_SECTION_ORDER,
+      language: cvLanguage,
     },
   });
 

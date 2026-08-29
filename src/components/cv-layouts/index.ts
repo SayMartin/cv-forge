@@ -10,7 +10,18 @@ import { EuropassLayout } from "./EuropassLayout";
 
 export type { CvTheme };
 
-export type LayoutProps = { content: CvContent; theme?: CvTheme; sectionOrder?: SectionKey[]; chronological?: boolean };
+/**
+ * `language` is the CV's own language — `Cv.language`, not the UI locale. It is
+ * a raw `string` rather than a `Locale` because that is what the column gives:
+ * validation belongs at the one place that reads it, `cvStrings()`.
+ */
+export type LayoutProps = {
+  content: CvContent;
+  theme?: CvTheme;
+  sectionOrder?: SectionKey[];
+  chronological?: boolean;
+  language?: string;
+};
 
 // Add new layouts here as they are built. Keyed by `LayoutId` rather than by
 // `string`, so an id added to LAYOUT_IDS without a component here is a compile

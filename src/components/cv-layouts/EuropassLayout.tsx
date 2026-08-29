@@ -1,25 +1,29 @@
 import type { CvContent, CvEducation, CvExperience, CvOther, CvProject } from "@/lib/cv-content-types";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
-import { buildTimeline, TIMELINE_TYPE_LABEL } from "@/lib/cv-timeline";
+import { buildTimeline } from "@/lib/cv-timeline";
+import { cvStrings } from "@/lib/cv-strings";
+import { format } from "@/i18n/format";
 import { Paginated } from "./pagination/Paginated";
 import type { PageBlock } from "./pagination/types";
 
 const EUROPASS_BLUE = "#003399";
 
-function formatDate(dateStr?: string | null) {
+// `locale` is the CV's, from `cvStrings(language).dateLocale` — passed rather
+// than read, because this helper sits above the component that knows it.
+function formatDate(dateStr: string | null | undefined, locale: string) {
   if (!dateStr) return "";
   if (/^\d{4}$/.test(dateStr)) return dateStr;
   const [year, month] = dateStr.split("-");
-  return new Date(Number(year), Number(month) - 1).toLocaleDateString("en-GB", {
+  return new Date(Number(year), Number(month) - 1).toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
   });
 }
 
-function formatBirthDate(date?: Date | null) {
+function formatBirthDate(date: Date | null | undefined, locale: string) {
   if (!date) return "";
-  return new Date(date).toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
+  return new Date(date).toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
 }
 
 // Two-column "date | content" row — the structural signature of the official Europass CV template.
@@ -69,13 +73,16 @@ export function EuropassLayout({
   theme,
   sectionOrder = DEFAULT_SECTION_ORDER,
   chronological = false,
+  language,
 }: {
   content: CvContent;
   theme?: CvTheme;
   sectionOrder?: SectionKey[];
   chronological?: boolean;
+  language?: string;
 }) {
   const { profile, experiences, educations, skills, skillGroups, projects, others } = content;
+  const t = cvStrings(language);
   const ACCENT = theme?.sidebarColor ?? EUROPASS_BLUE;
 
   // Spoken languages are picked out by the group's *role*, not its heading text:
@@ -88,10 +95,10 @@ export function EuropassLayout({
   // path (title fused into the first entry) and the chronological path (a
   // small type badge on every entry instead of a section title).
   function experienceEntry(job: CvExperience, badge?: boolean) {
-    const dateStr = [formatDate(job.startDate), job.current ? "Present" : formatDate(job.endDate)].filter(Boolean).join(" –\n");
+    const dateStr = [formatDate(job.startDate, t.dateLocale), job.current ? t.present : formatDate(job.endDate, t.dateLocale)].filter(Boolean).join(" –\n");
     return (
       <DatedRow dateLabel={dateStr} accent={ACCENT}>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.experience} accent={ACCENT} />}
+        {badge && <TypeBadge label={t.timelineType.experience} accent={ACCENT} />}
         <p className="font-bold text-zinc-800 text-sm">{job.role}</p>
         <p className="text-zinc-600 text-sm">{job.company}</p>
         {job.description && (
@@ -99,7 +106,7 @@ export function EuropassLayout({
         )}
         {job.url && (
           <p className="text-xs text-zinc-600 wrap-break-word mt-1">
-            Live at: <a href={job.url} style={{ color: ACCENT }}>{job.url}</a>
+            {t.liveAt} <a href={job.url} style={{ color: ACCENT }}>{job.url}</a>
           </p>
         )}
         {job.skills && job.skills.length > 0 && (
@@ -110,12 +117,12 @@ export function EuropassLayout({
   }
 
   function educationEntry(edu: CvEducation, badge?: boolean) {
-    const dateStr = [formatDate(edu.startDate), edu.current ? "Present" : formatDate(edu.endDate)].filter(Boolean).join(" –\n");
+    const dateStr = [formatDate(edu.startDate, t.dateLocale), edu.current ? t.present : formatDate(edu.endDate, t.dateLocale)].filter(Boolean).join(" –\n");
     return (
       <DatedRow dateLabel={dateStr} accent={ACCENT}>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.education} accent={ACCENT} />}
+        {badge && <TypeBadge label={t.timelineType.education} accent={ACCENT} />}
         <p className="font-bold text-zinc-800 text-sm">
-          {edu.degree}{edu.field ? ` in ${edu.field}` : ""}
+          {edu.field ? format(t.degreeIn, { degree: edu.degree ?? "", field: edu.field }) : edu.degree}
         </p>
         <p className="text-zinc-600 text-sm">{edu.institution}</p>
         {edu.description && (
@@ -126,21 +133,21 @@ export function EuropassLayout({
   }
 
   function projectEntry(proj: CvProject, badge?: boolean) {
-    const dateStr = [formatDate(proj.startDate), proj.current ? "Present" : formatDate(proj.endDate)].filter(Boolean).join(" –\n") || (proj.publishedAt ? formatDate(proj.publishedAt) : "");
+    const dateStr = [formatDate(proj.startDate, t.dateLocale), proj.current ? t.present : formatDate(proj.endDate, t.dateLocale)].filter(Boolean).join(" –\n") || (proj.publishedAt ? formatDate(proj.publishedAt, t.dateLocale) : "");
     return (
       <DatedRow dateLabel={dateStr} accent={ACCENT}>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.projects} accent={ACCENT} />}
+        {badge && <TypeBadge label={t.timelineType.projects} accent={ACCENT} />}
         <p className="font-bold text-zinc-800 text-sm">{proj.title}</p>
         {proj.summary && <p className="text-zinc-600 mt-0.5 text-sm leading-relaxed">{proj.summary}</p>}
         <div className="flex flex-col gap-0.5 text-xs mt-1">
           {proj.url && (
             <span className="text-zinc-600 wrap-break-word">
-              Live at: <a href={proj.url} style={{ color: ACCENT }}>{proj.url}</a>
+              {t.liveAt} <a href={proj.url} style={{ color: ACCENT }}>{proj.url}</a>
             </span>
           )}
           {proj.sourceUrl && (
             <span className="text-zinc-600 wrap-break-word">
-              Source: <a href={proj.sourceUrl} style={{ color: ACCENT }}>{proj.sourceUrl}</a>
+              {t.source} <a href={proj.sourceUrl} style={{ color: ACCENT }}>{proj.sourceUrl}</a>
             </span>
           )}
         </div>
@@ -154,8 +161,8 @@ export function EuropassLayout({
   function otherEntry(o: CvOther, badge?: boolean) {
     return (
       <div>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.other} accent={ACCENT} />}
-        {o.date && <p className="text-xs font-semibold" style={{ color: ACCENT }}>{formatDate(o.date)}</p>}
+        {badge && <TypeBadge label={t.timelineType.other} accent={ACCENT} />}
+        {o.date && <p className="text-xs font-semibold" style={{ color: ACCENT }}>{formatDate(o.date, t.dateLocale)}</p>}
         <p className="font-bold text-zinc-800 text-sm">
           {o.title}{o.subtitle && ` — ${o.subtitle}`}
         </p>
@@ -181,7 +188,7 @@ export function EuropassLayout({
           id: `experience-${job.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionTitle title="Work experience" accent={ACCENT} />}
+              {i === 0 && <SectionTitle title={t.europass.workExperience} accent={ACCENT} />}
               {experienceEntry(job)}
             </div>
           ),
@@ -192,7 +199,7 @@ export function EuropassLayout({
           id: `education-${edu.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionTitle title="Education and training" accent={ACCENT} />}
+              {i === 0 && <SectionTitle title={t.europass.educationAndTraining} accent={ACCENT} />}
               {educationEntry(edu)}
             </div>
           ),
@@ -205,16 +212,16 @@ export function EuropassLayout({
                 id: "skills",
                 node: (
                   <div className="mb-6">
-                    <SectionTitle title="Personal skills" accent={ACCENT} />
+                    <SectionTitle title={t.europass.personalSkills} accent={ACCENT} />
                     <div className="space-y-4">
                       {languageSkills.length > 0 && (
                         <div>
-                          <p className="text-xs font-semibold text-zinc-700 mb-1.5">Language skills</p>
+                          <p className="text-xs font-semibold text-zinc-700 mb-1.5">{t.europass.languageSkills}</p>
                           <table className="w-full text-xs border-collapse">
                             <thead>
                               <tr className="border-b" style={{ borderColor: ACCENT + "33" }}>
-                                <th className="text-left font-medium py-1 pr-4" style={{ color: ACCENT }}>Language</th>
-                                <th className="text-left font-medium py-1" style={{ color: ACCENT }}>CEFR level</th>
+                                <th className="text-left font-medium py-1 pr-4" style={{ color: ACCENT }}>{t.europass.language}</th>
+                                <th className="text-left font-medium py-1" style={{ color: ACCENT }}>{t.europass.cefrLevel}</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -227,7 +234,7 @@ export function EuropassLayout({
                             </tbody>
                           </table>
                           <p className="text-xs text-zinc-400 mt-1">
-                            Levels: A1/A2 Basic user · B1/B2 Independent user · C1/C2 Proficient user (Common European Framework of Reference).
+                            {t.europass.cefrFootnote}
                           </p>
                         </div>
                       )}
@@ -245,7 +252,7 @@ export function EuropassLayout({
                       ))}
                       {profile?.drivingLicense && (
                         <div>
-                          <p className="text-xs font-semibold text-zinc-700 mb-1">Driving licence</p>
+                          <p className="text-xs font-semibold text-zinc-700 mb-1">{t.europass.drivingLicence}</p>
                           <p className="text-xs text-zinc-700">{profile.drivingLicense}</p>
                         </div>
                       )}
@@ -261,7 +268,7 @@ export function EuropassLayout({
           id: `project-${proj.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionTitle title="Projects" accent={ACCENT} />}
+              {i === 0 && <SectionTitle title={t.sections.projects} accent={ACCENT} />}
               {projectEntry(proj)}
             </div>
           ),
@@ -272,7 +279,7 @@ export function EuropassLayout({
           id: `other-${o.id}`,
           node: (
             <div className="mb-6">
-              {i === 0 && <SectionTitle title="Additional information" accent={ACCENT} />}
+              {i === 0 && <SectionTitle title={t.europass.additionalInformation} accent={ACCENT} />}
               {otherEntry(o)}
             </div>
           ),
@@ -289,7 +296,7 @@ export function EuropassLayout({
   function chronologicalBlocks(): PageBlock[] {
     const timeline = buildTimeline(content);
     const timelineBlocks: PageBlock[] = timeline.map((entry, i) => {
-      const title = i === 0 ? <SectionTitle title="Timeline" accent={ACCENT} /> : null;
+      const title = i === 0 ? <SectionTitle title={t.sections.timeline} accent={ACCENT} /> : null;
       const entryNode = (() => {
         switch (entry.type) {
           case "experience": return experienceEntry(entry.data, true);
@@ -332,21 +339,21 @@ export function EuropassLayout({
       </div>
 
       <section className="mb-6">
-        <SectionTitle title="Personal information" accent={ACCENT} />
+        <SectionTitle title={t.europass.personalInformation} accent={ACCENT} />
         <div className="space-y-1.5">
-          {profile?.location && <InfoRow label="Address" value={profile.location} accent={ACCENT} />}
-          {profile?.phone && <InfoRow label="Telephone" value={profile.phone} accent={ACCENT} />}
-          {profile?.email && <InfoRow label="Email" value={profile.email} accent={ACCENT} />}
-          {profile?.nationality && <InfoRow label="Nationality" value={profile.nationality} accent={ACCENT} />}
-          {profile?.dateOfBirth && <InfoRow label="Date of birth" value={formatBirthDate(profile.dateOfBirth)} accent={ACCENT} />}
-          {profile?.social?.linkedin && <InfoRow label="LinkedIn" value={profile.social.linkedin} accent={ACCENT} />}
-          {profile?.social?.website && <InfoRow label="Website" value={profile.social.website} accent={ACCENT} />}
+          {profile?.location && <InfoRow label={t.europass.address} value={profile.location} accent={ACCENT} />}
+          {profile?.phone && <InfoRow label={t.europass.telephone} value={profile.phone} accent={ACCENT} />}
+          {profile?.email && <InfoRow label={t.europass.email} value={profile.email} accent={ACCENT} />}
+          {profile?.nationality && <InfoRow label={t.europass.nationality} value={profile.nationality} accent={ACCENT} />}
+          {profile?.dateOfBirth && <InfoRow label={t.europass.dateOfBirth} value={formatBirthDate(profile.dateOfBirth, t.dateLocale)} accent={ACCENT} />}
+          {profile?.social?.linkedin && <InfoRow label={t.europass.linkedin} value={profile.social.linkedin} accent={ACCENT} />}
+          {profile?.social?.website && <InfoRow label={t.europass.website} value={profile.social.website} accent={ACCENT} />}
         </div>
       </section>
 
       {profile?.bio && (
         <section className="mb-6">
-          <SectionTitle title="Profile summary" accent={ACCENT} />
+          <SectionTitle title={t.europass.profileSummary} accent={ACCENT} />
           <p className="text-zinc-600 leading-relaxed text-sm">{profile.bio}</p>
         </section>
       )}
@@ -360,6 +367,7 @@ export function EuropassLayout({
       <Paginated
         header={header}
         blocks={mainBlocks}
+        pageLabel={t.pageOf}
         pageClassName="bg-white shadow-md print:shadow-none border border-gray-300 print:border-none px-10 py-10 text-sm"
       />
     </div>

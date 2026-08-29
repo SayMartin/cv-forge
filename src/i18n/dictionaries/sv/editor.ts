@@ -1,4 +1,10 @@
+import type { Locale } from "@/i18n/config";
 import type { Dictionary } from "../en";
+
+const cvLanguageNames: Record<Locale, string> = {
+  sv: "Svenska",
+  en: "Engelska",
+};
 
 export const editor: Dictionary["editor"] = {
   switchCv: "Byt CV",
@@ -40,6 +46,12 @@ export const editor: Dictionary["editor"] = {
   dragToReorder: "Dra för att ändra ordning",
 
   layout: { title: "Layout" },
+
+  cvLanguage: {
+    title: "CV:ts språk",
+    help: "Styr rubriker, datum och \"Nuvarande\" på själva CV:t. Skilt från vilket språk du använder CV Forge på — ett svenskt gränssnitt kan producera ett engelskt CV.",
+    names: cvLanguageNames,
+  },
 
   theme: {
     title: "Färgtema",

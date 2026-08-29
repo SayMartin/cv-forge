@@ -6,7 +6,9 @@ import {
 } from "@/lib/color-utils";
 import type { CvTheme } from "@/lib/cv-theme";
 import { DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/cv-layouts";
-import { buildTimeline, TIMELINE_TYPE_LABEL } from "@/lib/cv-timeline";
+import { buildTimeline } from "@/lib/cv-timeline";
+import { cvStrings } from "@/lib/cv-strings";
+import { format } from "@/i18n/format";
 import { Paginated } from "./pagination/Paginated";
 import type { PageBlock } from "./pagination/types";
 
@@ -15,11 +17,13 @@ const DEFAULT_SIDEBAR_BG = "#2d2d2d";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(dateStr?: string | null) {
+// `locale` is the CV's, from `cvStrings(language).dateLocale` — passed rather
+// than read, because this helper sits above the component that knows it.
+function formatDate(dateStr: string | null | undefined, locale: string) {
   if (!dateStr) return "";
   if (/^\d{4}$/.test(dateStr)) return dateStr;
   const [year, month] = dateStr.split("-");
-  return new Date(Number(year), Number(month) - 1).toLocaleDateString("en-GB", {
+  return new Date(Number(year), Number(month) - 1).toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
   });
@@ -155,13 +159,16 @@ export function ModernLayout({
   theme,
   sectionOrder = DEFAULT_SECTION_ORDER,
   chronological = false,
+  language,
 }: {
   content: CvContent;
   theme?: CvTheme;
   sectionOrder?: SectionKey[];
   chronological?: boolean;
+  language?: string;
 }) {
   const { profile, experiences, educations, skillGroups, projects, others } = content;
+  const t = cvStrings(language);
 
   const SIDEBAR_BG = theme?.sidebarColor ?? DEFAULT_SIDEBAR_BG;
   const GOLD = theme?.accentColor ?? DEFAULT_GOLD;
@@ -184,14 +191,14 @@ export function ModernLayout({
 
   function experienceEntry(job: CvExperience, badge?: boolean) {
     const dateStr = [
-      formatDate(job.startDate),
-      job.current ? "Present" : formatDate(job.endDate),
+      formatDate(job.startDate, t.dateLocale),
+      job.current ? t.present : formatDate(job.endDate, t.dateLocale),
     ]
       .filter(Boolean)
       .join(" – ");
     return (
       <div className="break-inside-avoid">
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.experience} />}
+        {badge && <TypeBadge label={t.timelineType.experience} />}
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-semibold text-zinc-800">
             {job.company}
@@ -207,7 +214,7 @@ export function ModernLayout({
         </p>
         {job.url && (
           <span className="block wrap-break-word text-xs text-zinc-400 mt-0.5">
-            Live at: <a href={job.url}>{job.url}</a>
+            {t.liveAt} <a href={job.url}>{job.url}</a>
           </span>
         )}
         {job.description && (
@@ -233,14 +240,14 @@ export function ModernLayout({
 
   function educationEntry(edu: CvEducation, badge?: boolean) {
     const dateStr = [
-      formatDate(edu.startDate),
-      edu.current ? "Present" : formatDate(edu.endDate),
+      formatDate(edu.startDate, t.dateLocale),
+      edu.current ? t.present : formatDate(edu.endDate, t.dateLocale),
     ]
       .filter(Boolean)
       .join(" – ");
     return (
       <div>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.education} />}
+        {badge && <TypeBadge label={t.timelineType.education} />}
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-semibold text-zinc-800">
             {edu.institution}
@@ -253,8 +260,7 @@ export function ModernLayout({
         </div>
         {(edu.degree || edu.field) && (
           <p className="text-sm font-medium mt-0.5" style={{ color: GOLD }}>
-            {edu.degree}
-            {edu.field ? ` in ${edu.field}` : ""}
+            {edu.field ? format(t.degreeIn, { degree: edu.degree ?? "", field: edu.field }) : edu.degree}
           </p>
         )}
         {edu.description && (
@@ -265,18 +271,18 @@ export function ModernLayout({
   }
 
   function projectEntry(proj: CvProject, badge?: boolean) {
-    const dateStr = [formatDate(proj.startDate), proj.current ? "Present" : formatDate(proj.endDate)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt) : "");
+    const dateStr = [formatDate(proj.startDate, t.dateLocale), proj.current ? t.present : formatDate(proj.endDate, t.dateLocale)].filter(Boolean).join(" – ") || (proj.publishedAt ? formatDate(proj.publishedAt, t.dateLocale) : "");
     return (
       <div>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.projects} />}
+        {badge && <TypeBadge label={t.timelineType.projects} />}
         <p className="text-sm font-semibold text-zinc-800">
           {proj.title}
           {dateStr && <span className="text-xs font-normal text-zinc-400 ml-2">{dateStr}</span>}
         </p>
         {(proj.url || proj.sourceUrl) && (
           <div className="flex flex-col gap-0.5 text-xs text-zinc-400 mt-0.5">
-            {proj.url && <span className="wrap-break-word">Live at: <a href={proj.url}>{proj.url}</a></span>}
-            {proj.sourceUrl && <span className="wrap-break-word">Source: <a href={proj.sourceUrl}>{proj.sourceUrl}</a></span>}
+            {proj.url && <span className="wrap-break-word">{t.liveAt} <a href={proj.url}>{proj.url}</a></span>}
+            {proj.sourceUrl && <span className="wrap-break-word">{t.source} <a href={proj.sourceUrl}>{proj.sourceUrl}</a></span>}
           </div>
         )}
         {proj.summary && (
@@ -301,7 +307,7 @@ export function ModernLayout({
   function otherEntry(o: CvOther, badge?: boolean) {
     return (
       <div>
-        {badge && <TypeBadge label={TIMELINE_TYPE_LABEL.other} />}
+        {badge && <TypeBadge label={t.timelineType.other} />}
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-semibold text-zinc-800">
             {o.title}
@@ -311,7 +317,7 @@ export function ModernLayout({
           </p>
           {o.date && (
             <span className="text-xs text-zinc-400 shrink-0 ml-2">
-              {formatDate(o.date)}
+              {formatDate(o.date, t.dateLocale)}
             </span>
           )}
         </div>
@@ -338,7 +344,7 @@ export function ModernLayout({
           id: `experience-${job.id}`,
           node:
             i === 0 ? (
-              <RightSection icon="💼" title="Work Experience" colors={colors} className="mb-6">
+              <RightSection icon="💼" title={t.sections.workExperience} colors={colors} className="mb-6">
                 {experienceEntry(job)}
               </RightSection>
             ) : (
@@ -351,7 +357,7 @@ export function ModernLayout({
           id: `education-${edu.id}`,
           node:
             i === 0 ? (
-              <RightSection icon="🎓" title="Education" colors={colors} className="mb-6">
+              <RightSection icon="🎓" title={t.sections.education} colors={colors} className="mb-6">
                 {educationEntry(edu)}
               </RightSection>
             ) : (
@@ -364,7 +370,7 @@ export function ModernLayout({
           id: `project-${proj.id}`,
           node:
             i === 0 ? (
-              <RightSection icon="🚀" title="Projects" colors={colors} className="mb-6">
+              <RightSection icon="🚀" title={t.sections.projects} colors={colors} className="mb-6">
                 {projectEntry(proj)}
               </RightSection>
             ) : (
@@ -377,7 +383,7 @@ export function ModernLayout({
           id: `other-${o.id}`,
           node:
             i === 0 ? (
-              <RightSection icon="📌" title="Other" colors={colors} className="mb-6">
+              <RightSection icon="📌" title={t.sections.other} colors={colors} className="mb-6">
                 {otherEntry(o)}
               </RightSection>
             ) : (
@@ -408,7 +414,7 @@ export function ModernLayout({
         id: `${entry.type}-${entry.id}`,
         node:
           i === 0 ? (
-            <RightSection icon="🕒" title="Timeline" colors={colors} className="mb-6">
+            <RightSection icon="🕒" title={t.sections.timeline} colors={colors} className="mb-6">
               {entryNode}
             </RightSection>
           ) : (
@@ -441,7 +447,7 @@ export function ModernLayout({
 
       <div className="px-5 space-y-5 pb-8">
         {profile && (
-          <SidebarSection title="Contact" colors={colors}>
+          <SidebarSection title={t.sections.contact} colors={colors}>
             <ul className="space-y-2 text-xs text-gray-300">
               {profile.phone && <ContactRow icon="📞" text={profile.phone} colors={colors} />}
               {profile.email && <ContactRow icon="✉" text={profile.email} colors={colors} />}
@@ -459,7 +465,7 @@ export function ModernLayout({
   const sidebarRest = (
     <div className="px-5 space-y-5 py-8">
       {languageSkills.length > 0 && (
-        <SidebarSection title="Language" colors={colors}>
+        <SidebarSection title={t.sections.language} colors={colors}>
           <ul className="space-y-2">
             {languageSkills.map((s) => (
               <li key={s.id} className="flex items-center justify-between gap-2">
@@ -473,7 +479,7 @@ export function ModernLayout({
         </SidebarSection>
       )}
       {otherSkills.length > 0 && (
-        <SidebarSection title="Skills" colors={colors}>
+        <SidebarSection title={t.sections.skills} colors={colors}>
           <ul className="space-y-2">
             {otherSkills.map((s) => (
               <li key={s.id} className="flex items-center justify-between gap-2">
@@ -503,7 +509,7 @@ export function ModernLayout({
         )}
       </header>
       {profile?.bio && (
-        <RightSection icon="👤" title="Profile" colors={colors} className="mt-5 mb-6">
+        <RightSection icon="👤" title={t.sections.profile} colors={colors} className="mt-5 mb-6">
           <p className="text-sm text-zinc-600 leading-relaxed">{profile.bio}</p>
         </RightSection>
       )}
@@ -518,6 +524,7 @@ export function ModernLayout({
       <Paginated
         header={header}
         blocks={mainBlocks}
+        pageLabel={t.pageOf}
         pageClassName="shadow-md print:shadow-none border border-gray-300 print:border-none text-sm"
         sidebarFirst={sidebarFirst}
         sidebarRest={sidebarRest}
