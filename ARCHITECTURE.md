@@ -586,7 +586,7 @@ Accessible at `/settings`.
 - **Delete account** — `DeleteAccountSection` presents a confirmation dialog that requires the user to type their email, then calls `DELETE /api/user`:
   1. **Admin guard** — returns `403` if `session.user.role === "admin"`
   2. `purgeUserSideEffects(userId)` (`src/lib/user-deletion.ts`) — everything the cascade cannot reach, **before** the user row goes
-  3. `prisma.user.delete({ where: { id } })` — all content models have `onDelete: Cascade`, so this single delete removes every **database** row: sessions, accounts, CVs, themes, profiles, avatars, experience, education, skills, projects, other
+  3. `prisma.user.delete({ where: { id } })` — all content models have `onDelete: Cascade`, so this single delete removes every **database** row: sessions, accounts, CVs, themes, profiles, avatars, experience, education, skills, projects, other, import logs
   4. Client calls `authClient.signOut()` and redirects to `/`
 
 ### What the cascade cannot reach
@@ -627,8 +627,25 @@ Any authenticated user can import a PDF CV at `/import`.
 Google bills PDF pages as tokens (~258 each), so an import costs on the order of öre — but the endpoint is reachable by any signed-up user, and registration is open.
 
 - **Page cap of 10.** Counted locally with `pdf-parse` (`new PDFParse({ data }).getInfo().total`) **before** anything is sent to Google, so a rejected file costs nothing. Ten admits senior CVs, Europass printouts and some academic ones while still stopping the 200-page document, which is the only single request able to get expensive. A PDF that cannot be parsed is rejected rather than passed through — a file we cannot inspect must not bypass the cap.
-- **Usage logging.** Every successful import logs `userId`, page count and Gemini's `inputTokens` / `outputTokens`. This exists so the quota below gets a number from measurement rather than from a price list.
-- **No per-user quota yet.** This is the one that actually bounds spending, because cost is driven by volume rather than by any single call. It needs a counter table and therefore a migration, and is deliberately left until the usage log says what the limit should be.
+- **Per-user quota: 10 imports per rolling 24 hours.** This is the one that actually bounds spending, because cost is driven by volume rather than by any single call. Checked *after* the cheap local rejections — so a bad file still fails for the reason it actually failed — and *before* anything reaches Google, so a refused request costs nothing. Exceeding it is `429` with `import_quota_exceeded`, carrying the limit as `{count}` so the sentence can be written in either language.
+- **A rolling window, not a calendar day.** A calendar day has a timezone question and lets twice the cap through either side of midnight.
+- **The cap is a safety limit, not a rationing decision**, and the number is still a guess: ten a day is far more than anyone composing their own CV will use, and it exists so an account — sign-up is open — cannot sit in a loop against a paid endpoint. Ten is deliberately generous *because* it is unmeasured; generous-and-present beats precise-and-absent.
+- **Usage logging, now in two places.** `console.log` answers "what did that one import cost" while tailing the container. The `import_log` rows answer "what should the cap be", which stdout cannot: it is not queryable and sits outside every retention policy here. Those rows are what will eventually replace the guess above with a number.
+
+#### `import_log`
+
+| Column | Notes |
+| --- | --- |
+| `userId` | FK → `user.id`, CASCADE delete |
+| `pages` | Known before the model call |
+| `inTokens`, `outTokens` | Nullable — filled in after the call returns, so they stay NULL for an attempt that failed inside Gemini |
+| `createdAt` | What the 24-hour window is measured against |
+
+Indexed `[userId, createdAt]`, because the quota's only query is "this user, since this timestamp" and without it that is a sequential scan of every import anyone has ever run, on the hot path of the app's slowest endpoint.
+
+**The row is written *before* the model call, not after.** An extraction that fails inside Gemini has still spent tokens, so it still counts against the quota — otherwise a loop of deliberately unparseable PDFs would be free. Writing first also closes the window where two concurrent requests both pass the check. The follow-up `update` that fills in the token counts is explicitly allowed to fail: by then the import has succeeded and the quota row exists, so a failed update costs a data point rather than a user's CV.
+
+Retention is 90 days, applied by `scripts/purge-expired.sh` — long enough to set the cap from evidence, short enough to be a retention window rather than an archive. Unlike the other two tables that script touches, this one *is* reached by the cascade on account deletion.
 
 `pdf-parse` must stay in `serverExternalPackages` (`next.config.ts`): it pulls in pdf.js, which resolves its worker by path at runtime and breaks when bundled.
 
@@ -1290,7 +1307,7 @@ npm run migrate:dev
 > ```bash
 > # On the server: dump production
 > docker exec postgres-postgres-1 pg_dump -U cvforge -d cvforge -Fc > ~/cvforge.dump
-> #   then copy it over: scp martin@<server>:~/cvforge.dump .
+> #   then copy it over: scp <user>@<server>:~/cvforge.dump .
 >
 > # Locally: restore into the dev container, then run the migration by hand
 > docker exec -i cvforge-dev-db pg_restore -U cvforge -d cvforge \
@@ -1393,7 +1410,9 @@ S3_SECRET_ACCESS_KEY=                  # R2 API Token
 
 One-time setup steps for bringing the app up on a new server. Day-to-day deploys need none of this — a push to `main` migrates and ships on its own (see **Deployment model** above).
 
-Reaching the server: `ssh martin@192.168.50.131` (hostname `smurfserver`; `smurfserver.local` resolves over mDNS on the same network). LAN only — Cloudflare Tunnel means no inbound access is opened from the internet, so this works from home and nowhere else. The checkout lives at `~/cv-forge`, which is both the git working copy and the directory `docker compose` runs from.
+Reaching the server: `ssh <user>@<server>` over the LAN — the host also resolves by its own name via mDNS on the same network. **LAN only**, and that is the design: Cloudflare Tunnel means no inbound port is opened from the internet, so administration works from home and nowhere else. The checkout lives at `~/cv-forge`, which is both the git working copy and the directory `docker compose` runs from.
+
+> The literal address and login are deliberately not written down here. They are not secrets — the host is not internet-reachable — but this file is a work sample as much as a runbook, and a private network's topology is of no use to a reader and of some use to anyone who has already reached the LAN. Keep it that way when editing this section.
 
 ### 0. Registry credentials
 

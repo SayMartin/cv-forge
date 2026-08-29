@@ -18,6 +18,14 @@
 # `expiresAt` is already refused by the application, so deleting it changes
 # nothing a user can observe.
 #
+# `import_log` is a third case, and its criterion is different because it has no
+# expiry: the rows are what enforces the PDF import quota (a 24-hour window) and
+# what the cap's number should eventually be derived from. So they age out by
+# policy rather than by an `expiresAt` — ninety days is long enough to set that
+# number from evidence and short enough to be a retention window rather than an
+# archive. Unlike the two above, this table IS reached by the cascade on account
+# deletion; this only removes rows belonging to accounts that still exist.
+#
 # Config comes from backup.env — it already holds the three values needed, and a
 # second file to keep in sync would be pure cost.
 #
@@ -55,6 +63,11 @@ SELECT 'purge: expired verification rows removed: ' || count(*) FROM deleted;
 
 WITH deleted AS (DELETE FROM session WHERE "expiresAt" < now() RETURNING 1)
 SELECT 'purge: expired session rows removed: ' || count(*) FROM deleted;
+
+WITH deleted AS (
+  DELETE FROM import_log WHERE "createdAt" < now() - interval '90 days' RETURNING 1
+)
+SELECT 'purge: import_log rows past retention removed: ' || count(*) FROM deleted;
 SQL
 
 echo "purge: done"

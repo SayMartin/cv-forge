@@ -64,3 +64,6 @@ scripts/backup.env
 
 # personal notes — not project documentation
 GIT-DEMO.md
+
+# editor-local settings
+.vscode/

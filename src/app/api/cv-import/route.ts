@@ -27,6 +27,21 @@ export const maxDuration = 120; // Gemini PDF extraction can take 60–90 s
 const MAX_PAGES = 10;
 const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
+// The per-user cap `MAX_PAGES` above explicitly does not provide: that bounds
+// what one call can cost, this bounds how often calls can happen. It is the
+// difference between a ceiling on a single request and a ceiling on the bill.
+//
+// **A safety cap, not a rationing decision.** Ten a day is far more than anyone
+// composing their own CV will use — the point is that an account, and sign-up is
+// open, cannot sit in a loop against a paid endpoint. The honest number should
+// come from the `import_log` rows this now writes; until a few weeks of those
+// exist, generous-and-present beats precise-and-absent.
+//
+// A rolling window rather than a calendar day, deliberately: a calendar day has
+// a timezone question and lets twice the cap through either side of midnight.
+const MAX_IMPORTS_PER_WINDOW = 10;
+const IMPORT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 // ── Zod schema for AI extraction ───────────────────────────────────────────
 //
 // A function of the user's own category names rather than a module constant,
@@ -246,6 +261,17 @@ export async function POST(req: NextRequest) {
     return apiError("pdf_too_many_pages", 400, { count: pageCount, max: MAX_PAGES });
   }
 
+  // Quota. Checked after the cheap local rejections above so a malformed or
+  // oversized file still fails for the reason it actually failed, and before
+  // anything reaches Google — a request refused here costs nothing.
+  const windowStart = new Date(Date.now() - IMPORT_WINDOW_MS);
+  const recentImports = await prisma.importLog.count({
+    where: { userId, createdAt: { gte: windowStart } },
+  });
+  if (recentImports >= MAX_IMPORTS_PER_WINDOW) {
+    return apiError("import_quota_exceeded", 429, { count: MAX_IMPORTS_PER_WINDOW });
+  }
+
   // The user's own categories, read once: they constrain the model's `category`
   // enum, they are quoted back to it in the prompt, and they resolve its answer
   // to row ids further down. Reading them here rather than inside the
@@ -257,6 +283,15 @@ export async function POST(req: NextRequest) {
     orderBy: { order: "asc" },
   });
   const CvSchema = buildCvSchema(categories.map((c) => c.name));
+
+  // Recorded *before* the call, not after, for two reasons: an extraction that
+  // fails inside Gemini has still spent tokens and should still count, and
+  // writing first closes the window where two concurrent requests both pass the
+  // check above. The token counts are filled in afterwards if the call returns.
+  const importLog = await prisma.importLog.create({
+    data: { userId, pages: pageCount },
+    select: { id: true },
+  });
 
   // Extract structured CV data with Gemini
   let cv: CvExtraction;
@@ -301,6 +336,21 @@ ${categoryRules(categories)}
         `in=${usage?.inputTokens ?? "?"} out=${usage?.outputTokens ?? "?"} ` +
         `total=${usage?.totalTokens ?? "?"}`,
     );
+
+    // The same numbers, somewhere queryable. stdout answers "what did that one
+    // cost"; these rows answer "what should the cap be", which is the question
+    // the constant above is currently guessing at. Never allowed to fail the
+    // import: the work is done and the quota row already exists, so a failed
+    // update costs a data point, not a user's CV.
+    await prisma.importLog
+      .update({
+        where: { id: importLog.id },
+        data: {
+          inTokens: usage?.inputTokens ?? null,
+          outTokens: usage?.outputTokens ?? null,
+        },
+      })
+      .catch((err) => console.error("[cv-import] usage update failed:", safeError(err)));
   } catch (err) {
     console.error("[cv-import] Gemini extraction error:", safeError(err));
     return apiError("extraction_failed", 502);

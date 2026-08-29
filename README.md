@@ -6,6 +6,12 @@ A multi-user CV builder. Each user keeps a library of CV content — experience,
 
 Designed, built, and deployed solo: Next.js frontend, Postgres data model, Docker image built in CI, self-hosted behind a Cloudflare Tunnel.
 
+<!-- SCREENSHOTS GO HERE — the most-read part of this file.
+     Two images earn their place: the CV editor with a CV loaded, and an
+     exported A4 page. Put them in docs/ and reference them as
+     ![CV editor](docs/editor.png). Until they exist this comment renders as
+     nothing, which is better than a broken image. -->
+
 ## What it does
 
 - **Import from PDF** — upload an existing CV; Gemini extracts the content and writes it straight into your library
@@ -67,8 +73,14 @@ npm run migrate:deploy       # reads DATABASE_URL from .env.local
 npm run dev
 ```
 
-Point `DATABASE_URL` at that container. Note that the R2 and Resend credentials in `.env.local` are the live ones, so uploads and emails are real — see [ARCHITECTURE.md](ARCHITECTURE.md) → Local development database.
+Point `DATABASE_URL` at that container. Development is separated from production in all three dependencies — its own Postgres, its own R2 bucket, and no mail at all: outside production the verification link prints to the console instead of being sent, so `RESEND_API_KEY` can be left blank. See [ARCHITECTURE.md](ARCHITECTURE.md) → Local development database.
 
 ## Documentation
 
 [ARCHITECTURE.md](ARCHITECTURE.md) — data model, layout system, auth, deployment runbook, and the reasoning behind the setup.
+
+## Licence
+
+No open-source licence is granted. The source is published so it can be **read
+and reviewed** — as a work sample and as a reference — not so it can be reused,
+redistributed or deployed. All rights reserved.

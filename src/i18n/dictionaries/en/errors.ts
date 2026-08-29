@@ -69,6 +69,13 @@ export const errors: Record<ApiErrorCode, string | PluralForms> = {
     one: "This PDF has {count} page, and imports are limited to {max}. Please upload a shorter CV.",
     other: "This PDF has {count} pages, and imports are limited to {max}. Please upload a shorter CV.",
   },
+  // The limit, not the count of what they used — the number the sentence needs
+  // is the ceiling. It is a safety cap rather than a rationing decision, so it
+  // is worded as a fact about the service, not as a reprimand.
+  import_quota_exceeded: {
+    one: "You can import {count} CV per day. Please try again later.",
+    other: "You can import {count} CVs per day. Please try again later.",
+  },
   extraction_failed: "The CV could not be read. Try again, or add the content by hand.",
   import_save_failed: "The imported content could not be saved. Please try again.",
 

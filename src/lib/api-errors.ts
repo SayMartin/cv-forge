@@ -59,6 +59,7 @@ export const API_ERROR_CODES = [
   "pdf_too_large",
   "pdf_unreadable",
   "pdf_too_many_pages",
+  "import_quota_exceeded",
   "extraction_failed",
   "import_save_failed",
 
@@ -132,6 +133,7 @@ const DIAGNOSTIC: Record<ApiErrorCode, string> = {
   pdf_too_large: "PDF too large",
   pdf_unreadable: "file could not be read as a PDF",
   pdf_too_many_pages: "PDF has too many pages",
+  import_quota_exceeded: "import quota exceeded",
   extraction_failed: "AI extraction failed",
   import_save_failed: "failed to save imported content",
 

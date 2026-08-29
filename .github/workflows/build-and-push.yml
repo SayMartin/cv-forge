@@ -38,12 +38,33 @@ jobs:
     needs: build-migrator
     runs-on: self-hosted
     steps:
+      # A repo SECRET rather than a literal path, and not a variable: this file
+      # is public, and so are the Actions logs of a public repo. Every `run`
+      # step is echoed there with its expressions already substituted, and only
+      # secrets are masked — a `vars.` value would be printed in full, which
+      # would defeat the point of moving it out of this file. The path is not
+      # confidential in itself; the masking is what keeps it out of the log.
+      #
+      # Set it once at Settings -> Secrets and variables -> Actions -> Secrets:
+      #   SERVER_ENV_FILE = /path/to/cv-forge/.env
+      #
+      # Checked explicitly so an unset secret fails here, with a readable
+      # message, instead of reaching `docker run` as an empty --env-file and
+      # failing with something that looks like a Docker problem. This job
+      # already fails closed by design; it should also fail legibly.
+      - name: Check runner configuration
+        run: |
+          if [ -z "${{ secrets.SERVER_ENV_FILE }}" ]; then
+            echo "::error::Repo secret SERVER_ENV_FILE is not set — see the comment in this workflow."
+            exit 1
+          fi
+
       - name: Apply pending Prisma migrations
         run: |
           docker pull ghcr.io/saymartin/cv-forge:migrator
           docker run --rm \
             --network postgres_default \
-            --env-file /home/martin/cv-forge/.env \
+            --env-file "${{ secrets.SERVER_ENV_FILE }}" \
             ghcr.io/saymartin/cv-forge:migrator \
             npx prisma migrate deploy
 

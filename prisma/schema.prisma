@@ -54,6 +54,7 @@ model User {
   skillCategories SkillCategory[]
   projects        Project[]
   others          Other[]
+  importLogs      ImportLog[]
 
   @@map("user")
 }
@@ -353,3 +354,35 @@ model Other {
 
 // ─── REMOVED (NextAuth schema) ────────────────────────────────────────────────
 // Old VerificationToken composite-PK model is replaced by Verification above.
+
+// One PDF import attempt, recorded the moment it reaches Gemini.
+//
+// Two jobs, deliberately the same rows. **The quota** is a count over this
+// table's last 24 hours — `POST /api/cv-import` is the only endpoint in the app
+// that spends money per call, and until now nothing bounded how often a
+// verified account could call it. **The usage data** is the other job: the
+// route has logged tokens to stdout since it was written, with a comment saying
+// any quota figure was a guess until a few weeks of those lines existed. stdout
+// is not queryable and is outside every retention policy here; these rows are
+// both, so the cap can eventually be set from evidence rather than a price list.
+//
+// The row is written *before* the model call, not after. An extraction that
+// fails still spent tokens, so it still counts — and writing first also closes
+// the gap where two concurrent requests both pass the check.
+model ImportLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Known before the call; the token counts only after it, so they are nullable
+  // and stay NULL for an attempt that failed inside Gemini.
+  pages     Int
+  inTokens  Int?
+  outTokens Int?
+  createdAt DateTime @default(now())
+
+  // The quota's only query is "this user, since this timestamp" — without this
+  // index it is a sequential scan of every import anyone has ever run, on the
+  // hot path of the app's slowest endpoint.
+  @@index([userId, createdAt])
+  @@map("import_log")
+}

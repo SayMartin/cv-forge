@@ -49,6 +49,10 @@ export const errors: Dictionary["errors"] = {
     one: "Den här PDF:en har {count} sida, och import är begränsad till {max}. Ladda upp ett kortare CV.",
     other: "Den här PDF:en har {count} sidor, och import är begränsad till {max}. Ladda upp ett kortare CV.",
   },
+  import_quota_exceeded: {
+    one: "Du kan importera {count} CV per dygn. Försök igen senare.",
+    other: "Du kan importera {count} CV:n per dygn. Försök igen senare.",
+  },
   extraction_failed: "CV:t kunde inte tolkas. Försök igen, eller lägg in innehållet för hand.",
   import_save_failed: "Det importerade innehållet kunde inte sparas. Försök igen.",
 
