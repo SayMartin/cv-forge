@@ -1,5 +1,22 @@
 name: Build and push image
 
+# ─────────────────────────────────────────────────────────────────────────────
+# **Never add `pull_request` to this list.** The `migrate` job below runs on a
+# self-hosted runner inside a home network, with read access to production's
+# `.env` and a route to the database. A `pull_request` trigger checks out the
+# *contributor's* code and runs it in this repository's context — so on a public
+# repo, anyone who can open a pull request would get code execution on that
+# machine. GitHub warns about precisely this when a public repo has a
+# self-hosted runner.
+#
+# `push` to `main` is safe because only someone with write access can cause it,
+# and a fork cannot push here at all. Note the corollary: **write access to this
+# repository is code execution on the server.** That is fine for one maintainer
+# and something to think hard about before adding a second.
+#
+# If a PR build is ever genuinely wanted, put it in its own workflow that runs
+# exclusively on `ubuntu-latest` and touches no self-hosted runner.
+# ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
     branches: [main]
@@ -9,6 +26,7 @@ jobs:
   # used on the server to run `prisma migrate deploy` without building anything locally.
   build-migrator:
     runs-on: ubuntu-latest
+    if: github.repository == 'SayMartin/cv-forge'
     permissions:
       contents: read
       packages: write
@@ -37,6 +55,7 @@ jobs:
   migrate:
     needs: build-migrator
     runs-on: self-hosted
+    if: github.repository == 'SayMartin/cv-forge'
     steps:
       # The path to the server's .env, as a repo SECRET rather than a literal
       # value here, and not a variable: this file is public, and so are the
@@ -86,6 +105,7 @@ jobs:
   build-app:
     needs: migrate
     runs-on: ubuntu-latest
+    if: github.repository == 'SayMartin/cv-forge'
     permissions:
       contents: read
       packages: write

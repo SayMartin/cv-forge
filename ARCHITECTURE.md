@@ -68,6 +68,12 @@ The app is **not built on the server**. `.github/workflows/build-and-push.yml` r
 
 The `migrate` job runs on a **self-hosted GitHub Actions runner installed directly on the server**, rather than a GitHub-hosted runner over SSH — this lets it reach the `postgres_default` docker network directly with no inbound access (SSH or otherwise) opened to the server; the runner only makes outbound polling requests to GitHub, same trust model as Watchtower. Building `build-app` *after* `migrate` (rather than in parallel) is deliberate: it guarantees the schema is always migrated before Watchtower can deploy code that depends on it, closing a gap that caused a production outage on 2026-07-26 (a schema-dependent code change shipped via Watchtower while the corresponding migration was never applied, since migrations were a manual, easy-to-forget step at the time).
 
+> **A self-hosted runner on a public repository is a standing hazard, and GitHub says so.** The danger is not the runner itself but the trigger: a `pull_request` trigger checks out the *contributor's* code and runs it in this repository's context, which on a public repo means anyone who can open a pull request gets code execution on a machine inside the home network — one with read access to production's `.env` and a route to the database.
+>
+> This workflow is safe because it triggers on `push` to `main` and nothing else, and a fork cannot push here. That is a property worth defending rather than assuming: the `on:` block carries a comment saying never to add `pull_request`, and each job carries `if: github.repository == …` so a fork's own push does nothing. A PR build, if ever wanted, belongs in its own workflow pinned to `ubuntu-latest`.
+>
+> The corollary is worth stating plainly: **write access to this repository is code execution on the server.** Fine for one maintainer; something to think hard about before adding a second. In GitHub's Actions settings, "Require approval for all outside collaborators" should be set — not as today's protection, but as the thing that limits the damage if a trigger is ever added carelessly.
+
 The same build/push steps can also be run manually from a dev machine via `npm run docker:build`, `docker:build:migrator`, and `docker:push` (see `package.json`) — the GitHub Actions workflow is a convenience automation of these same commands, not the only path to a deployable image.
 
 ---
