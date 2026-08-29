@@ -1326,7 +1326,20 @@ docker run -d --name cvforge-dev-db \
 
 Bound to `127.0.0.1`, not `0.0.0.0` — a published port with a weak password has no business being reachable from the rest of the network. `docker rm -f cvforge-dev-db && docker volume rm cvforge-dev-db-data` removes it entirely.
 
-Note that `S3_BUCKET` in `.env.local` is the **production** avatar bucket: local development reads the real images, and anything uploaded lands among them. `RESEND_API_KEY` is live too, so verification emails are really sent.
+The database is one of **three** dependencies separated per environment, completed in Phase 34 — storage and email are the other two, so nothing done locally can reach production data:
+
+| | Development | Production |
+| --- | --- | --- |
+| Postgres | `cvforge-dev-db` container | `postgres_default` network on the server |
+| R2 | `cv-forge-dev-bucket` | `cv-forge-bucket-eu` |
+| Email | nothing is sent — the link prints to the console | Resend |
+
+Two consequences worth knowing before they surprise you:
+
+- **`RESEND_API_KEY` can be left blank locally.** `sendAuthEmail` composes the message, prints it with the resolved locale and subject, and returns before touching Resend whenever `NODE_ENV !== "production"`. To verify a local account, copy the link out of the terminal running `npm run dev`.
+- **Avatars may not render locally.** The dev bucket has no Custom Domain, so there is no public URL for `S3_PUBLIC_URL` to point at. Uploads and deletions work correctly either way — only display breaks. `.env.example` describes both ways out: accept the placeholder, or enable R2 → dev bucket → Settings → Public Development URL and use the rate-limited `pub-<hash>.r2.dev` address.
+
+> An earlier version of this section claimed `.env.local` pointed at the **production** bucket and that verification emails were really sent from development. Both were true before Phase 34 and neither is now.
 
 `migrate:dev` uses `dotenv-cli` to load `DATABASE_URL` from `.env.local`. In production, migrations are **not** run via the `migrate:deploy` npm script (which also assumes `.env.local`, absent in containers) — instead the `migrate` job in `.github/workflows/build-and-push.yml` runs them automatically on every push to `main`, from the separate `:migrator` Docker image (which has a full `node_modules` including the Prisma CLI, unlike the minimal `app` runtime image), executed on a self-hosted runner on the server. See `README.md` → Deployment → step 4 for the runner setup and the equivalent manual command.
 
