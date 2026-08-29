@@ -1,11 +1,55 @@
 import type { Metadata } from "next";
 import { LocaleLink } from "@/components/LocaleLink";
+import { DEFAULT_LOCALE } from "@/i18n/config";
+import { localeHref } from "@/i18n/routing";
+import { siteOpenGraph } from "@/lib/seo";
+import { SITE_URL } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy",
-  description:
-    "What CV Forge stores about you, who else can see it, how long it is kept, and how to get it deleted.",
-};
+/**
+ * The one page whose two locales are **not** a translation pair.
+ *
+ * The prose here is legal text and is deliberately out of scope for
+ * translation, so `/sv/privacy` serves English wording inside Swedish chrome.
+ * Declaring `hreflang="sv"` for that would tell Google "here is the Swedish
+ * version", which it is not — Google would fold the pair as near-duplicates and
+ * pick one arbitrarily. So both URLs canonicalise to `/en/privacy`, and only
+ * that one is in the sitemap. The Swedish visitor still gets Swedish navigation
+ * and footer; only the search engine is told which copy counts.
+ *
+ * `alternates.languages` is still emitted, and still points both `en` and `sv`
+ * at the English URL. That is not a contradiction: it says the two requests
+ * resolve to one document, which is exactly true.
+ *
+ * The title and description stay English for the same reason the body does —
+ * they describe an English document.
+ */
+const CANONICAL = `${SITE_URL}${localeHref(DEFAULT_LOCALE, "/privacy")}`;
+
+const TITLE = "Privacy Policy";
+const DESCRIPTION =
+  "What CV Forge stores about you, who else can see it, how long it is kept, and how to get it deleted.";
+
+export function generateMetadata(): Metadata {
+  return {
+    title: TITLE,
+    description: DESCRIPTION,
+    alternates: {
+      canonical: CANONICAL,
+      // Both point at the English URL. Not a contradiction: this says the two
+      // requests resolve to one document, which is exactly true.
+      languages: { en: CANONICAL, sv: CANONICAL, "x-default": CANONICAL },
+    },
+    // Spelled out in full because a partial `openGraph` replaces the layout's
+    // rather than merging — and this document is English whichever locale
+    // served it, so it must not inherit the Swedish description either.
+    openGraph: siteOpenGraph({
+      locale: DEFAULT_LOCALE,
+      title: TITLE,
+      description: DESCRIPTION,
+      url: CANONICAL,
+    }),
+  };
+}
 
 // Shown at the top and used as the "last updated" date. Bump it whenever the
 // substance of this page changes — a policy dated before the practice it
@@ -24,8 +68,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function PrivacyPage() {
+  // `lang="en"` on the <main> because the prose is English regardless of which
+  // locale served the page. Without it `<html lang="sv">` wraps English text and
+  // a Swedish screen reader pronounces English words with Swedish phonemes —
+  // unintelligible. Correct markup whatever Google decides about the canonical.
   return (
-    <main className="max-w-3xl mx-auto px-4 py-12 space-y-10">
+    <main lang="en" className="max-w-3xl mx-auto px-4 py-12 space-y-10">
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight text-(--cl-text)">Privacy policy</h1>
         <p className="text-sm text-(--cl-muted)">Last updated {LAST_UPDATED}</p>

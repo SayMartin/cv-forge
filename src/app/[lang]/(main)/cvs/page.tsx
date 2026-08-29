@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
+import { metaDictionary } from "@/lib/seo";
 import { headers } from "next/headers";
 
-export const metadata: Metadata = { title: "My CVs" };
+export async function generateMetadata({
+  params,
+}: PageProps<"/[lang]/cvs">): Promise<Metadata> {
+  return { title: metaDictionary((await params).lang).meta.cvs };
+}
 import { redirect } from "next/navigation";
 import { INTL_LOCALES } from "@/i18n/config";
 import { format } from "@/i18n/format";

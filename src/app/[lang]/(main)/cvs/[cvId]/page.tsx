@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { localePath } from "@/i18n/server";
+import { metaDictionary } from "@/lib/seo";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -12,10 +13,15 @@ import { CvEditShell } from "./CvEditShell";
 
 type Params = { params: Promise<{ cvId: string }> };
 
-export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const { cvId } = await params;
+export async function generateMetadata({
+  params,
+}: PageProps<"/[lang]/cvs/[cvId]">): Promise<Metadata> {
+  const { cvId, lang } = await params;
   const cv = await prisma.cV.findUnique({ where: { id: cvId }, select: { name: true } });
-  return { title: cv?.name ?? "CV Editor" };
+  // The CV's own name is user data and wins outright; the fallback is the only
+  // part that needs a language, and it is the reader's — this titles a tab in
+  // the app, not the document. `Cv.language` has no say here.
+  return { title: cv?.name ?? metaDictionary(lang).meta.cvEditor };
 }
 
 export default async function CvEditorPage({ params }: Params) {

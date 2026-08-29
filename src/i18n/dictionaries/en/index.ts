@@ -8,6 +8,7 @@ import { footer } from "./footer";
 import { importPage } from "./importPage";
 import { landing } from "./landing";
 import { layouts } from "./layouts";
+import { meta } from "./meta";
 import { nav } from "./nav";
 import { settings } from "./settings";
 
@@ -32,6 +33,7 @@ export const en = {
   importPage,
   landing,
   layouts,
+  meta,
   nav,
   settings,
 };

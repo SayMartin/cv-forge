@@ -127,7 +127,7 @@ cv-cms/
 │   │       ├── index.ts                             ← dictionaryFor(locale); Record<Locale, Dictionary>
 │   │       ├── en/                                  ← the reference dictionary; its shape IS the contract
 │   │       │   ├── index.ts                         ← composes the slices and exports `type Dictionary`
-│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts, auth.ts, cvs.ts, content.ts, editor.ts, errors.ts, layouts.ts, settings.ts, importPage.ts
+│   │       │   └── common.ts, nav.ts, footer.ts, landing.ts, auth.ts, cvs.ts, content.ts, editor.ts, errors.ts, layouts.ts, meta.ts, settings.ts, importPage.ts
 │   │       │                                        ← `importPage`, not `import` — a reserved word cannot be an import name
 │   │       ├── sv/                                  ← same file list; each slice annotated Dictionary["<slice>"]
 │   │       └── server/                              ← server-only: the two emails. Functions, so it can NEVER be serialised to a client
@@ -247,6 +247,7 @@ cv-cms/
 │       ├── auth.ts                                  ← exported `auth` singleton (Better Auth)
 │       ├── email.ts                                  ← sendAuthEmail(kind, user, url): picks the language, renders, sends via Resend
 │       ├── cv-strings.ts                              ← the words printed ON a CV, keyed by Cv.language. NOT the app dictionary; never root-params
+│       ├── seo.ts                                     ← metaLocale/metaDictionary (params, not root-params), localeAlternates, siteOpenGraph
 │       ├── auth-client.ts                           ← createAuthClient ("use client" only)
 │       ├── api-errors.ts                            ← API_ERROR_CODES + ApiErrorCode + apiError(); the only way a route reports a failure
 │       ├── color-utils.ts                           ← HSL color math: darkenColor, lightenColor, getContrastColor, hexToRgba, mixColors, sidebarGradient
@@ -991,27 +992,44 @@ No pre-build manifest step (Sanity manifest generation removed).
 
 ### Page titles (metadata)
 
-Every page exports `metadata` (static) or `generateMetadata` (dynamic). The root layout sets `title.template: "%s | CV Forge"` and `default: "CV Forge"`. Dynamic pages (`/cvs/[cvId]`, `/cvs/[cvId]/view`) run a lightweight `prisma.cV.findUnique` in `generateMetadata`; Next.js deduplicates it with the render query.
+**Every metadata site that carries a title is a `generateMetadata`, and every title comes from `dict.meta`.** A title is user-facing text, so it varies by language, so it cannot be a module-level constant. One static `metadata` export survives — `(auth)/layout.tsx`'s `robots: { index: false, follow: true }`, which is a crawler directive rather than words, and is the same in every language. The root layout sets `title.template: "%s | CV Forge"` and `default: "CV Forge"`, which is why no entry in `meta` repeats the product name. Dynamic pages (`/cvs/[cvId]`, `/cvs/[cvId]/view`) run a lightweight `prisma.cV.findUnique` there; Next.js deduplicates it with the render query.
 
-> **Titles are still English in both locales.** A fully Swedish `/sv/sign-in` currently sits in a tab
-> labelled "Sign In | CV Forge". The 13 sites are static `metadata` exports, and translating them
-> means converting each to `generateMetadata` reading `params.lang` — the same edit the SEO step
-> makes for `alternates.languages`, so it is done once, there, rather than twice.
+**`meta` is its own dictionary slice**, not a reuse of `nav` and the page headings, even where the words currently match. A `<title>` is read out of context — in a tab, a bookmark, a result list — so English title case ("Sign In") is not the sentence case the nav link uses ("Sign in"), and sharing a key would mean a reworded tab silently renaming the navbar. Same principle as `content.tabs` versus `editor.sections`.
+
+**The locale comes from `params`, never `next/root-params`.** The docs guarantee root-params in Server Components and a metadata function is not one; `params` carries `lang` for every route because every route lives under `app/[lang]`. `metaLocale()` and `metaDictionary()` in `src/lib/seo.ts` are the two-line wrappers, and they validate — a `lang` segment is a URL segment and could be anything.
+
+> **A route group is not a path segment.** `LayoutProps<"/[lang]/(auth)/sign-in">` does not type-check; the literal is `"/[lang]/sign-in"`. The generated `LayoutRoutes` union in `.next/types/routes.d.ts` is the list of what is valid, and `next typegen` is what writes it — another reason the gate runs typegen first.
+
+> **Next does not deep-merge `openGraph` across segments.** A page that sets `openGraph` replaces its layout's block outright, so an override spelling out only `url` silently drops `og:locale`, `og:type` and `og:site_name`. That is invisible until someone pastes a link into Slack. `siteOpenGraph()` in `src/lib/seo.ts` exists to make a complete block cheap; the landing page deliberately sets **no** `openGraph` at all, because the root layout's already describes exactly that URL.
 
 ### Search indexing
 
-The public surface is two pages, now in two languages: `/{sv,en}` and `/{sv,en}/privacy`. Everything else either redirects a logged-out visitor to `/sign-in` or is an auth page.
+The public surface is two pages, in two languages: `/{sv,en}` and `/{sv,en}/privacy`. Everything else either redirects a logged-out visitor to `/sign-in` or is an auth page.
 
-> **Not yet updated for locales.** `robots.ts` and `sitemap.ts` still list the bare `/` and `/privacy`
-> paths, which now only exist as `307` redirects, and no `hreflang` / `x-default` cluster is emitted
-> yet. That is a deliberate later step, not an oversight — see the plan's SEO step. Until then the
-> two indexed URLs redirect rather than 404, so nothing is broken, only suboptimal.
+**`hreflang` is emitted on exactly two URLs**, and the restraint is the point. `/cvs`, `/content`, `/settings` and `/import` are `Disallow`ed; the `(auth)` group is `noindex`. A hreflang cluster on either is inert — a crawler that cannot fetch a page never reads its `<link>` tags, and Google drops `noindex` pages from a cluster — so advertising one there would be a claim about a crawl surface that does not exist. The two public pages carry it; nothing else does.
+
+**`x-default` points at the *un-prefixed* path.** `/` and `/privacy` are exactly the URLs `proxy.ts` negotiates from `Accept-Language`, which is what `x-default` is specified to mean: the version served when no declared language matches. They 307 rather than render, and that is fine — a crawler follows.
+
+**Every alternate set lists its own locale.** Google treats a hreflang cluster as invalid unless each member names every version *including itself*, and drops a one-sided declaration silently rather than reporting it.
+
+#### `/privacy` is not a translation pair
+
+The policy's prose is legal text and deliberately out of scope for translation, so `/sv/privacy` serves English wording inside Swedish chrome. Declaring `hreflang="sv"` for that would tell Google "here is the Swedish version", which it is not — it would fold the pair as near-duplicates and pick one arbitrarily. Three things follow, and all three are needed:
+
+1. **Both URLs canonicalise to `/en/privacy`,** and its `alternates.languages` points `en`, `sv` and `x-default` all at that one URL. Not a contradiction: it says the two requests resolve to one document, which is true.
+2. **Only `/en/privacy` is in the sitemap.** Listing a non-canonical URL asks a crawler to index a page that then disclaims itself.
+3. **`<main lang="en">` on the page.** Without it `<html lang="sv">` wraps English prose, and a Swedish screen reader pronounces English words with Swedish phonemes — unintelligible. This is correct markup regardless of what Google decides about the canonical, and it is the half that helps a real person.
+
+The Swedish visitor still gets Swedish navigation and footer throughout. Only the search engine is told which copy counts.
+
+**`robots.ts` writes its `Disallow` list out per locale rather than wildcarding it.** Since every page moved under `/[lang]`, the bare paths exist only as redirects, and a wildcard over the locale segment is the tempting fix — but path wildcards are a Google/Bing extension, not part of the robots.txt standard, and a crawler that does not implement them reads the rule as a literal path and matches nothing at all. Two locales times four paths is eight lines every crawler understands. The bare paths stay in the list too: a crawler holding one from before this change should be told not to follow it.
 
 | File | Role |
 | ---- | ---- |
 | `src/lib/site.ts` | `SITE_URL` — the canonical origin |
 | `src/app/robots.ts` | `Disallow` for `/api/` and the session-gated routes; points at the sitemap |
-| `src/app/sitemap.ts` | `/` and `/privacy`, nothing else |
+| `src/app/sitemap.ts` | three entries — `/en`, `/sv` (a hreflang pair) and `/en/privacy` (not a pair) |
+| `src/lib/seo.ts` | `metaLocale`, `metaDictionary`, `localeAlternates`, `siteOpenGraph`, `absoluteUrl` |
 | `src/app/[lang]/(auth)/layout.tsx` | `robots: { index: false, follow: true }` for the whole auth group |
 
 Two things here are load-bearing and easy to undo by accident:
@@ -1019,7 +1037,9 @@ Two things here are load-bearing and easy to undo by accident:
 - **`SITE_URL` is hardcoded, not read from `BETTER_AUTH_URL`.** `robots.ts` and `sitemap.ts` render at *build* time, and the Docker build is not given the environment file — an env lookup would bake `undefined` into the production sitemap. Same class of trap as `S3_PUBLIC_URL` (see Avatars).
 - **The auth routes are `noindex`, not `Disallow`.** The two mechanisms conflict: a crawler blocked from fetching a page never reads the `noindex` on it. Blocking is for `/api/`, which should never be fetched; `noindex` is for pages that may be fetched but must not be listed.
 
-The root layout also sets `metadataBase` (required for absolute Open Graph URLs) and Open Graph / Twitter tags. There is no OG *image* yet, so shared links render as text only.
+The root layout also sets `metadataBase` (required for absolute Open Graph URLs) and the site-wide Open Graph / Twitter tags, including a locale-correct `og:locale` — `sv_SE` or `en_GB`, where it used to be hardcoded `en_GB` on every page. There is no OG *image* yet, so shared links render as text only.
+
+Note that `OG_LOCALES` in `seo.ts` is a **third** spelling of the same idea, alongside `Locale` (a URL segment) and `INTL_LOCALES` (BCP 47 for `Intl`). They answer to three different specifications and are deliberately not merged; collapsing them is how a date formatter quietly starts producing `8/28/2026`.
 
 **The live `robots.txt` is not the file this repo produces.** Cloudflare's **AI Crawl Control** prepends a managed block to it at the edge, so what a crawler actually fetches is:
 

@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
+import { metaDictionary } from "@/lib/seo";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDictionary, localePath } from "@/i18n/server";
@@ -10,7 +11,11 @@ import { BackToCvLink } from "@/components/BackToCvLink";
 import { ContentTabs } from "./ContentTabs";
 import type { Profile, Experience, Education, Skill, Project, Other } from "./ContentTabs";
 
-export const metadata: Metadata = { title: "My Content" };
+export async function generateMetadata({
+  params,
+}: PageProps<"/[lang]/content">): Promise<Metadata> {
+  return { title: metaDictionary((await params).lang).meta.content };
+}
 
 type SearchParams = Promise<{ tab?: string; from?: string }>;
 

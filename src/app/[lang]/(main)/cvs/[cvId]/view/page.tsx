@@ -3,6 +3,8 @@ import { createElement } from "react";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getDictionary, localePath } from "@/i18n/server";
+import { format } from "@/i18n/format";
+import { metaDictionary } from "@/lib/seo";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLayoutComponent } from "@/components/cv-layouts";
@@ -15,10 +17,18 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ cvId: string }> };
 
-export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const { cvId } = await params;
+export async function generateMetadata({
+  params,
+}: PageProps<"/[lang]/cvs/[cvId]/view">): Promise<Metadata> {
+  const { cvId, lang } = await params;
   const cv = await prisma.cV.findUnique({ where: { id: cvId }, select: { name: true } });
-  return { title: cv?.name ? `${cv.name} — Preview` : "CV Preview" };
+  const { meta } = metaDictionary(lang);
+  // Doubly load-bearing: `ExportButton` sets `document.title` to the CV name for
+  // the print dialog, so this string is only ever seen on screen — but it is the
+  // one the browser tab shows while the user decides to print.
+  return {
+    title: cv?.name ? format(meta.cvPreviewNamed, { name: cv.name }) : meta.cvPreview,
+  };
 }
 
 export default async function CvViewPage({ params }: Params) {

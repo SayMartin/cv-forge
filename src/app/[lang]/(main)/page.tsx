@@ -1,8 +1,28 @@
+import type { Metadata } from "next";
 import { LocaleLink } from "@/components/LocaleLink";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { RichText } from "@/i18n/format";
 import { getDictionary } from "@/i18n/server";
+import { localeAlternates, metaLocale } from "@/lib/seo";
+
+/**
+ * The landing page is one of exactly two URLs on this site a crawler can both
+ * fetch and index, so it is one of exactly two that carry hreflang. Everything
+ * under `(main)` other than `/privacy` is `Disallow`ed in robots.txt and the
+ * `(auth)` group is `noindex`; a hreflang cluster on either would never be read.
+ */
+export async function generateMetadata({
+  params,
+}: PageProps<"/[lang]">): Promise<Metadata> {
+  const { lang } = await params;
+  const locale = metaLocale(lang);
+  // `alternates` only. Open Graph is deliberately left to the root layout,
+  // whose block already describes this exact URL — and a partial override here
+  // would replace it wholesale rather than merging, dropping `og:locale`,
+  // `og:type` and `og:site_name` without a word.
+  return { alternates: localeAlternates(locale, "/") };
+}
 
 export default async function Home() {
   const session = await auth.api.getSession({ headers: await headers() });

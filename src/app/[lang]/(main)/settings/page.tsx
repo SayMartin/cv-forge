@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
+import { metaDictionary } from "@/lib/seo";
 import { headers } from "next/headers";
 import { LocaleLink } from "@/components/LocaleLink";
 
-export const metadata: Metadata = { title: "Account Settings" };
+export async function generateMetadata({
+  params,
+}: PageProps<"/[lang]/settings">): Promise<Metadata> {
+  return { title: metaDictionary((await params).lang).meta.settings };
+}
 import { redirect } from "next/navigation";
 import { RichText } from "@/i18n/format";
 import { getDictionary, localePath } from "@/i18n/server";
