@@ -44,6 +44,16 @@ export const MAX_SKILL_CATEGORIES = SEED_CATEGORY_COUNT + 1;
 // value the route can pass rather than a literal repeated in two handlers.
 export const MAX_CATEGORY_NAME = 40;
 
+// A CV's name. Enforced as `maxLength` on the two inputs that set it, and — as
+// of the duplicate route — on the one place a name arrives in a request body
+// that the server did not compose itself.
+//
+// Note that `POST /api/cvs` and `PATCH /api/cvs/[cvId]` still do **not** check
+// it: they trim and store whatever they are given. That is a pre-existing gap
+// rather than something this constant introduces, and closing it would change
+// the behaviour of two live endpoints, so it is left as its own decision.
+export const MAX_CV_NAME = 100;
+
 export type CvProfile = {
   id: string;
   profileName: string;

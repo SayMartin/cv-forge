@@ -17,5 +17,6 @@ export const cvs: Dictionary["cvs"] = {
   duplicate: {
     label: "Duplicera",
     tooltip: "Duplicera CV",
+    copyOf: "Kopia av {name}",
   },
 };

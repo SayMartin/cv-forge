@@ -22,5 +22,14 @@ export const cvs = {
     label: "Duplicate",
     /** The `title=` tooltip, which has room to say what is duplicated. */
     tooltip: "Duplicate CV",
+    /**
+     * The copy's name, composed on the client and sent to the API.
+     *
+     * It has to be composed here rather than in the route, for the same reason
+     * `errors` exists: a Route Handler cannot read `next/root-params`, so it
+     * cannot know what language to name the row in. `{name}` is the source CV's
+     * own name — user data, never translated.
+     */
+    copyOf: "Copy of {name}",
   },
 };

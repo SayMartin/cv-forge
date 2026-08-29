@@ -342,6 +342,10 @@ A **CV** is a named, versioned selection of the user's content entries plus a ch
 | `targetRole`    | `TEXT?`       | "Tailored for" label — shown in CV list only; max 100 chars |
 | `coverLetter`   | `TEXT?`       | Printed as a separate page before the CV; max 5000 chars |
 
+> **The copy's name comes from the client.** `Copy of …` / `Kopia av …` cannot be composed in the route — a Route Handler has no access to `next/root-params`, so it cannot know which language asked. `DuplicateCvButton` formats `cvs.duplicate.copyOf` and sends it; the route validates it, caps it at `MAX_CV_NAME`, and falls back to the English form when the body is absent, so a direct `curl` still works. Same constraint that put the API error strings on the client side.
+
+> **Duplicating a CV copies every column except identity.** `POST /api/cvs/[cvId]/duplicate` spreads the source row and sets `id`, `createdAt` and `updatedAt` to `undefined` (Prisma's "not provided", so each falls to its default). It was written the other way round — an allowlist naming each field to carry over — and had fallen four fields behind the schema: `chronological`, `targetRole`, `coverLetter` and `skillGroups` were all missing, so a copy silently lost its timeline mode, target role, entire cover letter and whole per-CV skills arrangement. Nothing errored; the copy just came back emptier. Keep the inverted shape: a copy that must be told about each new column falls behind again, one that copies by default only needs telling what to leave out.
+
 ### Skills — the library is dumb, the CV decides
 
 A skill row carries only what is true about the skill everywhere: its name, an optional 1–5 level, and an optional CEFR level. It has **no category and no sort order**. Those are per-CV decisions, so they live on the CV.

@@ -75,7 +75,7 @@ export default async function CvsPage() {
                     })}
                   </span>
                 </LocaleLink>
-                <DuplicateCvButton cvId={cv.id} />
+                <DuplicateCvButton cvId={cv.id} cvName={cv.name} />
               </li>
             ))}
           </ul>
