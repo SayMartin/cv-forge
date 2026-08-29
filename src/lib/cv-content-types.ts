@@ -1,3 +1,5 @@
+import { SEED_CATEGORY_COUNT } from "@/lib/skill-category-seed";
+
 // Shared CV content types — used by layout components, view pages, and PDF export.
 // These match the shapes returned by Prisma queries.
 
@@ -7,27 +9,12 @@
 // "Language" means spoken/natural languages — it drives the CEFR field in the
 // editor and the CEFR table in the Europass layout. Programming languages go
 // under "Programming".
-export const SKILL_CATEGORIES = [
-  "Programming",
-  "Backend",
-  "Frontend",
-  // Split out of a single "DevOps & Cloud": the practice and the platform are
-  // different things to a reader. "DevOps & Infrastructure" is what you *do*
-  // — CI/CD, containers, orchestration, IaC, monitoring, the servers
-  // themselves. "Cloud & Edge" is what you deploy *onto* — the providers and
-  // their managed, serverless and edge products.
-  "DevOps & Infrastructure",
-  "Cloud & Edge",
-  "Tools & methods",
-  "Language",
-  "Other",
-] as const;
-
-export type SkillCategory = (typeof SKILL_CATEGORIES)[number];
-
-// The one seeded category whose `kind` is "language". Kept as a derivation rule
-// rather than a second list, so the names above stay the single source.
-export const LANGUAGE_CATEGORY_NAME = "Language";
+// The seeded category set moved to `skill-category-seed.ts` when it became
+// per-locale. It was never really a *type* — the names are rows in
+// `skill_category`, owned and editable by the user from the moment they are
+// written — and keeping it here alongside the CV content types invited exactly
+// the mistake the importer used to make: treating the English list as the truth
+// about what a given user's categories are called.
 
 // One group in a CV's skills section. Array position is display order, both for
 // the groups themselves and for the skills inside them.
@@ -45,12 +32,13 @@ export type CvSkillGroup = {
 // A layout limit, not a data one — enforced on create, never retroactively, so a
 // migration can never make existing rows invalid.
 //
-// **Keep this strictly above `SKILL_CATEGORIES.length`.** The seeded set is
-// written to every new account at signup, so a cap equal to it puts a brand-new
-// user on the limit before they have done anything — the manager just says
-// "Limit reached" and the first custom category costs a deletion. The headroom
-// is the point, not the number.
-export const MAX_SKILL_CATEGORIES = 9;
+// **Derived from the seeded count, not written down.** The seeded set is written
+// to every new account at signup, so a cap equal to it would put a brand-new
+// user on the limit before they had done anything — the manager would just say
+// "Limit reached" and the first custom category would cost a deletion. The
+// headroom is the point, not the number, and the previous hardcoded 9 was one
+// forgotten edit away from disagreeing with the list it was guarding.
+export const MAX_SKILL_CATEGORIES = SEED_CATEGORY_COUNT + 1;
 
 // Quoted back to the user by the `name_too_long` error, so it has to be a
 // value the route can pass rather than a literal repeated in two handlers.

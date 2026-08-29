@@ -3,7 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin } from "better-auth/plugins";
 import { prisma } from "@/lib/prisma";
 import { safeError } from "@/lib/log";
-import { seedSkillCategories } from "@/lib/skill-categories";
+import { seedSkillCategories, signUpLocale } from "@/lib/skill-categories";
 import { purgeUserSideEffects } from "@/lib/user-deletion";
 import { sendAuthEmail } from "@/lib/email";
 
@@ -98,9 +98,24 @@ export const auth = betterAuth({
         // Every account starts with a usable set of skill categories. Placed here
         // rather than in the sign-up page so Google sign-in — which creates an
         // account without ever touching that page — is covered too.
-        after: async (user) => {
+        //
+        // The second argument is the endpoint context, which is where the
+        // Google path's language has to come from: it never touches the sign-up
+        // form, so `user.locale` is NULL there and only the request's cookie
+        // knows. See `signUpLocale`.
+        after: async (user, context) => {
           try {
-            await seedSkillCategories(user.id);
+            // `user.locale` is typed `unknown` here: the hook's user type is
+            // built from the core fields plus a `[key: string]: unknown` index
+            // for `additionalFields`, so the declaration below does not narrow
+            // it. `signUpLocale` takes the raw value and every downstream read
+            // validates through `isLocale()`, so the assertion widens nothing
+            // that was not already going to be checked.
+            const locale = signUpLocale(
+              user.locale as string | null | undefined,
+              context?.request,
+            );
+            await seedSkillCategories(user.id, locale);
           } catch (error) {
             // Never fail account creation over this: an empty category list is a
             // recoverable state, a half-created account is not.
